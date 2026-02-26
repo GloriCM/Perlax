@@ -1,16 +1,24 @@
-# React + Vite
+# Perlax ERP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema Unificado de Producción y Gestión Empresarial.
 
-Currently, two official plugins are available:
+## Estructura del Proyecto
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+El proyecto está dividido en dos grandes carpetas:
 
-## React Compiler
+- **`backend/`**: Implementado con .NET 9 siguiendo una arquitectura de Monolito Modular y Clean Architecture.
+- **`frontend/`**: Implementado con React 19, Vite y Mantine UI para una experiencia de usuario premium y fluida.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Cómo empezar
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Backend
+1. Navega a `backend/`.
+2. Ejecuta `dotnet restore`.
+3. Ejecuta `dotnet run --project src/Host/Perlax.Web`.
+
+### Frontend
+1. Navega a `frontend/`.
+2. Ejecuta `npm install` (si es la primera vez).
+3. Ejecuta `npm run dev`.
