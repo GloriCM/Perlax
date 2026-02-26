@@ -1,0 +1,38 @@
+.welcome-banner {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08)) !important;
+}
+
+.stat-card {
+    padding: 8px 0;
+}
+
+/* Bar Chart */
+.bar-chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 160px;
+    padding-top: 10px;
+}
+
+.bar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.bar-fill {
+    width: 20px;
+    background: linear-gradient(180deg, #6366f1, #818cf8);
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+    transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: barGrow 0.8s ease-out;
+}
+
+@keyframes barGrow {
+    from {
+        height: 0 !important;
+    }
+}
