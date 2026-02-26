@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Perlax.Modules.Users.Application\Perlax.Modules.Users.Application.csproj" />
+    <ProjectReference Include="..\Perlax.Modules.Users.Infrastructure\Perlax.Modules.Users.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Audit\Perlax.Modules.Audit.Application\Perlax.Modules.Audit.Application.csproj" />
+  </ItemGroup>
+
+</Project>

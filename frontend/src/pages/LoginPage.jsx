@@ -22,11 +22,37 @@ import './LoginPage.css';
 export default function LoginPage() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState(null);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setTimeout(() => navigate('/'), 800);
+        setError(null);
+
+        try {
+            const response = await fetch('http://localhost:5262/api/users/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('user', JSON.stringify(data));
+                navigate('/');
+            } else {
+                const errorData = await response.text();
+                setError(errorData || 'Credenciales inválidas');
+            }
+        } catch (err) {
+            setError('Error de conexión con el servidor');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -50,11 +76,18 @@ export default function LoginPage() {
 
                 <form onSubmit={handleSubmit}>
                     <Stack gap="md">
+                        {error && (
+                            <Text c="red" size="sm" ta="center" fw={500}>
+                                {error}
+                            </Text>
+                        )}
                         <TextInput
                             label="Usuario"
                             placeholder="Introduce tu usuario"
                             size="md"
                             required
+                            value={username}
+                            onChange={(e) => setUsername(e.currentTarget.value)}
                             styles={{
                                 input: {
                                     background: 'rgba(255,255,255,0.05)',
@@ -69,6 +102,8 @@ export default function LoginPage() {
                             placeholder="••••••••"
                             size="md"
                             required
+                            value={password}
+                            onChange={(e) => setPassword(e.currentTarget.value)}
                             styles={{
                                 input: {
                                     background: 'rgba(255,255,255,0.05)',

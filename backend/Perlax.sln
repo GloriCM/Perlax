@@ -25,6 +25,22 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Production.I
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Production.Api", "src\Modules\Production\Perlax.Modules.Production.Api\Perlax.Modules.Production.Api.csproj", "{CFE0D33B-499C-4197-9AE3-9237A962FF83}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Users.Domain", "src\Modules\Users\Perlax.Modules.Users.Domain\Perlax.Modules.Users.Domain.csproj", "{3A7D6E1A-1E14-4B3F-8E42-A3B9C2D5E1F2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Users.Application", "src\Modules\Users\Perlax.Modules.Users.Application\Perlax.Modules.Users.Application.csproj", "{4B8E7F2C-2F25-4C40-9F53-B4C0D3E6F2A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Users.Infrastructure", "src\Modules\Users\Perlax.Modules.Users.Infrastructure\Perlax.Modules.Users.Infrastructure.csproj", "{5C9F8E3D-3F36-4D51-AF64-C5D1E4F703B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Users.Api", "src\Modules\Users\Perlax.Modules.Users.Api\Perlax.Modules.Users.Api.csproj", "{6D0F9E4E-4047-4E62-B075-D6E2F50814C5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Audit.Domain", "src\Modules\Audit\Perlax.Modules.Audit.Domain\Perlax.Modules.Audit.Domain.csproj", "{7E1F0F5F-5158-4F73-C186-E7F3061925D6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Audit.Application", "src\Modules\Audit\Perlax.Modules.Audit.Application\Perlax.Modules.Audit.Application.csproj", "{8F2F1F6F-6269-4084-D297-F804172A36E7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Audit.Infrastructure", "src\Modules\Audit\Perlax.Modules.Audit.Infrastructure\Perlax.Modules.Audit.Infrastructure.csproj", "{903F2F7F-737A-4195-E308-0915283B47F8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Perlax.Modules.Audit.Api", "src\Modules\Audit\Perlax.Modules.Audit.Api\Perlax.Modules.Audit.Api.csproj", "{A14F3F8F-848B-42A6-F419-1A26394C5809}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -122,5 +138,13 @@ Global
 		{0B839398-55E7-4385-B0F1-C0AA096B21F9} = {FC15485C-DEDA-FAD7-9DC0-92F66DE2726C}
 		{ABE85E85-5E81-4F12-AC73-FE3E841747BD} = {FC15485C-DEDA-FAD7-9DC0-92F66DE2726C}
 		{CFE0D33B-499C-4197-9AE3-9237A962FF83} = {FC15485C-DEDA-FAD7-9DC0-92F66DE2726C}
+		{3A7D6E1A-1E14-4B3F-8E42-A3B9C2D5E1F2} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{4B8E7F2C-2F25-4C40-9F53-B4C0D3E6F2A3} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{5C9F8E3D-3F36-4D51-AF64-C5D1E4F703B4} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{6D0F9E4E-4047-4E62-B075-D6E2F50814C5} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{7E1F0F5F-5158-4F73-C186-E7F3061925D6} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{8F2F1F6F-6269-4084-D297-F804172A36E7} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{903F2F7F-737A-4195-E308-0915283B47F8} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{A14F3F8F-848B-42A6-F419-1A26394C5809} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
 	EndGlobalSection
 EndGlobal

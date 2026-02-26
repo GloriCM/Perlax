@@ -16,6 +16,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Production\Perlax.Modules.Production.Api\Perlax.Modules.Production.Api.csproj" />
+    <ProjectReference Include="..\..\Modules\Users\Perlax.Modules.Users.Api\Perlax.Modules.Users.Api.csproj" />
+    <ProjectReference Include="..\..\Modules\Audit\Perlax.Modules.Audit.Api\Perlax.Modules.Audit.Api.csproj" />
   </ItemGroup>
 
 </Project>

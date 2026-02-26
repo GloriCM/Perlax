@@ -12,7 +12,7 @@ public static class ProductionModuleExtensions
         var connectionString = configuration.GetConnectionString("ProductionConnection");
 
         services.AddDbContext<ProductionDbContext>(options =>
-            options.UseSqlite(connectionString, b => b.MigrationsAssembly(typeof(ProductionDbContext).Assembly.FullName)));
+            options.UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(ProductionDbContext).Assembly.FullName)));
 
         return services;
     }

@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\juane\\OneDrive\\Escritorio\\perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj": {}
+    "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj": {}
   },
   "projects": {
-    "C:\\Users\\juane\\OneDrive\\Escritorio\\perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj": {
+    "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\juane\\OneDrive\\Escritorio\\perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
+        "projectUniqueName": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
         "projectName": "Perlax.Shared",
-        "projectPath": "C:\\Users\\juane\\OneDrive\\Escritorio\\perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
-        "packagesPath": "C:\\Users\\juane\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\juane\\OneDrive\\Escritorio\\perlax\\backend\\src\\Shared\\Perlax.Shared\\obj\\",
+        "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
+        "packagesPath": "C:\\Users\\Desarrollo3\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\juane\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\Desarrollo3\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -59,7 +59,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.311/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.308/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
