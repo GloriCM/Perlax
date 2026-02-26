@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Perla.Modules.Audit.Domain\Perla.Modules.Audit.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Perla.Shared\Perla.Shared.csproj" />
+  </ItemGroup>
+</Project>

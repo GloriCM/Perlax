@@ -5,7 +5,9 @@ import LoginPage from './pages/LoginPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
 import ModulePage from './pages/ModulePage';
+import ProductionOrdersPage from './features/production/pages/ProductionOrdersPage';
 import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 import './App.css';
 
 function App() {
@@ -16,6 +18,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<DashboardPage />} />
+            <Route path="produccion" element={<ProductionOrdersPage />} />
             <Route path=":moduleName" element={<ModulePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

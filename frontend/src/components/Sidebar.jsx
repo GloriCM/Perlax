@@ -1,6 +1,7 @@
 import { NavLink, Text, Avatar, Group, Box } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
+import authService from '../services/authService';
 import {
     IconChartPie,
     IconCube,
@@ -65,16 +66,17 @@ const navSections = [
 export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
+    const user = authService.getCurrentUser();
 
     return (
         <div className="sidebar-wrapper">
             <div className="sidebar-header">
                 <div className="sidebar-logo">
-                    <img src="/Nuevo-perla-Sinfondo.png" alt="Perlax" className="sidebar-logo-img" />
+                    <img src="/Nuevo-perla-Sinfondo.png" alt="Perla" className="sidebar-logo-img" />
                 </div>
 
                 <div className="sidebar-user-header">
-                    <Text className="user-name" fw={700}>Admin Master</Text>
+                    <Text className="user-name" fw={700}>{user?.userName || 'Admin Master'}</Text>
                     <Text className="user-role" size="xs">Super Administrador</Text>
                 </div>
             </div>
@@ -131,7 +133,7 @@ export default function Sidebar() {
             </Box>
 
             <div className="sidebar-footer">
-                <Text size="xs" c="dimmed" ta="center">Perlax v1.0.0</Text>
+                <Text size="xs" c="dimmed" ta="center">Perla v1.0.0</Text>
             </div>
         </div>
     );

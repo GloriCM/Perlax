@@ -11,22 +11,32 @@ import {
     ActionIcon,
     Divider,
     Box,
+    Alert,
 } from '@mantine/core';
-import {
-    // IconBrandGoogle,
-    // IconBrandWindows,
-    // IconBrandApple,
-} from '@tabler/icons-react';
+import { IconAlertCircle } from '@tabler/icons-react';
+import authService from '../services/authService';
 import './LoginPage.css';
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setTimeout(() => navigate('/'), 800);
+        setError(null);
+        try {
+            await authService.login(username, password);
+            navigate('/');
+        } catch (err) {
+            setError('Usuario o contraseña incorrectos');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -50,11 +60,18 @@ export default function LoginPage() {
 
                 <form onSubmit={handleSubmit}>
                     <Stack gap="md">
+                        {error && (
+                            <Alert variant="filled" color="red" title="Error" icon={<IconAlertCircle />}>
+                                {error}
+                            </Alert>
+                        )}
                         <TextInput
                             label="Usuario"
                             placeholder="Introduce tu usuario"
                             size="md"
                             required
+                            value={username}
+                            onChange={(e) => setUsername(e.currentTarget.value)}
                             styles={{
                                 input: {
                                     background: 'rgba(255,255,255,0.05)',
@@ -69,6 +86,8 @@ export default function LoginPage() {
                             placeholder="••••••••"
                             size="md"
                             required
+                            value={password}
+                            onChange={(e) => setPassword(e.currentTarget.value)}
                             styles={{
                                 input: {
                                     background: 'rgba(255,255,255,0.05)',

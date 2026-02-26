@@ -1,5 +1,5 @@
 {
-  "name": "perlax",
+  "name": "perla",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,9 +11,13 @@
   },
   "dependencies": {
     "@mantine/core": "^8.3.15",
+    "@mantine/dates": "^8.3.15",
     "@mantine/hooks": "^8.3.15",
     "@mantine/notifications": "^8.3.15",
     "@tabler/icons-react": "^3.37.1",
+    "axios": "^1.13.5",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.19",
     "framer-motion": "^12.34.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

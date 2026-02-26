@@ -1,10 +1,10 @@
-# Perlax ERP
+# Perla ERP
 
 Sistema Unificado de Producción y Gestión Empresarial.
 
 ## Estructura del Proyecto
 
-El proyecto está dividido en dos grandes carpetas:
+El proyecto está dividido en dos grandes carpetas, siguiendo una filosofía de **Monolito Modular**. Puedes leer más sobre esto en la [Guía de Arquitectura](./ARCHITECTURE.md).
 
 - **`backend/`**: Implementado con .NET 9 siguiendo una arquitectura de Monolito Modular y Clean Architecture.
 - **`frontend/`**: Implementado con React 19, Vite y Mantine UI para una experiencia de usuario premium y fluida.
@@ -16,7 +16,7 @@ El proyecto está dividido en dos grandes carpetas:
 ### Backend
 1. Navega a `backend/`.
 2. Ejecuta `dotnet restore`.
-3. Ejecuta `dotnet run --project src/Host/Perlax.Web`.
+3. Ejecuta `dotnet run --project src/Host/Perla.Web`.
 
 ### Frontend
 1. Navega a `frontend/`.
