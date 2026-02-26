@@ -1,0 +1,6 @@
+@Perlax.Web_HostAddress = http://localhost:5262
+
+GET {{Perlax.Web_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

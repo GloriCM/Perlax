@@ -34,13 +34,14 @@ export default function LoginPage() {
             <div className="login-card glass-card">
                 <div className="login-logo-wrapper">
                     <img
-                        src="/LogoSinFondo_Perlax.jpeg"
+                        src="/Perlax-sinFondo.png"
                         alt="Perlax Logo"
                         className="login-logo"
+                        style={{ maxHeight: '120px', width: 'auto', objectFit: 'contain' }}
                     />
                 </div>
 
-                <Title order={2} ta="center" mt={-60} mb={4} fw={600} c="white">
+                <Title order={2} ta="center" mt="sm" mb={4} fw={600} c="white">
                     Bienvenido
                 </Title>
                 <Text size="sm" c="dimmed" ta="center" mb="xl">

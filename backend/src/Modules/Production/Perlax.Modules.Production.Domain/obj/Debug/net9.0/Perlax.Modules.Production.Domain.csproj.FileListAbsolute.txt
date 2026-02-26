@@ -1,0 +1,12 @@
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\bin\Debug\net9.0\Perlax.Modules.Production.Domain.deps.json
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\bin\Debug\net9.0\Perlax.Modules.Production.Domain.dll
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\bin\Debug\net9.0\Perlax.Modules.Production.Domain.pdb
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\Perlax.Modules.Production.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\Perlax.Modules.Production.Domain.AssemblyInfoInputs.cache
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\Perlax.Modules.Production.Domain.AssemblyInfo.cs
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\Perlax.Modules.Production.Domain.csproj.CoreCompileInputs.cache
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\Perlax.Modules.Production.Domain.sourcelink.json
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\Perlax.Modules.Production.Domain.dll
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\refint\Perlax.Modules.Production.Domain.dll
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\Perlax.Modules.Production.Domain.pdb
+C:\Users\juane\OneDrive\Escritorio\perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\obj\Debug\net9.0\ref\Perlax.Modules.Production.Domain.dll

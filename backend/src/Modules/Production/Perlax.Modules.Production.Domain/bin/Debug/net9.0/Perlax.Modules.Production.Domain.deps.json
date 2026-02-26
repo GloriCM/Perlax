@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "Perlax.Modules.Production.Domain/1.0.0": {
+        "runtime": {
+          "Perlax.Modules.Production.Domain.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Perlax.Modules.Production.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

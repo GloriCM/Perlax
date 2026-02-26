@@ -1,4 +1,5 @@
-import { NavLink, Text, Avatar, Group, Box, ScrollArea } from '@mantine/core';
+import { NavLink, Text, Avatar, Group, Box } from '@mantine/core';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     IconChartPie,
@@ -67,11 +68,18 @@ export default function Sidebar() {
 
     return (
         <div className="sidebar-wrapper">
-            <div className="sidebar-logo">
-                <img src="/Logo_Perlax.jpeg" alt="Perlax" className="sidebar-logo-img" />
+            <div className="sidebar-header">
+                <div className="sidebar-logo">
+                    <img src="/Perlax-sinFondo.png" alt="Perlax" className="sidebar-logo-img" />
+                </div>
+
+                <div className="sidebar-user-header">
+                    <Text className="user-name" fw={700}>Admin Master</Text>
+                    <Text className="user-role" size="xs">Super Administrador</Text>
+                </div>
             </div>
 
-            <ScrollArea flex={1} scrollbarSize={4}>
+            <Box className="sidebar-nav-container">
                 {navSections.map((section) => (
                     <Box key={section.title} mb="md">
                         <Text
@@ -97,46 +105,33 @@ export default function Sidebar() {
                                 styles={{
                                     root: {
                                         borderRadius: 12,
-                                        marginBottom: 2,
+                                        marginBottom: 4,
                                         padding: '10px 14px',
                                         color: location.pathname === item.path ? 'white' : '#94a3b8',
                                         background: location.pathname === item.path
                                             ? '#6366f1'
                                             : 'transparent',
-                                        boxShadow: location.pathname === item.path
-                                            ? '0 4px 15px rgba(99,102,241,0.4)'
-                                            : 'none',
-                                        transition: 'all 0.2s ease',
+                                        transition: 'background 0.15s ease',
                                         '&:hover': {
                                             background: location.pathname === item.path
-                                                ? '#6366f1'
-                                                : 'rgba(255,255,255,0.05)',
+                                                ? '#4f46e5'
+                                                : 'rgba(255,255,255,0.06)',
                                             color: 'white',
                                         },
                                     },
                                     label: {
                                         fontSize: 14,
+                                        fontWeight: location.pathname === item.path ? 600 : 500,
                                     },
                                 }}
                             />
                         ))}
                     </Box>
                 ))}
-            </ScrollArea>
+            </Box>
 
-            <div className="sidebar-user">
-                <Group gap="sm">
-                    <Avatar
-                        src="https://ui-avatars.com/api/?name=Admin+User&background=6366f1&color=fff"
-                        size={38}
-                        radius="xl"
-                        style={{ border: '2px solid #6366f1' }}
-                    />
-                    <div>
-                        <Text size="sm" fw={600} c="white">Admin Master</Text>
-                        <Text size="xs" c="dimmed">Super Administrador</Text>
-                    </div>
-                </Group>
+            <div className="sidebar-footer">
+                <Text size="xs" c="dimmed" ta="center">Perlax v1.0.0</Text>
             </div>
         </div>
     );

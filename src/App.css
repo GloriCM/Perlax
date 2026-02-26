@@ -21,7 +21,7 @@ body {
   overflow: hidden;
 }
 
-/* Animated gradient background */
+/* Animated gradient background - Estático por RENDIMIENTO CRÍTICO */
 body::before {
   content: '';
   position: fixed;
@@ -34,12 +34,15 @@ body::before {
     radial-gradient(ellipse at 20% 90%, var(--accent-glow), transparent 50%),
     radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.08), transparent 60%);
   z-index: -1;
-  animation: bgShift 12s ease-in-out infinite alternate;
+  /* animation: bgShift 15s ease-in-out infinite alternate; */
+  opacity: 0.8;
+  /* will-change: opacity; */
+  /* Hint para el navegador */
 }
 
 @keyframes bgShift {
   0% {
-    opacity: 0.8;
+    opacity: 0.7;
   }
 
   50% {
@@ -47,23 +50,23 @@ body::before {
   }
 
   100% {
-    opacity: 0.85;
+    opacity: 0.75;
   }
 }
 
-/* Glass card utility */
+/* Glass card utility - Optimizado para 60fps */
 .glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+  /* backdrop-filter: blur(8px); */
+  /* -webkit-backdrop-filter: blur(8px); */
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  transition: transform 0.3s ease, background 0.3s ease;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, background 0.2s ease;
 }
 
 .glass-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   background: var(--glass-hover);
 }
 
