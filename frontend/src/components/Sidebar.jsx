@@ -70,7 +70,7 @@ export default function Sidebar() {
         <div className="sidebar-wrapper">
             <div className="sidebar-header">
                 <div className="sidebar-logo">
-                    <img src="/Perlax-sinFondo.png" alt="Perlax" className="sidebar-logo-img" />
+                    <img src="/Nuevo-perla-Sinfondo.png" alt="Perlax" className="sidebar-logo-img" />
                 </div>
 
                 <div className="sidebar-user-header">

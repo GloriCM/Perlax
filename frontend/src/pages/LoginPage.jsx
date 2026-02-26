@@ -13,9 +13,9 @@ import {
     Box,
 } from '@mantine/core';
 import {
-    IconBrandGoogle,
-    IconBrandWindows,
-    IconBrandApple,
+    // IconBrandGoogle,
+    // IconBrandWindows,
+    // IconBrandApple,
 } from '@tabler/icons-react';
 import './LoginPage.css';
 
@@ -34,8 +34,8 @@ export default function LoginPage() {
             <div className="login-card glass-card">
                 <div className="login-logo-wrapper">
                     <img
-                        src="/Perlax-sinFondo.png"
-                        alt="Perlax Logo"
+                        src="/Nuevo-perla-Sinfondo.png"
+                        alt="PerlaLogo"
                         className="login-logo"
                         style={{ maxHeight: '120px', width: 'auto', objectFit: 'contain' }}
                     />
@@ -51,8 +51,8 @@ export default function LoginPage() {
                 <form onSubmit={handleSubmit}>
                     <Stack gap="md">
                         <TextInput
-                            label="Correo Electrónico"
-                            placeholder="admin@perla.com"
+                            label="Usuario"
+                            placeholder="Introduce tu usuario"
                             size="md"
                             required
                             styles={{
@@ -101,43 +101,6 @@ export default function LoginPage() {
                         </Button>
                     </Stack>
                 </form>
-
-                <Divider
-                    label="o continúa con"
-                    labelPosition="center"
-                    my="lg"
-                    styles={{
-                        label: { color: '#64748b', fontSize: 12 },
-                        root: { borderColor: 'rgba(255,255,255,0.1)' },
-                    }}
-                />
-
-                <Group justify="center" gap="md">
-                    <ActionIcon
-                        variant="subtle"
-                        size="xl"
-                        radius="md"
-                        className="social-icon"
-                    >
-                        <IconBrandGoogle size={22} />
-                    </ActionIcon>
-                    <ActionIcon
-                        variant="subtle"
-                        size="xl"
-                        radius="md"
-                        className="social-icon"
-                    >
-                        <IconBrandWindows size={22} />
-                    </ActionIcon>
-                    <ActionIcon
-                        variant="subtle"
-                        size="xl"
-                        radius="md"
-                        className="social-icon"
-                    >
-                        <IconBrandApple size={22} />
-                    </ActionIcon>
-                </Group>
             </div>
         </div>
     );
