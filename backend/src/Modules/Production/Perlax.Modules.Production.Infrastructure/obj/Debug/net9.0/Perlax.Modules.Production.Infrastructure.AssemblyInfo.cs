@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Perlax.Modules.Production.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+aa4221165829f86712af53c38ba90357c4782117")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+527770ea444f880f6130de45d10f010bb8189e73")]
 [assembly: System.Reflection.AssemblyProductAttribute("Perlax.Modules.Production.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Perlax.Modules.Production.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
