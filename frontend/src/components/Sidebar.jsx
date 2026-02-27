@@ -166,7 +166,7 @@ export default function Sidebar() {
 
     const handleLogout = async () => {
         try {
-            await fetch('http://localhost:5262/api/users/auth/logout', {
+            await fetch(`http://${window.location.hostname}:5262/api/users/auth/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
