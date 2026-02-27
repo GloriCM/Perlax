@@ -15,10 +15,21 @@ El proyecto está dividido en dos grandes carpetas:
 
 ### Backend
 1. Navega a `backend/`.
-2. Ejecuta `dotnet restore`.
-3. Ejecuta `dotnet run --project src/Host/Perlax.Web`.
+2. Para un inicio rápido, simplemente ejecuta el script de PowerShell:
+   ```powershell
+   .\start-backend.ps1
+   ```
+   *Este script se encarga de la compilación y ejecución automática del host.*
 
 ### Frontend
 1. Navega a `frontend/`.
 2. Ejecuta `npm install` (si es la primera vez).
 3. Ejecuta `npm run dev`.
+
+---
+
+## Mejoras Recientes
+- 🔐 **Seguridad**: Implementación de hashing de contraseñas con BCrypt.
+- 📂 **Navegación**: Menús laterales anidados y colapsables con Mantine UI.
+- 📋 **Auditoría**: Registro detallado de Login y Logout en PostgreSQL.
+- 🚀 **Developer Experience**: Scripts de inicio simplificados.
