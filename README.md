@@ -1,6 +1,22 @@
-# Perlax ERP 💎
+# Perla ERP 💎
 
 Sistema Unificado de Producción y Gestión Empresarial de última generación, diseñado con una estética premium y una arquitectura robusta y escalable.
+
+## 🛡️ Seguridad Avanzada
+
+El sistema cuenta con múltiples capas de protección para garantizar la integridad de los datos y la privacidad:
+
+### 🔒 Protección contra Fuerza Bruta (Account Lockout)
+- **Control de Intentos**: El sistema realiza un seguimiento de los intentos fallidos de inicio de sesión.
+- **Bloqueo Automático**: Tras 5 intentos fallidos consecutivos, la cuenta se bloquea automáticamente por un periodo de **20 minutos**.
+- **Auditoría**: Todos los intentos de bloqueo y desbloqueo se registran en el sistema de auditoría con la IP del atacante.
+
+### 🛡️ Protección contra Inyección SQL
+- **Consultas Parametrizadas**: El sistema utiliza **Entity Framework Core (LINQ)** para todas las comunicaciones con la base de datos PostgreSQL. Esto garantiza que todas las entradas del usuario se traten como datos y no como comandos ejecutables, haciendo al sistema invulnerable a ataques por inyección SQL.
+
+### ⏱️ Control de Sesión e Inactividad
+- **Protección de Rutas**: Ninguna parte del sistema es accesible sin una sesión válida. Usuarios no autorizados son redirigidos al Login.
+- **Auto-Logout**: Por seguridad, la sesión se cierra automáticamente tras **15 minutos** de inactividad del usuario.
 
 ## 🚀 Arquitectura de Software
 

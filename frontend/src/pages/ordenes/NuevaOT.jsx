@@ -419,7 +419,7 @@ export default function NuevaOT() {
                                 <Text size="sm" c="dimmed">Pendiente por aprobación técnica</Text>
                             </Box>
                             <Box style={{ textAlign: 'right' }}>
-                                <Text size="xs" c="dimmed">Perlax v1.0.0 | Módulo de Ordenes de Trabajo</Text>
+                                <Text size="xs" c="dimmed">Perla v1.0.0 | Módulo de Ordenes de Trabajo</Text>
                             </Box>
                         </SimpleGrid>
                     </Stack>

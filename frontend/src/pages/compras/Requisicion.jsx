@@ -339,7 +339,7 @@ export default function Requisicion() {
 
                         {/* Modal Footer */}
                         <Group justify="space-between" mt={40}>
-                            <Text size="xs" c="dimmed">Perlax v1.0.0 | Página 1 de 1</Text>
+                            <Text size="xs" c="dimmed">Perla v1.0.0 | Página 1 de 1</Text>
                             <Group>
                                 <Button variant="light" color="gray" radius="md" onClick={close}>Cerrar</Button>
                                 <Button leftSection={<IconDownload size={18} />} variant="filled" color="indigo" radius="md">Descargar PDF</Button>

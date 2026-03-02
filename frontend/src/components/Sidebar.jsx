@@ -415,7 +415,7 @@ export default function Sidebar() {
         <div className="sidebar-wrapper">
             <div className="sidebar-header">
                 <div className="sidebar-logo">
-                    <img src="/Nuevo-perla-Sinfondo.png" alt="Perlax" className="sidebar-logo-img" />
+                    <img src="/Nuevo-perla-Sinfondo.png" alt="Perla" className="sidebar-logo-img" />
                 </div>
 
                 <div className="sidebar-user-header">
@@ -465,7 +465,7 @@ export default function Sidebar() {
                         },
                     }}
                 />
-                <Text size="xs" c="dimmed" ta="center" mt="md">Perlax v1.0.0</Text>
+                <Text size="xs" c="dimmed" ta="center" mt="md">Perla v1.0.0</Text>
             </div>
         </div>
     );
