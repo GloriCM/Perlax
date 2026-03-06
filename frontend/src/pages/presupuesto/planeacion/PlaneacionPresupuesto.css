@@ -1,0 +1,150 @@
+.planeacion-presupuesto-container {
+    padding: 20px;
+    color: white;
+}
+
+.budget-view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.back-button {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: #e2e8f0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.back-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.budget-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.summary-box {
+    background: rgba(30, 41, 59, 0.5);
+    border-left: 4px solid #3b82f6;
+    padding: 16px 24px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.summary-label {
+    color: #64748b;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.summary-value {
+    color: #3b82f6;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.budget-table-container {
+    overflow-x: auto;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.budget-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1200px;
+}
+
+.budget-table th {
+    background: rgba(30, 41, 59, 0.8);
+    color: white;
+    text-align: center;
+    padding: 12px;
+    font-size: 13px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.budget-table th:first-child {
+    text-align: left;
+    width: 250px;
+}
+
+.budget-table td {
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rubro-cell {
+    padding: 12px;
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.budget-input {
+    width: 100%;
+    height: 40px;
+    background: transparent;
+    border: none;
+    color: white;
+    text-align: center;
+    font-size: 13px;
+    outline: none;
+    transition: background 0.2s ease;
+}
+
+.budget-input:focus {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+.save-button {
+    background: #64748b;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.save-button:hover {
+    background: #475569;
+}
+
+/* Scrollbar styling */
+.budget-table-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.budget-table-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.budget-table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}

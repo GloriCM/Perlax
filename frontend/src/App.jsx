@@ -13,6 +13,12 @@ import ListaOT from './pages/ordenes/ListaOT';
 import PlanesDiseno from './pages/ordenes/PlanesDiseno';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
+import TalleresPresupuesto from './pages/presupuesto/talleres/TalleresPresupuesto';
+import ProduccionPresupuesto from './pages/presupuesto/produccion/ProduccionPresupuesto';
+import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
+import SstPresupuesto from './pages/presupuesto/sst/SstPresupuesto';
+import PlaneacionPresupuesto from './pages/presupuesto/planeacion/PlaneacionPresupuesto';
+import DisenoPresupuesto from './pages/presupuesto/diseño/DisenoPresupuesto';
 import '@mantine/core/styles.css';
 import './App.css';
 
@@ -68,6 +74,12 @@ function App() {
             <Route path="/ordenes/nueva" element={<NuevaOT />} />
             <Route path="/ordenes/lista" element={<ListaOT />} />
             <Route path="/fichas/lista" element={<FichasTecnicas />} />
+            <Route path="/presupuestos/talleres" element={<TalleresPresupuesto />} />
+            <Route path="/presupuestos/produccion" element={<ProduccionPresupuesto />} />
+            <Route path="/presupuestos/gestion-humana" element={<GhumanaPresupuesto />} />
+            <Route path="/presupuestos/sst" element={<SstPresupuesto />} />
+            <Route path="/presupuestos/planeacion" element={<PlaneacionPresupuesto />} />
+            <Route path="/presupuestos/diseno" element={<DisenoPresupuesto />} />
           </Route>
 
           {/* Protected Print Route (No Sidebar/Layout) */}
