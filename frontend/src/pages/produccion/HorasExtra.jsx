@@ -10,6 +10,7 @@ import {
     ActionIcon,
     Box,
     TextInput,
+    NumberInput,
     Modal,
     Tooltip
 } from '@mantine/core';
@@ -18,69 +19,67 @@ import {
     IconPlus,
     IconPencil,
     IconTrash,
-    IconFolder
+    IconClock,
+    IconFileSpreadsheet
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notifications } from '@mantine/notifications';
 
-const initialRubros = [
-    { id: 1, name: 'Horas Extras' },
-    { id: 2, name: 'Mantenimiento' },
-    { id: 3, name: 'Repuesto' },
-    { id: 4, name: 'Refrigerios' },
-    { id: 5, name: 'Recargo' },
-    { id: 6, name: 'Prestadores de Servicios' },
+const initialTipos = [
+    { id: 1, name: 'Extra Diurna', factor: 1.25 },
+    { id: 2, name: 'Dominical o Festivo', factor: 1.8 },
+    { id: 3, name: 'hora extra nocturna', factor: 1.7 },
 ];
 
-const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control de Gastos' }) => {
+const HorasExtra = () => {
     const navigate = useNavigate();
-    const [rubros, setRubros] = useState(initialRubros);
+    const [tipos, setTipos] = useState(initialTipos);
     const [modalOpen, setModalOpen] = useState(false);
-    const [editingRubro, setEditingRubro] = useState(null);
-    const [rubroName, setRubroName] = useState('');
+    const [editingTipo, setEditingTipo] = useState(null);
+    const [form, setForm] = useState({ name: '', factor: 1.0 });
 
     const handleAdd = () => {
-        setEditingRubro(null);
-        setRubroName('');
+        setEditingTipo(null);
+        setForm({ name: '', factor: 1.0 });
         setModalOpen(true);
     };
 
-    const handleEdit = (rubro) => {
-        setEditingRubro(rubro);
-        setRubroName(rubro.name);
+    const handleEdit = (tipo) => {
+        setEditingTipo(tipo);
+        setForm({ name: tipo.name, factor: tipo.factor });
         setModalOpen(true);
     };
 
     const handleSave = () => {
-        if (!rubroName.trim()) return;
+        if (!form.name.trim()) return;
 
-        if (editingRubro) {
-            setRubros(prev => prev.map(r =>
-                r.id === editingRubro.id ? { ...r, name: rubroName.trim() } : r
+        if (editingTipo) {
+            setTipos(prev => prev.map(t =>
+                t.id === editingTipo.id ? { ...t, ...form } : t
             ));
             notifications.show({
-                title: 'Rubro actualizado',
-                message: `"${rubroName.trim()}" ha sido actualizado correctamente.`,
+                title: 'Tipo actualizado',
+                message: `"${form.name}" ha sido actualizado correctamente.`,
                 color: 'blue',
             });
         } else {
-            const newId = Math.max(...rubros.map(r => r.id), 0) + 1;
-            setRubros(prev => [...prev, { id: newId, name: rubroName.trim() }]);
+            const newId = Math.max(...tipos.map(t => t.id), 0) + 1;
+            setTipos(prev => [...prev, { id: newId, ...form }]);
             notifications.show({
-                title: 'Rubro creado',
-                message: `"${rubroName.trim()}" ha sido añadido correctamente.`,
+                title: 'Tipo creado',
+                message: `"${form.name}" ha sido añadido correctamente.`,
                 color: 'teal',
             });
         }
         setModalOpen(false);
     };
 
-    const handleDelete = (rubro) => {
-        setRubros(prev => prev.filter(r => r.id !== rubro.id));
+    const handleDelete = (tipo) => {
+        setTipos(prev => prev.filter(t => t.id !== tipo.id));
         notifications.show({
-            title: 'Rubro eliminado',
-            message: `"${rubro.name}" ha sido eliminado.`,
+            title: 'Tipo eliminado',
+            message: `"${tipo.name}" ha sido eliminado.`,
             color: 'red',
         });
     };
@@ -112,23 +111,34 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                         </Button>
                         <div>
                             <Text size="xs" c="dimmed" fw={700} style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                {subtitulo}
+                                Control de Personal
                             </Text>
-                            <Title order={2} c="white">{titulo}</Title>
+                            <Title order={2} c="white">Horas Extra</Title>
                         </div>
                     </Group>
-                    <Button
-                        color="teal"
-                        leftSection={<IconPlus size={16} />}
-                        radius="md"
-                        onClick={handleAdd}
-                    >
-                        + Agregar
-                    </Button>
+                    <Group gap="sm">
+                        <Button
+                            color="red"
+                            variant="filled"
+                            size="sm"
+                            radius="md"
+                            leftSection={<IconFileSpreadsheet size={16} />}
+                        >
+                            Reporte Excel
+                        </Button>
+                        <Button
+                            color="teal"
+                            leftSection={<IconPlus size={16} />}
+                            radius="md"
+                            onClick={handleAdd}
+                        >
+                            + Agregar
+                        </Button>
+                    </Group>
                 </Group>
             </Paper>
 
-            {/* Rubros List */}
+            {/* Tipos de Hora List */}
             <Paper
                 p="md"
                 radius="lg"
@@ -138,15 +148,15 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                 }}
             >
                 <Group gap="xs" mb="md" px="sm">
-                    <IconFolder size={18} style={{ color: '#d97706' }} />
-                    <Text fw={700} c="white">Rubros</Text>
+                    <IconClock size={18} style={{ color: '#6366f1' }} />
+                    <Text fw={700} c="white">Tipos de Hora</Text>
                 </Group>
 
                 <Stack gap={0}>
                     <AnimatePresence>
-                        {rubros.map((rubro, index) => (
+                        {tipos.map((tipo, index) => (
                             <motion.div
-                                key={rubro.id}
+                                key={tipo.id}
                                 initial={{ opacity: 0, x: -15 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: 15 }}
@@ -158,23 +168,26 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                                     style={{
                                         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
                                         transition: 'background 0.15s ease',
-                                        cursor: 'default',
-                                        '&:hover': { background: 'rgba(255,255,255,0.03)' },
                                     }}
                                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <Group justify="space-between">
-                                        <Text size="sm" c="gray.3" fw={500}>
-                                            {rubro.name}
-                                        </Text>
+                                        <Stack gap={2}>
+                                            <Text size="sm" c="gray.3" fw={600}>
+                                                {tipo.name}
+                                            </Text>
+                                            <Text size="xs" c="dimmed">
+                                                Factor: {tipo.factor}
+                                            </Text>
+                                        </Stack>
                                         <Group gap="xs">
                                             <Tooltip label="Editar">
                                                 <ActionIcon
                                                     variant="subtle"
                                                     color="yellow"
                                                     size="md"
-                                                    onClick={() => handleEdit(rubro)}
+                                                    onClick={() => handleEdit(tipo)}
                                                 >
                                                     <IconPencil size={16} />
                                                 </ActionIcon>
@@ -184,7 +197,7 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                                                     variant="subtle"
                                                     color="red"
                                                     size="md"
-                                                    onClick={() => handleDelete(rubro)}
+                                                    onClick={() => handleDelete(tipo)}
                                                 >
                                                     <IconTrash size={16} />
                                                 </ActionIcon>
@@ -196,9 +209,9 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                         ))}
                     </AnimatePresence>
 
-                    {rubros.length === 0 && (
+                    {tipos.length === 0 && (
                         <Box p="xl" ta="center">
-                            <Text c="dimmed">No hay rubros registrados.</Text>
+                            <Text c="dimmed">No hay tipos de hora registrados.</Text>
                         </Box>
                     )}
                 </Stack>
@@ -208,7 +221,7 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
             <Modal
                 opened={modalOpen}
                 onClose={() => setModalOpen(false)}
-                title={editingRubro ? 'Editar Rubro' : 'Nuevo Rubro'}
+                title={editingTipo ? 'Editar Tipo de Hora' : 'Nuevo Tipo de Hora'}
                 centered
                 radius="lg"
                 styles={{
@@ -220,10 +233,10 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
             >
                 <Stack>
                     <TextInput
-                        label="Nombre del Rubro"
-                        placeholder="Ej: Materia Prima"
-                        value={rubroName}
-                        onChange={(e) => setRubroName(e.currentTarget.value)}
+                        label="Nombre"
+                        placeholder="Ej: Extra Diurna"
+                        value={form.name}
+                        onChange={(e) => setForm(prev => ({ ...prev, name: e.currentTarget.value }))}
                         styles={{
                             label: { color: '#94a3b8', marginBottom: 4 },
                             input: {
@@ -232,15 +245,32 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                                 color: 'white',
                             },
                         }}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                         autoFocus
                     />
-                    <Group justify="flex-end">
+                    <NumberInput
+                        label="Factor"
+                        placeholder="Ej: 1.25"
+                        value={form.factor}
+                        onChange={(val) => setForm(prev => ({ ...prev, factor: val || 1.0 }))}
+                        decimalScale={2}
+                        step={0.05}
+                        min={1.0}
+                        max={5.0}
+                        styles={{
+                            label: { color: '#94a3b8', marginBottom: 4 },
+                            input: {
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'white',
+                            },
+                        }}
+                    />
+                    <Group justify="flex-end" mt="sm">
                         <Button variant="subtle" color="gray" onClick={() => setModalOpen(false)}>
                             Cancelar
                         </Button>
-                        <Button color="teal" onClick={handleSave} disabled={!rubroName.trim()}>
-                            {editingRubro ? 'Guardar' : 'Crear Rubro'}
+                        <Button color="teal" onClick={handleSave} disabled={!form.name.trim()}>
+                            {editingTipo ? 'Guardar' : 'Crear Tipo'}
                         </Button>
                     </Group>
                 </Stack>
@@ -249,4 +279,4 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
     );
 };
 
-export default RubrosGastos;
+export default HorasExtra;

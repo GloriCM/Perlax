@@ -294,6 +294,33 @@ const navSections = [
                 ]
             },
             {
+                label: 'Talleres y Despachos',
+                icon: IconTools,
+                path: '/talleres-gastos',
+                children: [
+                    {
+                        label: 'Cuadro de Gastos',
+                        icon: IconCoins,
+                        path: '/talleres-gastos/control',
+                        children: [
+                            { label: 'Captura de Gastos', icon: IconCash, path: '/talleres-gastos/control/captura' },
+                            { label: 'Gráficas', icon: IconChartBar, path: '/talleres-gastos/control/graficas' },
+                            { label: 'Rubros', icon: IconTags, path: '/talleres-gastos/control/rubros' },
+                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/talleres-gastos/control/cotizaciones' },
+                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/talleres-gastos/control/proveedores' },
+                        ]
+                    },
+                    {
+                        label: 'Personal',
+                        icon: IconUsers,
+                        path: '/talleres-gastos/personal',
+                        children: [
+                            { label: 'Salarios', icon: IconReceipt2, path: '/talleres-gastos/personal/salarios' },
+                        ]
+                    }
+                ]
+            },
+            {
                 label: 'Gestión Humana',
                 icon: IconUsersGroup,
                 path: '/gestion-humana',

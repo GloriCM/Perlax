@@ -16,6 +16,19 @@ import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
 import GastosProduccion from './pages/produccion/GastosProduccion';
 import GraficasGastos from './pages/produccion/GraficasGastos';
 import RubrosGastos from './pages/produccion/RubrosGastos';
+import Cotizaciones from './pages/produccion/Cotizaciones';
+import ProveedoresGastos from './pages/produccion/ProveedoresGastos';
+import HorasExtra from './pages/produccion/HorasExtra';
+import Recargos from './pages/produccion/Recargos';
+import Salarios from './pages/produccion/Salarios';
+
+// Talleres y Despachos Wrappers
+import GastosTalleres from './pages/talleres/gastos/GastosTalleres';
+import GraficasTalleres from './pages/talleres/gastos/GraficasTalleres';
+import RubrosTalleres from './pages/talleres/gastos/RubrosTalleres';
+import CotizacionesTalleres from './pages/talleres/gastos/CotizacionesTalleres';
+import ProveedoresTalleres from './pages/talleres/gastos/ProveedoresTalleres';
+import SalariosTalleres from './pages/talleres/gastos/SalariosTalleres';
 import TalleresPresupuesto from './pages/presupuesto/talleres/TalleresPresupuesto';
 import ProduccionPresupuesto from './pages/presupuesto/produccion/ProduccionPresupuesto';
 import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
@@ -80,6 +93,19 @@ function App() {
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
             <Route path="/gastos/control/rubros" element={<RubrosGastos />} />
+            <Route path="/gastos/control/cotizaciones" element={<Cotizaciones />} />
+            <Route path="/gastos/control/proveedores" element={<ProveedoresGastos subtitulo="Producción - Control de Gastos" />} />
+            <Route path="/planeacion/gastos/proveedores" element={<ProveedoresGastos subtitulo="Planeación - Control de Gastos" />} />
+            <Route path="/gastos/personal/horas-extra" element={<HorasExtra />} />
+            <Route path="/gastos/personal/recargo" element={<Recargos />} />
+            <Route path="/gastos/personal/salarios" element={<Salarios />} />
+            {/* Talleres y Despachos */}
+            <Route path="/talleres-gastos/control/captura" element={<GastosTalleres />} />
+            <Route path="/talleres-gastos/control/graficas" element={<GraficasTalleres />} />
+            <Route path="/talleres-gastos/control/rubros" element={<RubrosTalleres />} />
+            <Route path="/talleres-gastos/control/cotizaciones" element={<CotizacionesTalleres />} />
+            <Route path="/talleres-gastos/control/proveedores" element={<ProveedoresTalleres />} />
+            <Route path="/talleres-gastos/personal/salarios" element={<SalariosTalleres />} />
             <Route path="/presupuestos/talleres" element={<TalleresPresupuesto />} />
             <Route path="/presupuestos/produccion" element={<ProduccionPresupuesto />} />
             <Route path="/presupuestos/gestion-humana" element={<GhumanaPresupuesto />} />

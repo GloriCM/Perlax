@@ -114,7 +114,7 @@ const RubroBar = ({ rubro, index }) => {
 };
 
 // ── Main Component ─────────────────────────────────────────
-const GraficasGastos = () => {
+const GraficasGastos = ({ titulo = 'Gastos de Producción', subtitulo = 'Control de Gastos' }) => {
     const navigate = useNavigate();
     const [year, setYear] = useState('2026');
     const [periodo, setPeriodo] = useState('Todo el Año');
@@ -177,9 +177,9 @@ const GraficasGastos = () => {
                         </Button>
                         <div>
                             <Text size="xs" c="dimmed" fw={700} style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                Análisis de Gastos
+                                {subtitulo}
                             </Text>
-                            <Title order={2} c="white">Gráficas de Producción</Title>
+                            <Title order={2} c="white">{titulo}</Title>
                         </div>
                     </Group>
 

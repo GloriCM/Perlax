@@ -256,7 +256,7 @@ const ExpenseCard = ({ expense, index }) => {
 };
 
 // ── Main Component ─────────────────────────────────────────
-const GastosProduccion = () => {
+const GastosProduccion = ({ titulo = 'Gastos de Producción' }) => {
     const navigate = useNavigate();
     const [year, setYear] = useState('2026');
     const [month, setMonth] = useState('Marzo');
@@ -321,7 +321,7 @@ const GastosProduccion = () => {
                             <Text size="xs" c="dimmed" fw={700} style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>
                                 Control de Gastos
                             </Text>
-                            <Title order={2} c="white">Gastos de Producción</Title>
+                            <Title order={2} c="white">{titulo}</Title>
                         </div>
                     </Group>
                 </Group>
