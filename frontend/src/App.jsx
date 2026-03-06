@@ -11,6 +11,8 @@ import Requisicion from './pages/compras/Requisicion';
 import NuevaOT from './pages/ordenes/NuevaOT';
 import ListaOT from './pages/ordenes/ListaOT';
 import PlanesDiseno from './pages/ordenes/PlanesDiseno';
+import FichasTecnicas from './pages/fichas/FichasTecnicas';
+import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
 import '@mantine/core/styles.css';
 import './App.css';
 
@@ -65,8 +67,15 @@ function App() {
             <Route path="/compras/requisicion" element={<Requisicion />} />
             <Route path="/ordenes/nueva" element={<NuevaOT />} />
             <Route path="/ordenes/lista" element={<ListaOT />} />
-            <Route path="/ordenes/planes-diseno" element={<PlanesDiseno />} />
+            <Route path="/fichas/lista" element={<FichasTecnicas />} />
           </Route>
+
+          {/* Protected Print Route (No Sidebar/Layout) */}
+          <Route path="/fichas/imprimir/:id" element={
+            <ProtectedRoute>
+              <FichaTecnicaPrint />
+            </ProtectedRoute>
+          } />
 
           {/* Catch-all redirect to dashboard (which will redirect to login if not authorized) */}
           <Route path="*" element={<Navigate to="/" replace />} />

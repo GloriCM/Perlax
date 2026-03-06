@@ -2,6 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Users.Infrastructure.Persistence;
 using Perlax.Modules.Audit.Application.Abstractions;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.Extensions.Configuration;
+using Perlax.Modules.Users.Domain.Entities;
 
 namespace Perlax.Modules.Users.Api.Controllers;
 
@@ -11,11 +17,13 @@ public class AuthController : ControllerBase
 {
     private readonly UsersDbContext _context;
     private readonly IAuditService _auditService;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(UsersDbContext context, IAuditService auditService)
+    public AuthController(UsersDbContext context, IAuditService auditService, IConfiguration configuration)
     {
         _context = context;
         _auditService = auditService;
+        _configuration = configuration;
     }
 
     [HttpPost("login")]
@@ -63,13 +71,42 @@ public class AuthController : ControllerBase
             "User logged in successfully", 
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
+        var token = GenerateJwtToken(user);
+
         return Ok(new
         {
             user.Id,
             user.Username,
             user.Email,
-            user.Role
+            user.Role,
+            Token = token
         });
+    }
+
+    private string GenerateJwtToken(User user)
+    {
+        var jwtSettings = _configuration.GetSection("JwtSettings");
+        var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret not found.");
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+            new Claim(ClaimTypes.Role, user.Role),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: jwtSettings["Issuer"],
+            audience: jwtSettings["Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(Convert.ToDouble(jwtSettings["ExpiryInMinutes"] ?? "480")),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     // Endpoint to test deletion protection for admin
