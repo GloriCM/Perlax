@@ -306,3 +306,11 @@ C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\obj\Debug\
 C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\obj\Debug\net9.0\Perlax.Web.csproj.Up2Date
 C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\obj\Debug\net9.0\Perlax.Web.genruntimeconfig.cache
 C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\obj\Debug\net9.0\ref\Perlax.Web.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Microsoft.IdentityModel.Logging.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Microsoft.IdentityModel.Protocols.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Microsoft.IdentityModel.Tokens.dll
+C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\System.IdentityModel.Tokens.Jwt.dll

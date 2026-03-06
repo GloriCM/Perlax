@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Perlax.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+aa4221165829f86712af53c38ba90357c4782117")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dc966976c369ff550b968ab0594ac5752fad8a8b")]
 [assembly: System.Reflection.AssemblyProductAttribute("Perlax.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Perlax.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

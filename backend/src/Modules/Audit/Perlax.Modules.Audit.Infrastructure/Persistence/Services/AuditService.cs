@@ -17,7 +17,6 @@ public class AuditService : IAuditService
     {
         var log = new AuditLog
         {
-            Id = Guid.NewGuid(),
             UserId = userId,
             Username = username,
             Action = action,
