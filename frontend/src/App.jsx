@@ -13,6 +13,9 @@ import ListaOT from './pages/ordenes/ListaOT';
 import PlanesDiseno from './pages/ordenes/PlanesDiseno';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
+import GastosProduccion from './pages/produccion/GastosProduccion';
+import GraficasGastos from './pages/produccion/GraficasGastos';
+import RubrosGastos from './pages/produccion/RubrosGastos';
 import '@mantine/core/styles.css';
 import './App.css';
 
@@ -68,6 +71,9 @@ function App() {
             <Route path="/ordenes/nueva" element={<NuevaOT />} />
             <Route path="/ordenes/lista" element={<ListaOT />} />
             <Route path="/fichas/lista" element={<FichasTecnicas />} />
+            <Route path="/gastos/control/captura" element={<GastosProduccion />} />
+            <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
+            <Route path="/gastos/control/rubros" element={<RubrosGastos />} />
           </Route>
 
           {/* Protected Print Route (No Sidebar/Layout) */}
