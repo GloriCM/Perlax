@@ -16,6 +16,12 @@ import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
 import GastosProduccion from './pages/produccion/GastosProduccion';
 import GraficasGastos from './pages/produccion/GraficasGastos';
 import RubrosGastos from './pages/produccion/RubrosGastos';
+import TalleresPresupuesto from './pages/presupuesto/talleres/TalleresPresupuesto';
+import ProduccionPresupuesto from './pages/presupuesto/produccion/ProduccionPresupuesto';
+import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
+import SstPresupuesto from './pages/presupuesto/sst/SstPresupuesto';
+import PlaneacionPresupuesto from './pages/presupuesto/planeacion/PlaneacionPresupuesto';
+import DisenoPresupuesto from './pages/presupuesto/diseño/DisenoPresupuesto';
 import '@mantine/core/styles.css';
 import './App.css';
 
@@ -74,20 +80,26 @@ function App() {
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
             <Route path="/gastos/control/rubros" element={<RubrosGastos />} />
-          </Route>
+            <Route path="/presupuestos/talleres" element={<TalleresPresupuesto />} />
+            <Route path="/presupuestos/produccion" element={<ProduccionPresupuesto />} />
+            <Route path="/presupuestos/gestion-humana" element={<GhumanaPresupuesto />} />
+            <Route path="/presupuestos/sst" element={<SstPresupuesto />} />
+            <Route path="/presupuestos/planeacion" element={<PlaneacionPresupuesto />} />
+            <Route path="/presupuestos/diseno" element={<DisenoPresupuesto />} />
+          </Route >
 
           {/* Protected Print Route (No Sidebar/Layout) */}
-          <Route path="/fichas/imprimir/:id" element={
-            <ProtectedRoute>
+          < Route path="/fichas/imprimir/:id" element={
+            < ProtectedRoute >
               <FichaTecnicaPrint />
-            </ProtectedRoute>
+            </ProtectedRoute >
           } />
 
           {/* Catch-all redirect to dashboard (which will redirect to login if not authorized) */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </MantineProvider>
+        </Routes >
+      </BrowserRouter >
+    </MantineProvider >
   );
 }
 
