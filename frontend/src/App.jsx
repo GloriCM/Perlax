@@ -51,6 +51,7 @@ import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
 import SstPresupuesto from './pages/presupuesto/sst/SstPresupuesto';
 import PlaneacionPresupuesto from './pages/presupuesto/planeacion/PlaneacionPresupuesto';
 import DisenoPresupuesto from './pages/presupuesto/diseño/DisenoPresupuesto';
+import EquiposMantenimiento from './pages/mantenimiento_equipos/equipos/EquiposMantenimiento';
 import '@mantine/core/styles.css';
 import './App.css';
 
@@ -141,6 +142,7 @@ function App() {
             <Route path="/presupuestos/sst" element={<SstPresupuesto />} />
             <Route path="/presupuestos/planeacion" element={<PlaneacionPresupuesto />} />
             <Route path="/presupuestos/diseno" element={<DisenoPresupuesto />} />
+            <Route path="/mantenimiento/equipos" element={<EquiposMantenimiento />} />
           </Route >
 
           {/* Protected Print Route (No Sidebar/Layout) */}
