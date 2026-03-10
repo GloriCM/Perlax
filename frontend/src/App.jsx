@@ -29,6 +29,22 @@ import RubrosTalleres from './pages/talleres/gastos/RubrosTalleres';
 import CotizacionesTalleres from './pages/talleres/gastos/CotizacionesTalleres';
 import ProveedoresTalleres from './pages/talleres/gastos/ProveedoresTalleres';
 import SalariosTalleres from './pages/talleres/gastos/SalariosTalleres';
+
+// Gestión Humana Wrappers
+import GastosGH from './pages/gestion-humana/gastos/GastosGH';
+import CotizacionesGH from './pages/gestion-humana/gastos/CotizacionesGH';
+import GraficasGH from './pages/gestion-humana/gastos/GraficasGH';
+import RubrosGH from './pages/gestion-humana/gastos/RubrosGH';
+import TiposServicio from './pages/gestion-humana/gastos/TiposServicio';
+import ProveedoresGH from './pages/gestion-humana/gastos/ProveedoresGH';
+
+// Planeación Wrappers
+import GastosPlaneacion from './pages/planeacion/gastos/GastosPlaneacion';
+import CotizacionesPlaneacion from './pages/planeacion/gastos/CotizacionesPlaneacion';
+import GraficasPlaneacion from './pages/planeacion/gastos/GraficasPlaneacion';
+import RubrosPlaneacion from './pages/planeacion/gastos/RubrosPlaneacion';
+import ProveedoresPlaneacion from './pages/planeacion/gastos/ProveedoresPlaneacion';
+import PersonalAlmacen from './pages/planeacion/gastos/PersonalAlmacen';
 import TalleresPresupuesto from './pages/presupuesto/talleres/TalleresPresupuesto';
 import ProduccionPresupuesto from './pages/presupuesto/produccion/ProduccionPresupuesto';
 import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
@@ -95,7 +111,6 @@ function App() {
             <Route path="/gastos/control/rubros" element={<RubrosGastos />} />
             <Route path="/gastos/control/cotizaciones" element={<Cotizaciones />} />
             <Route path="/gastos/control/proveedores" element={<ProveedoresGastos subtitulo="Producción - Control de Gastos" />} />
-            <Route path="/planeacion/gastos/proveedores" element={<ProveedoresGastos subtitulo="Planeación - Control de Gastos" />} />
             <Route path="/gastos/personal/horas-extra" element={<HorasExtra />} />
             <Route path="/gastos/personal/recargo" element={<Recargos />} />
             <Route path="/gastos/personal/salarios" element={<Salarios />} />
@@ -106,6 +121,20 @@ function App() {
             <Route path="/talleres-gastos/control/cotizaciones" element={<CotizacionesTalleres />} />
             <Route path="/talleres-gastos/control/proveedores" element={<ProveedoresTalleres />} />
             <Route path="/talleres-gastos/personal/salarios" element={<SalariosTalleres />} />
+            {/* Gestión Humana */}
+            <Route path="/gestion-humana/gastos/captura" element={<GastosGH />} />
+            <Route path="/gestion-humana/gastos/cotizaciones" element={<CotizacionesGH />} />
+            <Route path="/gestion-humana/gastos/graficas" element={<GraficasGH />} />
+            <Route path="/gestion-humana/gastos/rubros" element={<RubrosGH />} />
+            <Route path="/gestion-humana/gastos/servicios" element={<TiposServicio />} />
+            <Route path="/gestion-humana/gastos/proveedores" element={<ProveedoresGH />} />
+            {/* Planeación Gastos */}
+            <Route path="/planeacion/gastos/captura" element={<GastosPlaneacion />} />
+            <Route path="/planeacion/gastos/cotizaciones" element={<CotizacionesPlaneacion />} />
+            <Route path="/planeacion/gastos/graficas" element={<GraficasPlaneacion />} />
+            <Route path="/planeacion/gastos/rubros" element={<RubrosPlaneacion />} />
+            <Route path="/planeacion/gastos/proveedores" element={<ProveedoresPlaneacion />} />
+            <Route path="/planeacion/gastos/personal" element={<PersonalAlmacen />} />
             <Route path="/presupuestos/talleres" element={<TalleresPresupuesto />} />
             <Route path="/presupuestos/produccion" element={<ProduccionPresupuesto />} />
             <Route path="/presupuestos/gestion-humana" element={<GhumanaPresupuesto />} />

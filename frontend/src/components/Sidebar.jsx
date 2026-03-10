@@ -203,7 +203,27 @@ const navSections = [
                 children: [
                     { label: 'Apertura', icon: IconDoorEnter, path: '/produccion/apertura' },
                     { label: 'Estado de Ordenes', icon: IconListDetails, path: '/produccion/estado-ordenes' },
-                    { label: 'Planeación', icon: IconCalendarTime, path: '/produccion/planeacion' },
+                    {
+                        label: 'Planeación',
+                        icon: IconCalendarTime,
+                        path: '/planeacion',
+                        children: [
+                            { label: 'Panel', icon: IconLayoutDashboard, path: '/produccion/planeacion' },
+                            {
+                                label: 'Gastos',
+                                icon: IconCoins,
+                                path: '/planeacion/gastos',
+                                children: [
+                                    { label: 'Captura de Gastos', icon: IconCash, path: '/planeacion/gastos/captura' },
+                                    { label: 'Gráficas', icon: IconChartBar, path: '/planeacion/gastos/graficas' },
+                                    { label: 'Rubros', icon: IconTags, path: '/planeacion/gastos/rubros' },
+                                    { label: 'Cotizaciones', icon: IconFileDollar, path: '/planeacion/gastos/cotizaciones' },
+                                    { label: 'Proveedores', icon: IconBuildingFactory2, path: '/planeacion/gastos/proveedores' },
+                                    { label: 'Personal', icon: IconUsers, path: '/planeacion/gastos/personal' },
+                                ]
+                            }
+                        ]
+                    },
                 ]
             },
             {
