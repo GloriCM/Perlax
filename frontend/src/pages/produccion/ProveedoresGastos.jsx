@@ -25,6 +25,7 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import GastosTabs from '../../components/GastosTabs';
 import { notifications } from '@mantine/notifications';
 
 const initialProveedores = [
@@ -38,7 +39,7 @@ const initialProveedores = [
 
 const RUBROS = ['Mantenimiento', 'Repuesto', 'Materia Prima', 'Refrigerios', 'Horas Extras', 'Prestadores de Servicios', 'Recargo', 'Transporte'];
 
-const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gastos' }) => {
+const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gastos', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
     const navigate = useNavigate();
     const [proveedores, setProveedores] = useState(initialProveedores);
     const [modalOpen, setModalOpen] = useState(false);
@@ -132,6 +133,8 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                     </Button>
                 </Group>
             </Paper>
+
+            {showTabs && <GastosTabs pathPrefix={pathPrefix} />}
 
             {/* Proveedores List */}
             <Paper

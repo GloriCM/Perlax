@@ -1,4 +1,4 @@
-import { MantineProvider } from '@mantine/core';
+import { MantineProvider, Box, Title, Text } from '@mantine/core';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { theme } from './theme';
@@ -44,7 +44,7 @@ import CotizacionesPlaneacion from './pages/planeacion/gastos/CotizacionesPlanea
 import GraficasPlaneacion from './pages/planeacion/gastos/GraficasPlaneacion';
 import RubrosPlaneacion from './pages/planeacion/gastos/RubrosPlaneacion';
 import ProveedoresPlaneacion from './pages/planeacion/gastos/ProveedoresPlaneacion';
-import PersonalAlmacen from './pages/planeacion/gastos/PersonalAlmacen';
+import PersonalAlmacen from './pages/planeacion/PersonalAlmacen';
 import TalleresPresupuesto from './pages/presupuesto/talleres/TalleresPresupuesto';
 import ProduccionPresupuesto from './pages/presupuesto/produccion/ProduccionPresupuesto';
 import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
@@ -52,6 +52,16 @@ import SstPresupuesto from './pages/presupuesto/sst/SstPresupuesto';
 import PlaneacionPresupuesto from './pages/presupuesto/planeacion/PlaneacionPresupuesto';
 import DisenoPresupuesto from './pages/presupuesto/diseño/DisenoPresupuesto';
 import EquiposMantenimiento from './pages/mantenimiento_equipos/equipos/EquiposMantenimiento';
+import EncuestasCalidad from './pages/calidad/EncuestasCalidad';
+import ReporteNC from './pages/calidad/ReporteNC';
+import ConsolidadoNC from './pages/calidad/ConsolidadoNC';
+import PlanesAccion from './pages/calidad/PlanesAccion';
+import GastosDiseno from './pages/diseno/gastos/GastosDiseno';
+import GraficasDiseno from './pages/diseno/gastos/GraficasDiseno';
+import RubrosDiseno from './pages/diseno/gastos/RubrosDiseno';
+import CotizacionesDiseno from './pages/diseno/gastos/CotizacionesDiseno';
+import ProveedoresDiseno from './pages/diseno/gastos/ProveedoresDiseno';
+import PanelMantenimiento from './pages/mantenimiento_equipos/PanelMantenimiento';
 import '@mantine/core/styles.css';
 import './App.css';
 
@@ -102,7 +112,8 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<DashboardPage />} />
-            <Route path=":moduleName" element={<ModulePage />} />
+
+            {/* Specific Modular Routes FIRST */}
             <Route path="/compras/requisicion" element={<Requisicion />} />
             <Route path="/ordenes/nueva" element={<NuevaOT />} />
             <Route path="/ordenes/lista" element={<ListaOT />} />
@@ -115,6 +126,7 @@ function App() {
             <Route path="/gastos/personal/horas-extra" element={<HorasExtra />} />
             <Route path="/gastos/personal/recargo" element={<Recargos />} />
             <Route path="/gastos/personal/salarios" element={<Salarios />} />
+
             {/* Talleres y Despachos */}
             <Route path="/talleres-gastos/control/captura" element={<GastosTalleres />} />
             <Route path="/talleres-gastos/control/graficas" element={<GraficasTalleres />} />
@@ -122,6 +134,7 @@ function App() {
             <Route path="/talleres-gastos/control/cotizaciones" element={<CotizacionesTalleres />} />
             <Route path="/talleres-gastos/control/proveedores" element={<ProveedoresTalleres />} />
             <Route path="/talleres-gastos/personal/salarios" element={<SalariosTalleres />} />
+
             {/* Gestión Humana */}
             <Route path="/gestion-humana/gastos/captura" element={<GastosGH />} />
             <Route path="/gestion-humana/gastos/cotizaciones" element={<CotizacionesGH />} />
@@ -129,20 +142,43 @@ function App() {
             <Route path="/gestion-humana/gastos/rubros" element={<RubrosGH />} />
             <Route path="/gestion-humana/gastos/servicios" element={<TiposServicio />} />
             <Route path="/gestion-humana/gastos/proveedores" element={<ProveedoresGH />} />
+
             {/* Planeación Gastos */}
             <Route path="/planeacion/gastos/captura" element={<GastosPlaneacion />} />
             <Route path="/planeacion/gastos/cotizaciones" element={<CotizacionesPlaneacion />} />
             <Route path="/planeacion/gastos/graficas" element={<GraficasPlaneacion />} />
             <Route path="/planeacion/gastos/rubros" element={<RubrosPlaneacion />} />
             <Route path="/planeacion/gastos/proveedores" element={<ProveedoresPlaneacion />} />
-            <Route path="/planeacion/gastos/personal" element={<PersonalAlmacen />} />
+            <Route path="/planeacion/personal" element={<PersonalAlmacen />} />
+
+            {/* Diseño Gastos */}
+            <Route path="/diseno/gastos/captura" element={<GastosDiseno />} />
+            <Route path="/diseno/gastos/graficas" element={<GraficasDiseno />} />
+            <Route path="/diseno/gastos/rubros" element={<RubrosDiseno />} />
+            <Route path="/diseno/gastos/cotizaciones" element={<CotizacionesDiseno />} />
+            <Route path="/diseno/gastos/proveedores" element={<ProveedoresDiseno />} />
+
+            {/* Presupuestos */}
             <Route path="/presupuestos/talleres" element={<TalleresPresupuesto />} />
             <Route path="/presupuestos/produccion" element={<ProduccionPresupuesto />} />
             <Route path="/presupuestos/gestion-humana" element={<GhumanaPresupuesto />} />
             <Route path="/presupuestos/sst" element={<SstPresupuesto />} />
             <Route path="/presupuestos/planeacion" element={<PlaneacionPresupuesto />} />
             <Route path="/presupuestos/diseno" element={<DisenoPresupuesto />} />
+
+            {/* Mantenimiento */}
+            <Route path="/mantenimiento/panel" element={<PanelMantenimiento />} />
             <Route path="/mantenimiento/equipos" element={<EquiposMantenimiento />} />
+            <Route path="/mantenimiento" element={<Navigate to="/mantenimiento/panel" replace />} />
+
+            {/* Calidad */}
+            <Route path="/calidad/encuestas-calidad" element={<EncuestasCalidad />} />
+            <Route path="/calidad/reporte-nc" element={<ReporteNC />} />
+            <Route path="/calidad/consolidado-nc" element={<ConsolidadoNC />} />
+            <Route path="/calidad/planes-accion" element={<PlanesAccion />} />
+
+            {/* Dynamic Module Route LATER */}
+            <Route path=":moduleName" element={<ModulePage />} />
           </Route >
 
           {/* Protected Print Route (No Sidebar/Layout) */}

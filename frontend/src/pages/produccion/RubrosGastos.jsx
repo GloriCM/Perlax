@@ -22,6 +22,7 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import GastosTabs from '../../components/GastosTabs';
 import { notifications } from '@mantine/notifications';
 
 const initialRubros = [
@@ -33,7 +34,7 @@ const initialRubros = [
     { id: 6, name: 'Prestadores de Servicios' },
 ];
 
-const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control de Gastos' }) => {
+const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control de Gastos', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
     const navigate = useNavigate();
     const [rubros, setRubros] = useState(initialRubros);
     const [modalOpen, setModalOpen] = useState(false);
@@ -127,6 +128,8 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                     </Button>
                 </Group>
             </Paper>
+
+            {showTabs && <GastosTabs pathPrefix={pathPrefix} />}
 
             {/* Rubros List */}
             <Paper

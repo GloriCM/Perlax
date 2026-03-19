@@ -12,7 +12,7 @@ import {
     TextInput,
     NumberInput,
     Modal,
-    Tooltip
+    Divider
 } from '@mantine/core';
 import {
     IconArrowLeft,
@@ -20,7 +20,7 @@ import {
     IconPencil,
     IconTrash,
     IconUsers,
-    IconTable
+    IconFileSpreadsheet
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,7 +40,7 @@ const formatCurrency = (value) => {
     }).format(value);
 };
 
-const PersonalAlmacen = ({ titulo = 'Personal', subtitulo = 'Gastos de Planeación' }) => {
+const PersonalAlmacen = ({ titulo = 'Personal de Almacén', subtitulo = 'Planeación' }) => {
     const navigate = useNavigate();
     const [personal, setPersonal] = useState(initialPersonal);
     const [modalOpen, setModalOpen] = useState(false);
@@ -92,57 +92,59 @@ const PersonalAlmacen = ({ titulo = 'Personal', subtitulo = 'Gastos de Planeaci�
                             <Title order={2} c="white">{titulo}</Title>
                         </div>
                     </Group>
+                    <img src="/Nuevo-perla-Sinfondo.png" alt="Perla" style={{ height: 32 }} />
                 </Group>
             </Paper>
 
             {/* List Header */}
-            <Paper p="md" radius="lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <Group justify="space-between" mb="lg" px="sm">
-                    <Group gap="xs">
-                        <IconUsers size={22} style={{ color: '#6366f1' }} />
-                        <Title order={3} c="white">Listado de Personal de Almacén (Horas Extras)</Title>
-                    </Group>
-                    <Group gap="sm">
-                        <Button color="teal" leftSection={<IconTable size={16} />} radius="md">
-                            Excel H. Extras
-                        </Button>
-                        <Button color="blue" leftSection={<IconPlus size={16} />} radius="md" onClick={handleAdd}>
-                            + Nuevo Personal de Almacén
-                        </Button>
-                    </Group>
+            <Group justify="space-between" mb="lg">
+                <Group gap="xs">
+                    <IconUsers size={24} style={{ color: '#6366f1' }} />
+                    <Title order={3} c="white" size="lg">Listado de Personal de Almacén (Horas Extras)</Title>
                 </Group>
+                <Group gap="sm">
+                    <Button color="teal" leftSection={<IconFileSpreadsheet size={18} />} radius="md" fw={700}>
+                        Excel H. Extras
+                    </Button>
+                    <Button color="blue" leftSection={<IconPlus size={18} />} radius="md" onClick={handleAdd} fw={700}>
+                        + Nuevo Personal
+                    </Button>
+                </Group>
+            </Group>
 
-                <Stack gap={0}>
-                    <AnimatePresence>
-                        {personal.map((item, index) => (
-                            <motion.div key={item.id} initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 15 }} transition={{ delay: index * 0.04, duration: 0.25 }}>
-                                <Box px="md" py="sm" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', transition: 'background 0.15s ease' }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                    <Group justify="space-between" align="center">
-                                        <Stack gap={2}>
-                                            <Text size="sm" fw={700} c="white" style={{ textTransform: 'uppercase' }}>{item.name}</Text>
-                                            <Text size="xs" c="dimmed">C.C. {item.cc}</Text>
-                                            <Text size="xs" c="gray.4">Salario: {formatCurrency(item.salario)}</Text>
-                                        </Stack>
+            {/* List */}
+            <Stack gap="md">
+                <AnimatePresence>
+                    {personal.map((item, index) => (
+                        <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: index * 0.05 }}>
+                            <Paper p="md" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
+                                <Group justify="space-between" align="center">
+                                    <Stack gap={2}>
                                         <Group gap="xs">
-                                            <ActionIcon variant="light" color="yellow" size="lg" onClick={() => handleEdit(item)}>
-                                                <IconPencil size={18} />
-                                            </ActionIcon>
-                                            <ActionIcon variant="light" color="red" size="lg" onClick={() => handleDelete(item)}>
-                                                <IconTrash size={18} />
-                                            </ActionIcon>
+                                            <Text fw={800} size="md" c="white">{item.name}</Text>
+                                            <IconUsers size={14} color="#3b82f6" />
                                         </Group>
+                                        <Text size="xs" c="dimmed">C.C. {item.cc}</Text>
+                                        <Text size="sm" fw={600} c="gray.4">Salario: {formatCurrency(item.salario)}</Text>
+                                    </Stack>
+                                    <Group gap="xs">
+                                        <ActionIcon variant="light" color="yellow" size="lg" onClick={() => handleEdit(item)} style={{ background: 'rgba(250, 176, 5, 0.1)' }}>
+                                            <IconPencil size={18} />
+                                        </ActionIcon>
+                                        <ActionIcon variant="light" color="red" size="lg" onClick={() => handleDelete(item)} style={{ background: 'rgba(240, 62, 62, 0.1)' }}>
+                                            <IconTrash size={18} />
+                                        </ActionIcon>
                                     </Group>
-                                </Box>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                    {personal.length === 0 && (
-                        <Box p="xl" ta="center"><Text c="dimmed">No hay personal registrado.</Text></Box>
-                    )}
-                </Stack>
-            </Paper>
+                                </Group>
+                            </Paper>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+
+                {personal.length === 0 && (
+                    <Box p="xl" ta="center"><Text c="dimmed">No hay personal registrado.</Text></Box>
+                )}
+            </Stack>
 
             {/* Modal */}
             <Modal opened={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? 'Editar Personal' : 'Nuevo Personal'} centered radius="lg" size="sm"

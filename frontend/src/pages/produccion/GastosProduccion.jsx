@@ -32,65 +32,43 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import GastosTabs from '../../components/GastosTabs';
 
 // ── Mock Data ──────────────────────────────────────────────
 const mockExpenses = [
     {
         id: 1,
-        category: '',
-        type: '',
-        registeredBy: '',
-        details: [],
+        category: 'Troqueles',
+        type: 'Jeisson Cuervo',
+        registeredBy: 'juan',
+        details: [
+            { icon: 'file', text: 'NIT: 94071111' },
+            { icon: 'file', text: 'Factura:' },
+            { icon: 'calendar', text: '16/3/2026' },
+            { icon: 'clock', text: 'Nuevo' },
+        ],
+        op: 'OP: OP_12460_7481',
         amount: 0,
-        status: 'aprobado',
-        borderColor: '#3b82f6',
-        bgColor: 'transparent'
+        status: 'pendiente',
+        borderColor: '#f59e0b',
+        bgColor: 'rgba(245, 158, 11, 0.03)'
     },
     {
         id: 2,
-        category: 'Horas Extras',
-        type: 'Extra Diurna',
-        registeredBy: 'Gloria Castillo',
+        category: 'Troqueles',
+        type: 'Jeisson Cuervo',
+        registeredBy: 'karen',
         details: [
-            { icon: 'user', text: 'Enrique Muñoz Hector Hilde' },
-            { icon: 'calendar', text: '4/3/2026' },
-            { icon: 'clock', text: '1 hrs' },
+            { icon: 'file', text: 'NIT: 94071111' },
+            { icon: 'file', text: 'Factura:' },
+            { icon: 'calendar', text: '13/3/2026' },
+            { icon: 'clock', text: 'Nuevo' },
         ],
-        op: 'OP: 7330relavada para bolsa amorettes disney pequeño',
-        amount: 15630.14,
-        status: 'aprobado',
-        borderColor: '#10b981',
-        bgColor: 'rgba(16, 185, 129, 0.06)'
-    },
-    {
-        id: 3,
-        category: 'Repuesto',
-        type: 'General',
-        registeredBy: 'Gloria Castillo',
-        details: [
-            { icon: 'settings', text: '16 Barnizadora UV' },
-            { icon: 'file', text: 'SOLUCIONES NEUMATICAS' },
-            { icon: 'calendar', text: '4/3/2026' },
-        ],
-        amount: 400000,
+        amount: 0,
         status: 'pendiente',
-        deadline: '6/3/2026',
-        borderColor: '#ef4444',
-        bgColor: 'rgba(239, 68, 68, 0.06)'
-    },
-    {
-        id: 4,
-        category: 'Materia Prima',
-        type: 'Cartón',
-        registeredBy: 'Carlos Mejía',
-        details: [
-            { icon: 'file', text: 'PAPELES DEL CAUCA' },
-            { icon: 'calendar', text: '3/3/2026' },
-        ],
-        amount: 850000,
-        status: 'aprobado',
-        borderColor: '#3b82f6',
-        bgColor: 'transparent'
+        borderColor: '#f59e0b',
+        bgColor: 'rgba(245, 158, 11, 0.03)',
+        op: 'TROQUEL LA CHULA X 18-PARA LAS TRES CAJAS'
     },
 ];
 
@@ -256,7 +234,7 @@ const ExpenseCard = ({ expense, index }) => {
 };
 
 // ── Main Component ─────────────────────────────────────────
-const GastosProduccion = ({ titulo = 'Gastos de Producción' }) => {
+const GastosProduccion = ({ titulo = 'Gastos de Producción', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
     const navigate = useNavigate();
     const [year, setYear] = useState('2026');
     const [month, setMonth] = useState('Marzo');
@@ -282,7 +260,7 @@ const GastosProduccion = ({ titulo = 'Gastos de Producción' }) => {
     const summaryCards = [
         { label: 'Presupuesto', value: presupuesto, gradient: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)', glow: 'rgba(37, 99, 235, 0.3)' },
         { label: 'Gastado', value: gastado, gradient: 'linear-gradient(135deg, #5c1e1e 0%, #dc2626 100%)', glow: 'rgba(220, 38, 38, 0.3)' },
-        { label: 'Restante', value: restante, gradient: 'linear-gradient(135deg, #1a4a3a 0%, #059669 100%)', glow: 'rgba(5, 150, 105, 0.3)' },
+        { label: 'Exceso', value: gastado, gradient: 'linear-gradient(135deg, #5c1e1e 0%, #dc2626 100%)', glow: 'rgba(220, 38, 38, 0.3)' },
     ];
 
     return (
@@ -307,25 +285,22 @@ const GastosProduccion = ({ titulo = 'Gastos de Producción' }) => {
                 <Group justify="space-between" align="center">
                     <Group>
                         <Button
-                            variant="subtle"
-                            color="gray"
-                            size="sm"
-                            leftSection={<IconArrowLeft size={18} />}
+                            variant="filled"
+                            color="gray.8"
+                            size="compact-xs"
+                            leftSection={<IconArrowLeft size={14} />}
                             onClick={() => navigate('/')}
-                            c="dimmed"
-                            styles={{ root: { padding: '4px 10px' } }}
+                            fw={700}
                         >
                             Volver al Panel
                         </Button>
-                        <div>
-                            <Text size="xs" c="dimmed" fw={700} style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                Control de Gastos
-                            </Text>
-                            <Title order={2} c="white">{titulo}</Title>
-                        </div>
+                        <Title order={4} c="white" ml="xl">{titulo}</Title>
                     </Group>
+                    <img src="/Nuevo-perla-Sinfondo.png" alt="Perla" style={{ height: 30 }} />
                 </Group>
             </Paper>
+
+            {showTabs && <GastosTabs pathPrefix={pathPrefix} />}
 
             {/* Filters Row */}
             <Paper

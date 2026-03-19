@@ -30,6 +30,7 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import GastosTabs from '../../components/GastosTabs';
 import { notifications } from '@mantine/notifications';
 
 const formatCurrency = (value) => {
@@ -50,7 +51,7 @@ const initialCotizaciones = [
 const ESTADOS = ['Pendiente', 'Aprobada', 'Rechazada'];
 const PROVEEDORES = ['Ferrelopez S.A.S', 'Distribuidora Nacional', 'Cali Bandas', 'Suministros El Punto S.A.S'];
 
-const Cotizaciones = ({ titulo = 'Cotizaciones de Producción', subtitulo = 'Control de Gastos' }) => {
+const Cotizaciones = ({ titulo = 'Cotizaciones de Producción', subtitulo = 'Control de Gastos', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
     const navigate = useNavigate();
     const [cotizaciones, setCotizaciones] = useState(initialCotizaciones);
     const [modalOpen, setModalOpen] = useState(false);
@@ -119,6 +120,8 @@ const Cotizaciones = ({ titulo = 'Cotizaciones de Producción', subtitulo = 'Con
                     </Button>
                 </Group>
             </Paper>
+
+            {showTabs && <GastosTabs pathPrefix={pathPrefix} />}
 
             {/* List */}
             <Paper p="md" radius="lg" style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>

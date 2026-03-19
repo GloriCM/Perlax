@@ -246,9 +246,10 @@ const navSections = [
                 icon: IconCheckupList,
                 path: '/calidad',
                 children: [
-                    { label: 'Encuestas Calidad', icon: IconClipboardCheck, path: '/calidad/encuestas-calidad' },
-                    { label: 'Encuestas Producción', icon: IconClipboardData, path: '/calidad/encuestas-produccion' },
-                    { label: 'Consolidado NC', icon: IconFileAnalytics, path: '/calidad/consolidado-nc' },
+                    { label: 'Encuestas de Calidad', icon: IconClipboardCheck, path: '/calidad/encuestas-calidad' },
+                    { label: 'Reporte de NC', icon: IconReportAnalytics, path: '/calidad/reporte-nc' },
+                    { label: 'Consolidado de NC', icon: IconFileAnalytics, path: '/calidad/consolidado-nc' },
+                    { label: 'Planes de Acción', icon: IconCalendarStats, path: '/calidad/planes-accion' },
                 ]
             },
             {

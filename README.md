@@ -47,17 +47,16 @@ El proyecto sigue estándares industriales modernos para garantizar mantenibilid
 ### 📦 Compras & Almacén
 - **Requisición**: Migración completa de la vista de requerimientos con tablas avanzadas, cálculo automático de totales acumulados y diseño responsivo.
 
-### 📝 Ordenes de Trabajo (OT)
-- **Nueva OT**: 
-  - Formulario de 2 pasos con validaciones en tiempo real.
-  - Selección de Clase y Línea de diseño con verificación automática de existencia.
-  - Gestión técnica de materiales, tintas, troqueles y procesos de fabricación.
-- **Lista General de OT**:
-  - Tabla avanzada con búsqueda global dinámica.
-  - **Lógica de Aprobación**: Sistema inteligente que bloquea la edición si la orden ya ha sido aprobada.
-- **Planes de Diseño**:
-  - Vista especializada para seguimiento de bocetos, artes y muestras.
-  - **Modal de Detalle Experto**: Vista de alta fidelidad que replica el sistema legado para visualización técnica rápida con soporte para scroll y adjuntos.
+### 📄 Fichas Técnicas
+- **Listado General**: Tabla interactiva con búsqueda global y filtrado por estado de aprobación.
+- **Plantilla de Impresión**: Generación de documentos de alta fidelidad para impresión física, omitiendo automáticamente elementos de la interfaz.
+
+### 💰 Control de Gastos (Multimódulo)
+- **Producción**: Gestión completa de captura de gastos, rubros, cotizaciones y proveedores.
+- **Gestión Humana**: Implementación de vista de "Tipos de Servicio" especializada para recursos humanos.
+- **Planeación**: 
+  - Cuadro de gastos completo migrado.
+  - **Personal de Almacén**: Vista especializada para la gestión de horas extra y registros de personal de planta.
 
 ---
 
@@ -79,6 +78,6 @@ El proyecto sigue estándares industriales modernos para garantizar mantenibilid
 ---
 
 ## 📅 Última Actualización
-- **Fecha**: 2026-02-27
-- **Fase**: Finalización de la migración del módulo de Ordenes de Trabajo.
-- **Estado**: ✅ Funcional y Desplegado en entorno de desarrollo.
+- **Fecha**: 2026-03-10
+- **Fase**: Finalización de la migración de vistas de Gastos y Fichas Técnicas. Preparación de migración de datos.
+- **Estado**: ✅ Funcional y Pushed a GitHub (`main`).

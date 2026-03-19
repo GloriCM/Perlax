@@ -23,6 +23,7 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import GastosTabs from '../../components/GastosTabs';
 
 // ── Format currency ────────────────────────────────────────
 const formatCurrency = (value) => {
@@ -114,7 +115,7 @@ const RubroBar = ({ rubro, index }) => {
 };
 
 // ── Main Component ─────────────────────────────────────────
-const GraficasGastos = ({ titulo = 'Gastos de Producción', subtitulo = 'Control de Gastos' }) => {
+const GraficasGastos = ({ titulo = 'Gastos de Producción', subtitulo = 'Control de Gastos', showTabs = false }) => {
     const navigate = useNavigate();
     const [year, setYear] = useState('2026');
     const [periodo, setPeriodo] = useState('Todo el Año');
@@ -233,6 +234,8 @@ const GraficasGastos = ({ titulo = 'Gastos de Producción', subtitulo = 'Control
                     </Group>
                 </Group>
             </Paper>
+
+            {showTabs && <GastosTabs />}
 
             {/* Summary Cards */}
             <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" mb="lg">
