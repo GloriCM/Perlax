@@ -4,7 +4,7 @@
     height: calc(100vh - 40px);
     display: flex;
     flex-direction: column;
-    padding: 24px 16px;
+    padding: 8px 16px;
     /* Gradiente profundo y premium que no requiere blur */
     background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -43,8 +43,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 32px;
-    padding-bottom: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -52,12 +52,12 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 0px;
     width: 100%;
 }
 
 .sidebar-logo-img {
-    height: 100px !important;
+    height: 70px !important;
     width: auto !important;
     max-width: 180px !important;
     object-fit: contain;
@@ -96,9 +96,24 @@
 }
 
 .sidebar-footer {
-    padding-top: 16px;
+    padding-top: 1px;
     margin-top: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.sidebar-footer-logo {
+    max-width: 100px;
+    height: auto;
+    margin-top: 1px;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-footer-logo:hover {
+    opacity: 1;
 }
 
 .sidebar-nav-item {

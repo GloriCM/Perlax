@@ -502,7 +502,7 @@ export default function Sidebar() {
                             borderRadius: 12,
                             padding: '10px 14px',
                             color: '#fb7185',
-                            marginTop: 8,
+                            marginTop: 2,
                             '&:hover': {
                                 background: 'rgba(251, 113, 133, 0.1)',
                                 color: '#f43f5e',
@@ -513,7 +513,11 @@ export default function Sidebar() {
                         },
                     }}
                 />
-                <Text size="xs" c="dimmed" ta="center" mt="md">Perla v1.0.0</Text>
+                <img
+                    src="/Logo%20Aleph%20(fondo%20oscuro).png"
+                    alt="Logo Aleph"
+                    className="sidebar-footer-logo"
+                />
             </div>
         </div>
     );
