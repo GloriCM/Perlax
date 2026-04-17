@@ -1146,6 +1146,7 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v9.0",
         "dependencies": {
+          "Perlax.Modules.Audit.Application": "1.0.0",
           "Perlax.Modules.Production.Application": "1.0.0",
           "Perlax.Modules.Production.Infrastructure": "1.0.0"
         },

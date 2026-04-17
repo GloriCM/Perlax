@@ -11,6 +11,7 @@ import Requisicion from './pages/compras/Requisicion';
 import NuevaOT from './pages/ordenes/NuevaOT';
 import ListaOT from './pages/ordenes/ListaOT';
 import PlanesDiseno from './pages/ordenes/PlanesDiseno';
+import Auditoria from './pages/admin/Auditoria';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
 import GastosProduccion from './pages/produccion/GastosProduccion';
@@ -117,6 +118,7 @@ function App() {
             <Route path="/compras/requisicion" element={<Requisicion />} />
             <Route path="/ordenes/nueva" element={<NuevaOT />} />
             <Route path="/ordenes/lista" element={<ListaOT />} />
+            <Route path="/ordenes/planes-diseno" element={<PlanesDiseno />} />
             <Route path="/fichas/lista" element={<FichasTecnicas />} />
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
@@ -176,6 +178,7 @@ function App() {
             <Route path="/calidad/reporte-nc" element={<ReporteNC />} />
             <Route path="/calidad/consolidado-nc" element={<ConsolidadoNC />} />
             <Route path="/calidad/planes-accion" element={<PlanesAccion />} />
+            <Route path="/admin/auditoria" element={<Auditoria />} />
 
             {/* Dynamic Module Route LATER */}
             <Route path=":moduleName" element={<ModulePage />} />

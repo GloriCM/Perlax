@@ -18,6 +18,7 @@ import {
     Textarea,
     Table,
     ScrollArea,
+    Badge,
     rem as mantineRem
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
@@ -44,83 +45,110 @@ import {
     IconPaperclip,
     IconMaximize,
     IconChevronLeft,
-    IconChevronRight
+    IconChevronRight,
+    IconTrash
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../utils/api';
 
 export default function NuevaOT() {
     const navigate = useNavigate();
     const [activeStep, setActiveStep] = useState(0);
 
-    // Form State
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+    // Form State aligned with Backend
     const [formData, setFormData] = useState({
         otNumber: '',
-        ejecutivo: '',
+        createdBy: user.username || '',
         cliente: '',
-        fechaSolicitud: null,
+        ejecutivoCuenta: '',
+        fechaSolicitud: new Date(),
         asignacion: 'Otro',
-        lineaPT: 'Otro',
-        nPartes: 1,
-        codigoSap: '',
-        nombreProducto: '',
-        nombrePieza: 'Pieza Unica',
-        fechaStep2: null,
-        alto: '',
-        ancho: '',
-        largo: '',
-        cabida: '',
-        fuelle: '',
-        altoPliego: '',
-        anchoPliego: ''
+        lineaPT: 'Bolsa',
+        numeroPartes: 1,
+        productCode: '',
+        productName: '',
+        status: 'Borrador',
+        parts: [
+            {
+                partName: 'Pieza Unica',
+                sustratoSup: '', sustratoMed: '', sustratoInf: '',
+                direccionFibra: 'Vertical', tipoFlauta: 'Ninguna', direccionFlauta: '',
+                alto: 0, largo: 0, ancho: 0, fuelle: 0,
+                cabida: '', altoPliego: 0, anchoPliego: 0,
+                manijaTipo: '', manijaRef: '', manijaLargo: 0,
+                troquelNuevo: true, codigoTroquel: '',
+                tintaC: false, tintaM: false, tintaY: false, tintaK: false,
+                tintasEspeciales: '', terminado1: '', terminado2: '',
+                estampado: false, pieImprenta: '', notas: '',
+                condicionRemision: true, condicionCertificado: false,
+                condicionFactura: true, condicionOrdenCompra: false,
+                fabricationProcessesJson: JSON.stringify([
+                    { machine: '01a Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
+                    { machine: '01b Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
+                    { machine: '02a Guillotina A', process: 'Corte', capacity: 40000, equiv: 1 },
+                    { machine: '03 Sordz 72', process: 'Impresión', capacity: 20000, equiv: 2000 }
+                ]),
+                adjuntosJson: '[]'
+            }
+        ]
     });
 
     const [errors, setErrors] = useState({});
     const [isDuplicate, setIsDuplicate] = useState(false);
     const [loading, setLoading] = useState(false);
-
-    // Mock existing OTs for automatic verification
-    const existingOTs = ['12500', '12501', '12111', '2259'];
+    const [lineaOptions, setLineaOptions] = useState(['Bolsa', 'Caja o plegadiza', 'Empaque Flexible', 'Otro']);
 
     useEffect(() => {
-        if (formData.otNumber.length > 2) {
-            setLoading(true);
-            const timer = setTimeout(() => {
-                const duplicate = existingOTs.includes(formData.otNumber);
-                setIsDuplicate(duplicate);
-                setLoading(false);
-                if (duplicate) {
-                    setErrors(prev => ({ ...prev, otNumber: '¡Esta OT ya existe!' }));
-                } else {
-                    setErrors(prev => ({ ...prev, otNumber: null }));
+        const fetchNextNumber = async () => {
+            try {
+                const nextNo = await api.get('/production/orders/next-number');
+                if (nextNo) {
+                    setFormData(prev => ({ ...prev, otNumber: nextNo }));
                 }
-            }, 500);
-            return () => clearTimeout(timer);
-        } else {
-            setIsDuplicate(false);
-            setErrors(prev => ({ ...prev, otNumber: null }));
+            } catch (err) {
+                console.error("Error fetching next OT number", err);
+            }
+        };
+        fetchNextNumber();
+    }, []);
+
+    // Check duplicate by Number
+    useEffect(() => {
+        if (formData.otNumber.length > 2) {
+            // Uniqueness check for OT number could go here
         }
     }, [formData.otNumber]);
+
+    useEffect(() => {
+        if (formData.cliente.length > 3 && formData.productName.length > 3) {
+            const checkDuplicate = async () => {
+                try {
+                    const exists = await api.get(`/production/orders/check-duplicate?cliente=${encodeURIComponent(formData.cliente)}&productName=${encodeURIComponent(formData.productName)}`);
+                    setIsDuplicate(exists);
+                    if (exists) {
+                        setErrors(prev => ({ ...prev, productName: 'Ya existe una OT para este cliente con la misma referencia.' }));
+                    } else {
+                        setErrors(prev => ({ ...prev, productName: null }));
+                    }
+                } catch (err) {
+                    console.error("Error checking duplication", err);
+                }
+            };
+            const timer = setTimeout(checkDuplicate, 800);
+            return () => clearTimeout(timer);
+        }
+    }, [formData.cliente, formData.productName]);
 
     const validateStep1 = () => {
         const newErrors = {};
         if (!formData.otNumber) newErrors.otNumber = 'El número de OT es obligatorio';
-        if (isDuplicate) newErrors.otNumber = 'Número de OT duplicado';
-        if (!formData.ejecutivo) newErrors.ejecutivo = 'Seleccione un ejecutivo';
-        if (!formData.cliente) newErrors.cliente = 'Seleccione un cliente';
-        if (!formData.fechaSolicitud) newErrors.fechaSolicitud = 'Seleccione la fecha';
-        if (!formData.nombreProducto) newErrors.nombreProducto = 'El nombre del producto es obligatorio';
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const validateStep2 = () => {
-        const newErrors = {};
-        if (!formData.nombrePieza) newErrors.nombrePieza = 'Nombre de pieza obligatorio';
-        if (!formData.alto || !formData.ancho || !formData.largo) {
-            newErrors.dimensiones = 'Ingrese dimensiones (Alto x Ancho x Largo)';
-        }
+        if (!formData.cliente) newErrors.cliente = 'El cliente es obligatorio';
+        if (!formData.ejecutivoCuenta) newErrors.ejecutivoCuenta = 'El ejecutivo es obligatorio';
+        if (!formData.productName) newErrors.productName = 'El nombre del producto es obligatorio';
+        if (isDuplicate) newErrors.productName = 'Duplicado detectado';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -137,10 +165,20 @@ export default function NuevaOT() {
         setActiveStep(0);
     };
 
-    const handleSave = () => {
-        if (validateStep2()) {
-            alert('¡Orden de Trabajo guardada con éxito!');
-            navigate('/');
+    const handleSave = async () => {
+        try {
+            setLoading(true);
+            const result = await api.post('/production/orders', formData);
+
+            if (result) {
+                alert('¡Orden de Trabajo guardada con éxito!');
+                navigate('/ordenes/lista');
+            }
+        } catch (error) {
+            console.error("Error saving OT", error);
+            alert('Error al guardar: ' + (error.message || 'Error desconocido'));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -228,7 +266,10 @@ export default function NuevaOT() {
                             <IconBrush size={34} />
                         </ThemeIcon>
                         <Stack gap={0}>
-                            <Text size="xs" c="indigo.2" fw={700} tt="uppercase" lts={1}>Orden de Trabajo</Text>
+                            <Group gap="xs">
+                                <Text size="xs" c="indigo.2" fw={700} tt="uppercase" lts={1}>Orden de Trabajo</Text>
+                                <Badge variant="filled" color="indigo" size="sm">Creando OT #{formData.otNumber || '...'}</Badge>
+                            </Group>
                             <Title order={2} c="white">Clase y Línea de Diseño</Title>
                         </Stack>
                     </Group>
@@ -238,26 +279,29 @@ export default function NuevaOT() {
                             color="indigo.1"
                             leftSection={<IconLayoutGrid size={18} />}
                             styles={{ label: { fontWeight: 700 } }}
+                            onClick={() => navigate('/ordenes/lista')}
                         >
                             Diseños creados
                         </Button>
-                        <Button
-                            variant="filled"
-                            color="indigo"
-                            rightSection={<IconArrowRight size={18} />}
-                            radius="md"
-                            onClick={handleNext}
-                        >
-                            Siguiente
-                        </Button>
-                        <ActionIcon
-                            variant="light"
-                            color="red"
-                            size="lg"
-                            onClick={() => navigate('/')}
-                        >
-                            <IconX size={20} />
-                        </ActionIcon>
+                        <Group gap="xs">
+                            <Button
+                                variant="filled"
+                                color="indigo"
+                                rightSection={<IconArrowRight size={18} />}
+                                radius="md"
+                                onClick={handleNext}
+                            >
+                                Siguiente
+                            </Button>
+                            <ActionIcon
+                                variant="light"
+                                color="red"
+                                size="lg"
+                                onClick={() => navigate('/')}
+                            >
+                                <IconX size={20} />
+                            </ActionIcon>
+                        </Group>
                     </Group>
                 </Group>
             </Card>
@@ -268,64 +312,46 @@ export default function NuevaOT() {
                     <Card className="glass-card" p="xl" style={{ borderLeft: '4px solid #6366f1' }}>
                         <Title order={4} c="white" mb="md">Validación de OT</Title>
                         <TextInput
-                            label="Número de Orden de Trabajo"
-                            placeholder="Ingrese n° de OT..."
+                            label="Consecutivo de OT"
+                            placeholder="Generando..."
                             size="md"
+                            mb="md"
                             value={formData.otNumber}
-                            onChange={(e) => setFormData({ ...formData, otNumber: e.currentTarget.value })}
-                            error={errors.otNumber}
+                            readOnly
+                            variant="filled"
+                            styles={{ input: { color: '#6366f1', fontWeight: 800, background: 'rgba(99, 102, 241, 0.05)' } }}
+                            leftSection={<IconBarcode size={16} />}
+                        />
+                        <TextInput
+                            label="Razon Social del Cliente"
+                            placeholder="Nombre del cliente..."
+                            size="md"
+                            value={formData.cliente}
+                            onChange={(e) => setFormData({ ...formData, cliente: e.currentTarget.value })}
+                            error={errors.cliente}
                             required
-                            rightSection={
-                                loading ? null :
-                                    formData.otNumber && !isDuplicate ? <IconCheck size={18} color="#10b981" /> :
-                                        isDuplicate ? <IconAlertCircle size={18} color="#f43f5e" /> : null
-                            }
-                            styles={{
-                                input: {
-                                    fontSize: rem(18),
-                                    fontWeight: 700,
-                                    background: 'rgba(255,255,255,0.05)',
-                                    color: 'white'
-                                }
-                            }}
+                            leftSection={<IconBuildingStore size={16} />}
                         />
                         {isDuplicate && (
                             <Alert icon={<IconAlertCircle size={16} />} title="Duplicado Detectado" color="red" mt="md" variant="light">
-                                Ya existe un registro con este número.
-                            </Alert>
-                        )}
-                        {!isDuplicate && formData.otNumber.length > 2 && (
-                            <Alert icon={<IconCheck size={16} />} title="Número Disponible" color="teal" mt="md" variant="light">
-                                El número de OT es válido para un nuevo registro.
+                                Ya existe una orden para este cliente con la misma referencia.
                             </Alert>
                         )}
                     </Card>
 
                     <Card className="glass-card" p="xl">
                         <Stack gap="sm">
-                            <Select
+                            <TextInput
                                 label="Ejecutivo de cuenta"
-                                placeholder="Seleccione ejecutivo..."
+                                placeholder="Nombre del ejecutivo..."
                                 leftSection={<IconUser size={16} />}
-                                data={['Ejecutivo A', 'Ejecutivo B', 'Producción']}
-                                variant="filled"
-                                value={formData.ejecutivo}
-                                onChange={(val) => setFormData({ ...formData, ejecutivo: val })}
-                                error={errors.ejecutivo}
+                                value={formData.ejecutivoCuenta}
+                                onChange={(e) => setFormData({ ...formData, ejecutivoCuenta: e.currentTarget.value })}
+                                error={errors.ejecutivoCuenta}
                                 required
-                            />
-                            <Select
-                                label="Razon Social del Cliente"
-                                placeholder="Seleccione cliente..."
-                                leftSection={<IconBuildingStore size={16} />}
-                                data={['SINFONIA', 'DISTRIBUIDORA EJEMPLO', 'SOCIEDAD CALZADO']}
                                 variant="filled"
-                                searchable
-                                value={formData.cliente}
-                                onChange={(val) => setFormData({ ...formData, cliente: val })}
-                                error={errors.cliente}
-                                required
                             />
+
                             <DateInput
                                 label="Fecha de solicitud"
                                 placeholder="Seleccione fecha..."
@@ -364,21 +390,33 @@ export default function NuevaOT() {
                     </Group>
 
                     <Stack gap="xl">
-                        <Select
-                            label="Linea de PT"
-                            placeholder="Seleccione línea de producto terminado"
-                            data={['Bolsa Boutique', 'Bolsa Industrial', 'Empaque Flexible', 'Otro']}
-                            value={formData.lineaPT}
-                            onChange={(val) => setFormData({ ...formData, lineaPT: val })}
-                            variant="filled"
-                            size="md"
-                        />
+                        <Group align="flex-end" grow>
+                            <Select
+                                label="Linea de PT"
+                                placeholder="Seleccione línea..."
+                                data={[...lineaOptions, 'Nuevo elemento...']}
+                                value={formData.lineaPT}
+                                onChange={(val) => {
+                                    if (val === 'Nuevo elemento...') {
+                                        const newVal = prompt('Ingrese nueva línea de PT:');
+                                        if (newVal) {
+                                            setLineaOptions(prev => [...prev, newVal]);
+                                            setFormData({ ...formData, lineaPT: newVal });
+                                        }
+                                    } else {
+                                        setFormData({ ...formData, lineaPT: val });
+                                    }
+                                }}
+                                variant="filled"
+                                size="md"
+                            />
+                        </Group>
 
                         <SimpleGrid cols={2}>
                             <NumberInput
                                 label="N partes de OT"
-                                value={formData.nPartes}
-                                onChange={(val) => setFormData({ ...formData, nPartes: val })}
+                                value={formData.numeroPartes}
+                                onChange={(val) => setFormData({ ...formData, numeroPartes: val })}
                                 min={1}
                                 variant="filled"
                                 size="md"
@@ -387,8 +425,8 @@ export default function NuevaOT() {
                                 label="Codigo SAP"
                                 placeholder="Referencia ERP..."
                                 leftSection={<IconBarcode size={16} />}
-                                value={formData.codigoSap}
-                                onChange={(e) => setFormData({ ...formData, codigoSap: e.currentTarget.value })}
+                                value={formData.productCode}
+                                onChange={(e) => setFormData({ ...formData, productCode: e.currentTarget.value })}
                                 variant="filled"
                                 size="md"
                             />
@@ -399,9 +437,9 @@ export default function NuevaOT() {
                             placeholder="Nombre descriptivo de la orden..."
                             variant="filled"
                             size="lg"
-                            value={formData.nombreProducto}
-                            onChange={(e) => setFormData({ ...formData, nombreProducto: e.currentTarget.value })}
-                            error={errors.nombreProducto}
+                            value={formData.productName}
+                            onChange={(e) => setFormData({ ...formData, productName: e.currentTarget.value })}
+                            error={errors.productName}
                             required
                             styles={{
                                 input: {
@@ -416,7 +454,7 @@ export default function NuevaOT() {
                         <SimpleGrid cols={2} spacing="xl">
                             <Box>
                                 <Text size="sm" fw={700} c="indigo.3" mb={4}>Estado de Flujo</Text>
-                                <Text size="sm" c="dimmed">Pendiente por aprobación técnica</Text>
+                                <Text size="sm" c="dimmed">{isDuplicate ? 'Diseño Existente (Posible Repetición)' : 'Nuevo Diseño'}</Text>
                             </Box>
                             <Box style={{ textAlign: 'right' }}>
                                 <Text size="xs" c="dimmed">Perla v1.0.0 | Módulo de Ordenes de Trabajo</Text>
@@ -428,223 +466,279 @@ export default function NuevaOT() {
         </Stack>
     );
 
+    const [currentPartIndex, setCurrentPartIndex] = useState(0);
+
+    const updatePartField = (field, value) => {
+        const newParts = [...formData.parts];
+        newParts[currentPartIndex] = { ...newParts[currentPartIndex], [field]: value };
+        setFormData({ ...formData, parts: newParts });
+    };
+
+    const addPart = () => {
+        setFormData({
+            ...formData,
+            parts: [
+                ...formData.parts,
+                {
+                    partName: `Pieza ${formData.parts.length + 1}`,
+                    sustratoSup: '', sustratoMed: '', sustratoInf: '',
+                    direccionFibra: 'Vertical', tipoFlauta: 'Ninguna', direccionFlauta: '',
+                    alto: 0, largo: 0, ancho: 0, fuelle: 0,
+                    cabida: '', altoPliego: 0, anchoPliego: 0,
+                    manijaTipo: '', manijaRef: '', manijaLargo: 0,
+                    troquelNuevo: true, codigoTroquel: '',
+                    tintaC: false, tintaM: false, tintaY: false, tintaK: false,
+                    tintasEspeciales: '', terminado1: '', terminado2: '',
+                    estampado: false, pieImprenta: '', notas: '',
+                    condicionRemision: true, condicionCertificado: false,
+                    condicionFactura: true, condicionOrdenCompra: false,
+                    fabricationProcessesJson: JSON.stringify([
+                        { machine: '01a Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
+                        { machine: '01b Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
+                        { machine: '02a Guillotina A', process: 'Corte', capacity: 40000, equiv: 1 },
+                        { machine: '03 Sordz 72', process: 'Impresión', capacity: 20000, equiv: 2000 }
+                    ]),
+                    adjuntosJson: '[]'
+                }
+            ],
+            numeroPartes: formData.parts.length + 1
+        });
+        setCurrentPartIndex(formData.parts.length);
+    };
+
     // --- STEP 2: DETALLE DE ORDEN DE TRABAJO ---
-    const renderStep2 = () => (
-        <Stack gap="xl">
-            {/* Step 2 Header */}
-            <Card p={0} style={{ background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 100%)', border: 'none', borderRadius: '16px' }}>
-                <Group justify="space-between" align="center" p="xl">
-                    <Group gap="lg">
-                        <ThemeIcon size={64} radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
-                            <IconBrush size={34} />
-                        </ThemeIcon>
-                        <Stack gap={0}>
-                            <Group align="baseline" gap="xs">
-                                <Title order={2} c="white">ORDEN DE TRABAJO No {formData.otNumber || '2558'}</Title>
-                                <Text c="indigo.2" fw={700} size="xl">{formData.nombreProducto || 'Sin título'}</Text>
-                            </Group>
-                        </Stack>
-                    </Group>
-                    <Group gap="md">
-                        <Button variant="subtle" color="indigo.1" leftSection={<IconPrinter size={18} />}>Imprimir</Button>
-                        <Button variant="filled" color="indigo" leftSection={<IconDeviceFloppy size={18} />} radius="md" onClick={handleSave}>Guardar y Salir</Button>
-                        <ActionIcon variant="light" color="gray" size="lg" onClick={handleBack}><IconArrowLeft size={20} /></ActionIcon>
-                    </Group>
-                </Group>
-            </Card>
+    const renderStep2 = () => {
+        const currentPart = formData.parts[currentPartIndex] || {};
+        const fabricationProcesses = JSON.parse(currentPart.fabricationProcessesJson || '[]');
 
-            <SimpleGrid cols={{ base: 1, lg: 12 }} spacing="xl">
-                {/* Left Area: General Info (8 cols) */}
-                <Box style={{ gridColumn: 'span 8' }}>
-                    <Stack gap="xl">
-                        {/* Descripción del diseño */}
-                        <Card className="glass-card" p="xl">
-                            <Divider label="Descripción del diseño" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }} />
-                            <SimpleGrid cols={2} spacing="lg">
-                                <Stack gap="xs">
-                                    <SimpleGrid cols={2}>
-                                        <TextInput label="Id de OT" value={formData.otNumber || '2558'} readOnly variant="filled" />
-                                        <DateInput
-                                            label="Fecha"
-                                            placeholder="Seleccione..."
+        return (
+            <Stack gap="xl">
+                {/* Step 2 Header */}
+                <Card p={0} style={{ background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 100%)', border: 'none', borderRadius: '16px' }}>
+                    <Group justify="space-between" align="center" p="xl">
+                        <Group gap="lg">
+                            <ThemeIcon size={64} radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
+                                <IconBrush size={34} />
+                            </ThemeIcon>
+                            <Stack gap={0}>
+                                <Group align="baseline" gap="xs">
+                                    <Title order={2} c="white">ORDEN DE TRABAJO</Title>
+                                    <Text c="indigo.2" fw={700} size="xl">{formData.productName || 'Sin título'}</Text>
+                                </Group>
+                                <Text size="sm" c="dimmed">Editando: {currentPart.partName || 'Pieza'} ({currentPartIndex + 1} de {formData.parts.length})</Text>
+                            </Stack>
+                        </Group>
+                        <Group gap="md">
+                            <Button variant="filled" color="indigo" leftSection={<IconDeviceFloppy size={18} />} radius="md" onClick={handleSave} loading={loading}>Guardar OT</Button>
+                            <ActionIcon variant="light" color="gray" size="lg" onClick={handleBack}><IconArrowLeft size={20} /></ActionIcon>
+                        </Group>
+                    </Group>
+                </Card>
+
+                <SimpleGrid cols={{ base: 1, lg: 12 }} spacing="xl">
+                    {/* Left Area (8 cols) */}
+                    <Box style={{ gridColumn: 'span 8' }}>
+                        <Stack gap="xl">
+                            {/* Descripción del diseño */}
+                            <Card className="glass-card" p="xl">
+                                <Divider label="Descripción del Diseño y Medidas" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }} />
+                                <SimpleGrid cols={2} spacing="lg">
+                                    <Stack gap="xs">
+                                        <TextInput
+                                            label="Nombre de esta Pieza"
+                                            value={currentPart.partName}
+                                            onChange={(e) => updatePartField('partName', e.currentTarget.value)}
                                             variant="filled"
-                                            value={formData.fechaStep2}
-                                            onChange={(val) => setFormData({ ...formData, fechaStep2: val })}
-                                            styles={calendarStyles}
-                                            popoverProps={{ shadow: 'xl', position: 'bottom-start' }}
-                                            nextIcon={<IconChevronRight size={16} />}
-                                            previousIcon={<IconChevronLeft size={16} />}
-                                            hideOutsideDates
+                                            required
                                         />
-                                    </SimpleGrid>
-                                    <TextInput
-                                        label="Nombre Pieza"
-                                        value={formData.nombrePieza}
-                                        onChange={(e) => setFormData({ ...formData, nombrePieza: e.currentTarget.value })}
-                                        error={errors.nombrePieza}
-                                        variant="filled"
-                                        required
-                                    />
-                                    <Stack gap={0}>
-                                        <Text size="sm" fw={500} mb={4}>Alto x Ancho x Largo Producto Final</Text>
-                                        <Group grow align="flex-start" gap="xs">
-                                            <TextInput placeholder="Alto" variant="filled" value={formData.alto} onChange={(e) => setFormData({ ...formData, alto: e.currentTarget.value })} error={errors.dimensiones ? true : false} />
-                                            <TextInput placeholder="Ancho" variant="filled" value={formData.ancho} onChange={(e) => setFormData({ ...formData, ancho: e.currentTarget.value })} error={errors.dimensiones ? true : false} />
-                                            <TextInput placeholder="Largo" variant="filled" value={formData.largo} onChange={(e) => setFormData({ ...formData, largo: e.currentTarget.value })} error={errors.dimensiones ? true : false} />
+                                        <Group grow align="flex-end">
+                                            <TextInput label="Cabida" variant="filled" value={currentPart.cabida} onChange={(e) => updatePartField('cabida', e.currentTarget.value)} />
+                                            <NumberInput label="Fuelle" variant="filled" value={currentPart.fuelle} onChange={(val) => updatePartField('fuelle', val)} />
                                         </Group>
-                                        {errors.dimensiones && <Text size="xs" color="red" mt={4}>{errors.dimensiones}</Text>}
-                                    </Stack>
-                                    <TextInput label="Cabida" variant="filled" value={formData.cabida} onChange={(e) => setFormData({ ...formData, cabida: e.currentTarget.value })} />
-                                </Stack>
-                                <Stack gap="xs">
-                                    <Group grow>
-                                        <TextInput label="Fuelle" variant="filled" value={formData.fuelle} onChange={(e) => setFormData({ ...formData, fuelle: e.currentTarget.value })} />
-                                        <TextInput label="Alto pliego" variant="filled" value={formData.altoPliego} onChange={(e) => setFormData({ ...formData, altoPliego: e.currentTarget.value })} />
-                                        <TextInput label="Ancho pliego" variant="filled" value={formData.anchoPliego} onChange={(e) => setFormData({ ...formData, anchoPliego: e.currentTarget.value })} />
-                                    </Group>
-                                    <Group grow gap="xs">
-                                        <Card withBorder style={{ background: 'rgba(255,255,255,0.01)', flex: 2 }} p="xs" radius="md">
-                                            <SimpleGrid cols={2} spacing="xs">
-                                                <Stack gap={4} align="center"><IconZoomIn size={20} c="indigo" /><Text size="xs" c="dimmed">Ampliaciones</Text></Stack>
-                                                <Stack gap={4} align="center"><IconPaperclip size={20} c="indigo" /><Text size="xs" c="dimmed">Adjuntos</Text></Stack>
-                                            </SimpleGrid>
-                                        </Card>
-                                        <Card withBorder style={{ background: 'rgba(255,255,255,0.01)', flex: 1 }} p="xs" radius="md">
-                                            <Stack gap={4} align="center"><IconMaximize size={24} c="indigo" /></Stack>
-                                        </Card>
-                                    </Group>
-                                    <Textarea placeholder="Observaciones adicionales..." minRows={3} variant="filled" />
-                                </Stack>
-                            </SimpleGrid>
-                        </Card>
-
-                        {/* Materiales */}
-                        <Card className="glass-card" p="xl">
-                            <Divider label="Materiales" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }} />
-                            <SimpleGrid cols={2} spacing="xl">
-                                <Stack gap="xs">
-                                    <Select label="Sustrato superior - Cal/g:" data={['Cartón 300g', 'Papel 150g']} variant="filled" />
-                                    <Select label="Sustrato inferior - Cal/g:" data={['Papel Bond', 'Kraft']} variant="filled" />
-                                </Stack>
-                                <Stack gap="xs">
-                                    <Select label="Sustrato medio - Cal/g:" variant="filled" data={[]} />
-                                    <Group grow>
-                                        <Select label="Dirección de la fibra:" variant="filled" data={['Horizontal', 'Vertical']} />
-                                        <Select label="Dirección de la flauta:" variant="filled" data={[]} />
-                                        <Select label="Tipo de flauta/Micro:" defaultValue="Ninguna" data={['Ninguna', 'B', 'E']} variant="filled" />
-                                    </Group>
-                                </Stack>
-                            </SimpleGrid>
-                        </Card>
-
-                        {/* Grid for Troquel, Tintas, Manija */}
-                        <SimpleGrid cols={3} spacing="xl">
-                            {/* Troquel */}
-                            <Card className="glass-card" p="md">
-                                <Divider label="Troquel" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
-                                <Stack gap="xs">
-                                    <Checkbox label="Troquel nuevo" defaultChecked />
-                                    <Select label="Codigo Troquel" variant="filled" data={[]} />
-                                </Stack>
-                            </Card>
-                            {/* Tintas */}
-                            <Card className="glass-card" p="md">
-                                <Divider label="Tintas" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
-                                <Stack gap="xs">
-                                    <NumberInput label="Cantidad Tintas" variant="filled" />
-                                    <Select label="Colores" variant="filled" data={[]} />
-                                    <Checkbox label="Tinta Especial" />
-                                </Stack>
-                            </Card>
-                            {/* Manija */}
-                            <Card className="glass-card" p="md">
-                                <Divider label="Manija" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
-                                <Stack gap="xs">
-                                    <Select label="Tipo de manija" variant="filled" data={[]} />
-                                    <Select label="M- Ref" variant="filled" data={[]} />
-                                    <NumberInput label="M-Largo (cm)" defaultValue={0} variant="filled" />
-                                </Stack>
-                            </Card>
-                        </SimpleGrid>
-
-                        {/* Terminados and Condiciones */}
-                        <SimpleGrid cols={2} spacing="xl">
-                            <Card className="glass-card" p="md">
-                                <Divider label="Terminados" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
-                                <SimpleGrid cols={2}>
-                                    <Stack gap="xs">
-                                        <Select label="Terminado 1" variant="filled" data={[]} />
-                                        <Checkbox label="Estampado" />
+                                        <Stack gap={0}>
+                                            <Text size="sm" fw={500} mb={4}>Dimensiones (mm): Alto x Ancho x Largo</Text>
+                                            <Group grow align="flex-start" gap="xs">
+                                                <NumberInput placeholder="Alto" variant="filled" value={currentPart.alto} onChange={(val) => updatePartField('alto', val)} />
+                                                <NumberInput placeholder="Ancho" variant="filled" value={currentPart.ancho} onChange={(val) => updatePartField('ancho', val)} />
+                                                <NumberInput placeholder="Largo" variant="filled" value={currentPart.largo} onChange={(val) => updatePartField('largo', val)} />
+                                            </Group>
+                                        </Stack>
                                     </Stack>
                                     <Stack gap="xs">
-                                        <Select label="Terminado 2" variant="filled" data={[]} />
-                                        <Select label="Pie de imprenta" variant="filled" data={[]} />
+                                        <Group grow>
+                                            <NumberInput label="Alto Pliego (mm)" variant="filled" value={currentPart.altoPliego} onChange={(val) => updatePartField('altoPliego', val)} />
+                                            <NumberInput label="Ancho Pliego (mm)" variant="filled" value={currentPart.anchoPliego} onChange={(val) => updatePartField('anchoPliego', val)} />
+                                        </Group>
+                                        <Textarea
+                                            label="Pie de imprenta / Notas"
+                                            placeholder="Observaciones..."
+                                            minRows={4}
+                                            variant="filled"
+                                            value={currentPart.notas}
+                                            onChange={(e) => updatePartField('notas', e.currentTarget.value)}
+                                        />
                                     </Stack>
                                 </SimpleGrid>
                             </Card>
-                            <Card className="glass-card" p="md" style={{ borderLeft: '4px solid #10b981' }}>
-                                <Divider label="Condiciones de entrega" labelPosition="left" mb="sm" styles={{ label: { color: '#10b981', fontWeight: 700 } }} />
-                                <SimpleGrid cols={2}>
-                                    <Checkbox label="Remision" />
-                                    <Checkbox label="Certificado de Calidad" />
-                                    <Checkbox label="Factura" />
-                                    <Checkbox label="Orden de compra" />
+
+                            {/* Materiales y Flauta */}
+                            <Card className="glass-card" p="xl">
+                                <Divider label="Materiales y Configuración" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }} />
+                                <SimpleGrid cols={2} spacing="xl">
+                                    <Stack gap="xs">
+                                        <TextInput label="Sustrato superior" variant="filled" value={currentPart.sustratoSup} onChange={(e) => updatePartField('sustratoSup', e.currentTarget.value)} />
+                                        <TextInput label="Sustrato inferior" variant="filled" value={currentPart.sustratoInf} onChange={(e) => updatePartField('sustratoInf', e.currentTarget.value)} />
+                                        <TextInput label="Sustrato medio" variant="filled" value={currentPart.sustratoMed} onChange={(e) => updatePartField('sustratoMed', e.currentTarget.value)} />
+                                    </Stack>
+                                    <Stack gap="xs">
+                                        <Select label="Fibra" variant="filled" data={['Horizontal', 'Vertical']} value={currentPart.direccionFibra} onChange={(val) => updatePartField('direccionFibra', val)} />
+                                        <Select label="Tipo Flauta" variant="filled" data={['Ninguna', 'B', 'E', 'BC']} value={currentPart.tipoFlauta} onChange={(val) => updatePartField('tipoFlauta', val)} />
+                                        <TextInput label="Dirección Flauta" variant="filled" value={currentPart.direccionFlauta || ''} onChange={(e) => updatePartField('direccionFlauta', e.currentTarget.value)} />
+                                    </Stack>
                                 </SimpleGrid>
                             </Card>
-                        </SimpleGrid>
-                    </Stack>
-                </Box>
 
-                {/* Right Area: Proceso de Fabricación (4 cols) */}
-                <Box style={{ gridColumn: 'span 4' }}>
-                    <Card className="glass-card" p="xl" style={{ height: '100%' }}>
-                        <Group gap="xs" mb="lg">
-                            <ThemeIcon variant="light" color="indigo"><IconSettings size={18} /></ThemeIcon>
-                            <Title order={4} c="white">Proceso de Fabricación</Title>
-                        </Group>
-                        <ScrollArea offsetScrollbars>
-                            <Table verticalSpacing="xs" striped highlightOnHover style={{ color: '#94a3b8' }}>
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th>Maquina</Table.Th>
-                                        <Table.Th>Proceso</Table.Th>
-                                        <Table.Th align="right">Capac Estand</Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    {[
-                                        { m: '01a Convertidora', p: 'Corte', c: '20000' },
-                                        { m: '01b Convertidora', p: 'Corte', c: '20000' },
-                                        { m: '02a Guillotina A', p: 'Corte', c: '40000' },
-                                        { m: '02b Guillotina B', p: 'Corte', c: '40000' },
-                                        { m: '03 Sordz 72', p: 'Impresión/Barni', c: '20000' },
-                                        { m: '04 Sordz 76', p: 'Impresión/Barni', c: '20000' },
-                                    ].map((row, i) => (
-                                        <Table.Tr key={i}>
-                                            <Table.Td>
-                                                <Group gap="xs">
-                                                    <Checkbox size="xs" />
-                                                    <Text size="xs">{row.m}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td><Text size="xs">{row.p}</Text></Table.Td>
-                                            <Table.Td align="right"><Text size="xs" fw={700} c="indigo.3">{row.c}</Text></Table.Td>
-                                        </Table.Tr>
+                            {/* Tintas, Troquel y Manija */}
+                            <SimpleGrid cols={3} spacing="xl">
+                                <Card className="glass-card" p="md">
+                                    <Divider label="Tintas" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
+                                    <Stack gap="xs">
+                                        <Group grow>
+                                            <Checkbox label="C" checked={currentPart.tintaC} onChange={(e) => updatePartField('tintaC', e.currentTarget.checked)} color="cyan" />
+                                            <Checkbox label="M" checked={currentPart.tintaM} onChange={(e) => updatePartField('tintaM', e.currentTarget.checked)} color="pink" />
+                                        </Group>
+                                        <Group grow>
+                                            <Checkbox label="Y" checked={currentPart.tintaY} onChange={(e) => updatePartField('tintaY', e.currentTarget.checked)} color="yellow" />
+                                            <Checkbox label="K" checked={currentPart.tintaK} onChange={(e) => updatePartField('tintaK', e.currentTarget.checked)} color="dark" />
+                                        </Group>
+                                        <TextInput label="Pantones" placeholder="485C..." variant="filled" value={currentPart.tintasEspeciales} onChange={(e) => updatePartField('tintasEspeciales', e.currentTarget.value)} />
+                                    </Stack>
+                                </Card>
+                                <Card className="glass-card" p="md">
+                                    <Divider label="Troquel" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
+                                    <Stack gap="xs">
+                                        <Checkbox label="Troquel nuevo" checked={currentPart.troquelNuevo} onChange={(e) => updatePartField('troquelNuevo', e.currentTarget.checked)} />
+                                        <TextInput label="Codigo" variant="filled" placeholder="N°..." value={currentPart.codigoTroquel} onChange={(e) => updatePartField('codigoTroquel', e.currentTarget.value)} />
+                                    </Stack>
+                                </Card>
+                                <Card className="glass-card" p="md">
+                                    <Divider label="Manija (Bolsas)" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
+                                    <Stack gap="xs">
+                                        <TextInput label="Tipo" variant="filled" value={currentPart.manijaTipo} onChange={(e) => updatePartField('manijaTipo', e.currentTarget.value)} />
+                                        <TextInput label="Ref" variant="filled" value={currentPart.manijaRef} onChange={(e) => updatePartField('manijaRef', e.currentTarget.value)} />
+                                        <NumberInput label="Largo (cm)" variant="filled" value={currentPart.manijaLargo} onChange={(val) => updatePartField('manijaLargo', val)} />
+                                    </Stack>
+                                </Card>
+                            </SimpleGrid>
+
+                            {/* Proceso de Fabricación (Table) */}
+                            <Card className="glass-card" p="xl">
+                                <Group justify="space-between" mb="md">
+                                    <Divider label="Proceso de Fabricación" labelPosition="left" styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }} style={{ flex: 1 }} />
+                                </Group>
+                                <ScrollArea>
+                                    <Table verticalSpacing="xs" striped highlightOnHover style={{ minWidth: 600 }}>
+                                        <Table.Thead>
+                                            <Table.Tr>
+                                                <Table.Th style={{ color: '#94a3b8' }}>Maquina</Table.Th>
+                                                <Table.Th style={{ color: '#94a3b8' }}>Proceso</Table.Th>
+                                                <Table.Th style={{ color: '#94a3b8' }} align="right">Capacidad</Table.Th>
+                                                <Table.Th style={{ color: '#94a3b8' }} align="right">Equiv. Cambio</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {fabricationProcesses.map((proc, i) => (
+                                                <Table.Tr key={i}>
+                                                    <Table.Td><Group gap="xs"><Checkbox size="xs" /><Text size="xs">{proc.machine}</Text></Group></Table.Td>
+                                                    <Table.Td><Text size="xs">{proc.process}</Text></Table.Td>
+                                                    <Table.Td align="right"><Text size="xs" fw={700} c="indigo.3">{proc.capacity}</Text></Table.Td>
+                                                    <Table.Td align="right"><Text size="xs" c="dimmed">{proc.equiv}</Text></Table.Td>
+                                                </Table.Tr>
+                                            ))}
+                                        </Table.Tbody>
+                                    </Table>
+                                </ScrollArea>
+                            </Card>
+                        </Stack>
+                    </Box>
+
+                    {/* Right Area (4 cols) */}
+                    <Box style={{ gridColumn: 'span 4' }}>
+                        <Stack gap="xl" style={{ height: '100%' }}>
+                            {/* Navigation */}
+                            <Card className="glass-card" p="xl">
+                                <Group gap="xs" mb="lg">
+                                    <ThemeIcon variant="light" color="indigo"><IconSettings size={18} /></ThemeIcon>
+                                    <Title order={4} c="white">Configuración de Piezas</Title>
+                                </Group>
+                                <Stack gap="md">
+                                    {formData.parts.map((part, idx) => (
+                                        <Button
+                                            key={idx}
+                                            variant={currentPartIndex === idx ? "filled" : "light"}
+                                            color={currentPartIndex === idx ? "indigo" : "gray"}
+                                            onClick={() => setCurrentPartIndex(idx)}
+                                            fullWidth
+                                            justify="flex-start"
+                                            leftSection={<Text fw={900}>{idx + 1}</Text>}
+                                        >
+                                            <Box style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{part.partName || `Pieza ${idx + 1}`}</Box>
+                                        </Button>
                                     ))}
-                                </Table.Tbody>
-                            </Table>
-                        </ScrollArea>
-                        <Divider my="xl" opacity={0.1} />
-                        <Group grow>
-                            <Button variant="subtle" color="gray" size="xs">Anterior</Button>
-                            <Button variant="subtle" color="indigo" size="xs">Siguiente</Button>
-                            <Button variant="outline" color="indigo" size="xs">Nueva Pieza</Button>
-                        </Group>
-                    </Card>
-                </Box>
-            </SimpleGrid>
-        </Stack>
-    );
+                                    <Button variant="outline" color="indigo" leftSection={<IconLayoutGrid size={18} />} onClick={addPart} fullWidth mt="md">Añadir Pieza</Button>
+
+                                    {formData.parts.length > 1 && (
+                                        <Button
+                                            variant="subtle"
+                                            color="red"
+                                            size="compact-xs"
+                                            mt="xs"
+                                            fullWidth
+                                            leftSection={<IconTrash size={14} />}
+                                            onClick={() => {
+                                                const newParts = formData.parts.filter((_, i) => i !== currentPartIndex);
+                                                setFormData({ ...formData, parts: newParts, numeroPartes: newParts.length });
+                                                setCurrentPartIndex(Math.max(0, currentPartIndex - 1));
+                                            }}
+                                        >
+                                            Eliminar Pieza Actual
+                                        </Button>
+                                    )}
+                                </Stack>
+                            </Card>
+
+                            {/* Terminados */}
+                            <Card className="glass-card" p="xl">
+                                <Divider label="Terminados" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
+                                <Stack gap="xs">
+                                    <TextInput label="Terminado 1" variant="filled" value={currentPart.terminado1} onChange={(e) => updatePartField('terminado1', e.currentTarget.value)} />
+                                    <TextInput label="Terminado 2" variant="filled" value={currentPart.terminado2} onChange={(e) => updatePartField('terminado2', e.currentTarget.value)} />
+                                    <Checkbox label="Lleva Estampado" checked={currentPart.estampado} onChange={(e) => updatePartField('estampado', e.currentTarget.checked)} mt="xs" />
+                                </Stack>
+                            </Card>
+
+                            {/* Condiciones de Entrega */}
+                            <Card className="glass-card" p="xl" style={{ borderLeft: '4px solid #10b981' }}>
+                                <Divider label="Condiciones de Entrega" labelPosition="left" mb="md" styles={{ label: { color: '#10b981', fontWeight: 800 } }} />
+                                <SimpleGrid cols={1} spacing="xs">
+                                    <Checkbox label="Remisión" checked={currentPart.condicionRemision} onChange={(e) => updatePartField('condicionRemision', e.currentTarget.checked)} />
+                                    <Checkbox label="Certificado de Calidad" checked={currentPart.condicionCertificado} onChange={(e) => updatePartField('condicionCertificado', e.currentTarget.checked)} />
+                                    <Checkbox label="Factura" checked={currentPart.condicionFactura} onChange={(e) => updatePartField('condicionFactura', e.currentTarget.checked)} />
+                                    <Checkbox label="Orden de compra" checked={currentPart.condicionOrdenCompra} onChange={(e) => updatePartField('condicionOrdenCompra', e.currentTarget.checked)} />
+                                </SimpleGrid>
+                            </Card>
+
+                            <Box mt="auto" pt="xl">
+                                <Alert icon={<IconAlertCircle size={16} />} title="Nota Técnica" color="blue" variant="light">
+                                    <Text size="xs">Asegúrese de guardar los cambios antes de salir de la aplicación.</Text>
+                                </Alert>
+                            </Box>
+                        </Stack>
+                    </Box>
+                </SimpleGrid>
+            </Stack>
+        );
+    };
 
     return (
         <Box className="fade-in" style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 40, padding: 20 }}>
