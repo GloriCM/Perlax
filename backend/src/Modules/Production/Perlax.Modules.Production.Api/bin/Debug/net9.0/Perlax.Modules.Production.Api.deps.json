@@ -8,6 +8,7 @@
     ".NETCoreApp,Version=v9.0": {
       "Perlax.Modules.Production.Api/1.0.0": {
         "dependencies": {
+          "Perlax.Modules.Audit.Application": "1.0.0",
           "Perlax.Modules.Production.Application": "1.0.0",
           "Perlax.Modules.Production.Infrastructure": "1.0.0"
         },
@@ -176,6 +177,17 @@
           }
         }
       },
+      "Perlax.Modules.Audit.Application/1.0.0": {
+        "dependencies": {
+          "Perlax.Modules.Audit.Domain": "1.0.0"
+        },
+        "runtime": {
+          "Perlax.Modules.Audit.Application.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
       "Perlax.Modules.Production.Application/1.0.0": {
         "dependencies": {
           "Perlax.Modules.Production.Domain": "1.0.0"
@@ -319,6 +331,11 @@
       "sha512": "sha512-1A6HpMPbzK+quxdtug1aDHI4BSRTgpi7OaDt8WQh7SFJd2sSQ0nNTZ7sYrwyxVf4AdKdN7XJL9tpiiJjRUaa4g==",
       "path": "npgsql.entityframeworkcore.postgresql/9.0.3",
       "hashPath": "npgsql.entityframeworkcore.postgresql.9.0.3.nupkg.sha512"
+    },
+    "Perlax.Modules.Audit.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
     },
     "Perlax.Modules.Production.Application/1.0.0": {
       "type": "project",

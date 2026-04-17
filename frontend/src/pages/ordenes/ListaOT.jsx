@@ -24,10 +24,12 @@ import {
     IconX,
     IconChevronRight,
     IconCircleCheck,
-    IconCircleX
+    IconCircleX,
+    IconTrash
 } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../utils/api';
 
 // Mock data based on the screenshot provided by the user
 const MOCK_DATA = [
@@ -42,9 +44,43 @@ export default function ListaOT() {
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [scrolled, setScrolled] = useState(false);
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchOrders = async () => {
+        try {
+            setLoading(true);
+            const data = await api.get('/production/orders');
+            if (data) {
+                setOrders(data);
+            }
+        } catch (error) {
+            console.error("Error fetching orders", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id, otNumber) => {
+        if (!window.confirm(`¿Está seguro de que desea eliminar la OT ${otNumber || ''}? Esta acción no se puede deshacer.`)) {
+            return;
+        }
+
+        try {
+            await api.delete(`/production/orders/${id}`);
+            setOrders(prev => prev.filter(o => o.id !== id));
+        } catch (error) {
+            console.error("Error deleting order", error);
+            alert("No se pudo eliminar la orden: " + (error.message || "Error desconocido"));
+        }
+    };
+
+    useState(() => {
+        fetchOrders();
+    }, []);
 
     // Filter logic
-    const filteredData = MOCK_DATA.filter(item =>
+    const filteredData = orders.filter(item =>
         Object.values(item).some(val =>
             String(val).toLowerCase().includes(search.toLowerCase())
         )
@@ -67,44 +103,31 @@ export default function ListaOT() {
             backgroundColor: 'transparent'
         }}>
             <Table.Td>
-                <Text size="sm" fw={700} c="indigo.4">{item.id}</Text>
+                <Text size="sm" fw={700} c="indigo.4">{item.otNumber || item.otNumber || item.OTNumber || 'N/A'}</Text>
             </Table.Td>
-            <Table.Td><Text size="sm">{item.linea}</Text></Table.Td>
+            <Table.Td><Text size="sm">{item.lineaPT}</Text></Table.Td>
             <Table.Td><Text size="sm" fw={500}>{item.cliente}</Text></Table.Td>
-            <Table.Td><Text size="sm" style={{ maxWidth: 300 }} truncate>{item.producto}</Text></Table.Td>
-            <Table.Td><Text size="sm">{item.pieza}</Text></Table.Td>
-            <Table.Td><Text size="sm">{item.fecha}</Text></Table.Td>
-            <Table.Td><Text size="sm">{item.ejecutivo}</Text></Table.Td>
-            <Table.Td><Text size="sm">{item.siigo}</Text></Table.Td>
+            <Table.Td><Text size="sm" style={{ maxWidth: 300 }} truncate>{item.productName}</Text></Table.Td>
+            <Table.Td><Text size="sm">{item.parts?.length || 0}</Text></Table.Td>
+            <Table.Td><Text size="sm">{new Date(item.createdAt).toLocaleDateString()}</Text></Table.Td>
+            <Table.Td><Text size="sm">{item.ejecutivoCuenta}</Text></Table.Td>
+            <Table.Td><Text size="sm">{item.status}</Text></Table.Td>
             <Table.Td>
                 <Badge
                     variant="light"
-                    color={item.aprobado ? 'green' : 'yellow'}
-                    leftSection={item.aprobado ? <IconCircleCheck size={12} /> : <IconCircleX size={12} />}
+                    color={item.status === 'Aprobado' ? 'green' : 'yellow'}
+                    leftSection={item.status === 'Aprobado' ? <IconCircleCheck size={12} /> : <IconCircleX size={12} />}
                 >
-                    {item.aprobado ? 'Aprobado' : 'Pendiente'}
+                    {item.status}
                 </Badge>
             </Table.Td>
             <Table.Td>
                 <Group gap={8} justify="flex-end">
-                    {item.aprobado ? (
-                        <Tooltip label="OT Aprobada - Solo lectura">
-                            <ActionIcon variant="light" color="blue" size="sm">
-                                <IconEye size={16} />
-                            </ActionIcon>
-                        </Tooltip>
-                    ) : (
-                        <Tooltip label="Editar OT">
-                            <ActionIcon
-                                variant="light"
-                                color="indigo"
-                                size="sm"
-                                onClick={() => navigate('/ordenes/nueva')}
-                            >
-                                <IconEdit size={16} />
-                            </ActionIcon>
-                        </Tooltip>
-                    )}
+                    <Tooltip label="Eliminar OT">
+                        <ActionIcon variant="light" color="red" size="sm" onClick={() => handleDelete(item.id, item.otNumber)}>
+                            <IconTrash size={16} />
+                        </ActionIcon>
+                    </Tooltip>
                 </Group>
             </Table.Td>
         </Table.Tr>

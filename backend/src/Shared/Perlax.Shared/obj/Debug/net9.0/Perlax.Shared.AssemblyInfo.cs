@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Perlax.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+aa4221165829f86712af53c38ba90357c4782117")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+508c0bf66cdb042b04101df5377d5cd75369e0a2")]
 [assembly: System.Reflection.AssemblyProductAttribute("Perlax.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Perlax.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
