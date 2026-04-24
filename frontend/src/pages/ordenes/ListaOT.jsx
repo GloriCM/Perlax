@@ -6,42 +6,27 @@ import {
     Button,
     Stack,
     TextInput,
-    SimpleGrid,
     Box,
-    ThemeIcon,
-    Divider,
     Table,
     ScrollArea,
     ActionIcon,
     Badge,
-    Tooltip,
-    rem
+    Tooltip
 } from '@mantine/core';
 import {
     IconSearch,
-    IconEdit,
-    IconEye,
     IconX,
-    IconChevronRight,
     IconCircleCheck,
     IconCircleX,
     IconTrash
 } from '@tabler/icons-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../utils/api';
-
-// Mock data based on the screenshot provided by the user
-const MOCK_DATA = [
-    { id: '2559 / 1', linea: 'Otro', cliente: 'LINK SYSTEMS LLC', producto: 'WHITE CREPE HOLDER', pieza: 'Pieza Unica', fecha: '12/01/2026', ejecutivo: 'Claude Levy', siigo: 'Exportación', aprobado: false },
-    { id: '2556 / 12026 / 1', linea: 'Caja o Plegadiza', cliente: 'LINK SYSTEMS LLC', producto: 'Plegadizas Ref: tequenos x 20 unds DELICIA', pieza: 'Pieza Unica', fecha: '22/12/2025', ejecutivo: 'Claude Levy', siigo: 'Exportación', aprobado: true },
-    { id: '2555 / 122025 / 1', linea: 'Caja o Plegadiza', cliente: 'LINK SYSTEMS LLC', producto: 'Plegadizas Ref: Tequenos 40 unds DELICIAS', pieza: 'Pieza Unica', fecha: '22/12/2025', ejecutivo: 'Claude Levy', siigo: 'Exportación', aprobado: true },
-    { id: '2549 / 122025 / 1', linea: 'Caja o Plegadiza', cliente: 'INSTANTA COLOMBIA ZF S.', producto: 'INSK 200 X 12 T-K', pieza: 'Pieza Unica', fecha: '17/12/2025', ejecutivo: 'Claude Levy', siigo: 'Zona Franca', aprobado: false },
-    { id: '2540 / 122025 / 1', linea: 'Bolsa', cliente: 'STF GROUP S.A.', producto: 'BOLSA ECOMERCE GRANDE STUDIO F', pieza: 'Pieza Unica', fecha: '12/12/2025', ejecutivo: 'Claude Levy', siigo: 'Nacional', aprobado: false },
-];
 
 export default function ListaOT() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [search, setSearch] = useState('');
     const [scrolled, setScrolled] = useState(false);
     const [orders, setOrders] = useState([]);
@@ -75,16 +60,23 @@ export default function ListaOT() {
         }
     };
 
-    useState(() => {
+    useEffect(() => {
         fetchOrders();
     }, []);
 
+    useEffect(() => {
+        const ot = searchParams.get('ot');
+        if (ot) {
+            setSearch(ot);
+        }
+    }, [searchParams]);
+
     // Filter logic
-    const filteredData = orders.filter(item =>
+    const filteredData = useMemo(() => orders.filter(item =>
         Object.values(item).some(val =>
             String(val).toLowerCase().includes(search.toLowerCase())
         )
-    );
+    ), [orders, search]);
 
     const glassStyles = {
         root: {
@@ -218,7 +210,7 @@ export default function ListaOT() {
                 </ScrollArea>
 
                 <Box p="xs" style={{ background: 'rgba(0,0,0,0.2)', textAlign: 'right' }}>
-                    <Text size="xs" c="dimmed" pr="md">Mostrando {filteredData.length} de {MOCK_DATA.length} registros</Text>
+                    <Text size="xs" c="dimmed" pr="md">Mostrando {filteredData.length} de {orders.length} registros</Text>
                 </Box>
             </Card>
         </Stack>

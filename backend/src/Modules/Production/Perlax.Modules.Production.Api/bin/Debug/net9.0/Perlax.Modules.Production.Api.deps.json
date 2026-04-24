@@ -188,6 +188,14 @@
           }
         }
       },
+      "Perlax.Modules.Audit.Domain/1.0.0": {
+        "runtime": {
+          "Perlax.Modules.Audit.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
       "Perlax.Modules.Production.Application/1.0.0": {
         "dependencies": {
           "Perlax.Modules.Production.Domain": "1.0.0"
@@ -333,6 +341,11 @@
       "hashPath": "npgsql.entityframeworkcore.postgresql.9.0.3.nupkg.sha512"
     },
     "Perlax.Modules.Audit.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Perlax.Modules.Audit.Domain/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj": {}
+    "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj": {
+    "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj",
+        "projectUniqueName": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj",
         "projectName": "Perlax.Modules.Production.Application",
-        "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj",
+        "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj",
         "packagesPath": "C:\\Users\\Desarrollo3\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\obj\\",
+        "outputPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Desarrollo3\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -26,8 +26,8 @@
           "net9.0": {
             "targetAlias": "net9.0",
             "projectReferences": {
-              "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj": {
-                "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj"
+              "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj": {
+                "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj"
               }
             }
           }
@@ -67,14 +67,14 @@
         }
       }
     },
-    "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj": {
+    "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj",
+        "projectUniqueName": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj",
         "projectName": "Perlax.Modules.Production.Domain",
-        "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj",
+        "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\Perlax.Modules.Production.Domain.csproj",
         "packagesPath": "C:\\Users\\Desarrollo3\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\obj\\",
+        "outputPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Desarrollo3\\AppData\\Roaming\\NuGet\\NuGet.Config"

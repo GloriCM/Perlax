@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "xLhv84EYYDE=",
+  "dgSpecHash": "M7j8iMwUHXc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Host\\Perlax.Web\\Perlax.Web.csproj",
+  "projectFilePath": "G:\\github\\Perlax\\backend\\src\\Host\\Perlax.Web\\Perlax.Web.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Desarrollo3\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\Desarrollo3\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",

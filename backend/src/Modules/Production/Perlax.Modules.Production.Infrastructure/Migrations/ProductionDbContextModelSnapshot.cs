@@ -112,6 +112,9 @@ namespace Perlax.Modules.Production.Infrastructure.Migrations
                     b.Property<decimal>("Fuelle")
                         .HasColumnType("numeric");
 
+                    b.Property<bool>("IsTechnicalSheetApproved")
+                        .HasColumnType("boolean");
+
                     b.Property<decimal>("Largo")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -155,6 +158,13 @@ namespace Perlax.Modules.Production.Infrastructure.Migrations
                     b.Property<string>("SustratoSup")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("TechnicalSheetApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TechnicalSheetApprovedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("Terminado1")
                         .HasColumnType("text");

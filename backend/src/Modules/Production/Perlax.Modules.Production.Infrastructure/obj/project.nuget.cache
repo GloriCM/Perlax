@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "nXYxf4IuSqA=",
+  "dgSpecHash": "SFhA1dukKZk=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\Perlax.Modules.Production.Infrastructure.csproj",
+  "projectFilePath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\Perlax.Modules.Production.Infrastructure.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Desarrollo3\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Desarrollo3\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\7.0.0\\microsoft.bcl.asyncinterfaces.7.0.0.nupkg.sha512",

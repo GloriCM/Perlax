@@ -2821,11 +2821,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\Perlax.Modules.Production.Infrastructure.csproj",
+      "projectUniqueName": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\Perlax.Modules.Production.Infrastructure.csproj",
       "projectName": "Perlax.Modules.Production.Infrastructure",
-      "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\Perlax.Modules.Production.Infrastructure.csproj",
+      "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\Perlax.Modules.Production.Infrastructure.csproj",
       "packagesPath": "C:\\Users\\Desarrollo3\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\obj\\",
+      "outputPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Infrastructure\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Desarrollo3\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -2840,8 +2840,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj": {
-              "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj"
+            "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj": {
+              "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Application\\Perlax.Modules.Production.Application.csproj"
             }
           }
         }

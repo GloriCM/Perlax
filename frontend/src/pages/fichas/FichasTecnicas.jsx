@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Container,
     Paper,
@@ -13,15 +13,16 @@ import {
     Checkbox,
     ScrollArea,
     Stack,
+    Loader,
     Tooltip
 } from '@mantine/core';
 import {
     IconSearch,
     IconPrinter,
-    IconTrash,
     IconArrowLeft,
     IconCheck,
-    IconX
+    IconX,
+    IconExternalLink
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
@@ -32,75 +33,146 @@ const FichasTecnicas = () => {
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState([]);
-
-    // Mock data for initial development (based on screenshot)
-    const mockFichas = [
-        { id: 1, ot: '2557 / 22026 / 1', pieza: '', cliente: 'LINK\'T SYSTEMS LLC', nombre: '', troquel: '', aprobacion: false, sap: '' },
-        { id: 2, ot: '2556 / 12026 / 1', pieza: 'Pieza Unica', cliente: 'LINK\'T SYSTEMS LLC', nombre: 'WHITE CREPE HOLDER', troquel: 'T2-046', aprobacion: false, sap: '' },
-        { id: 3, ot: '2555 / 122025 / 1', pieza: 'Pieza Unica', cliente: 'LINK\'T SYSTEMS LLC', nombre: 'Plegadizas Ref: tequenos x 20 unds DELICIAS LLANERAS', troquel: 'T3-003', aprobacion: true, sap: '' },
-        { id: 4, ot: '2554 / 122025 / 1', pieza: 'Pieza Unica', cliente: 'LINK\'T SYSTEMS LLC', nombre: 'Plegadizas Ref: tequenos 40 unds DELICIAS LLANERAS', troquel: 'T3-002', aprobacion: true, sap: '' },
-        { id: 5, ot: '2553 / 122025 / 1', pieza: 'Pieza Unica', cliente: 'LINK\'T SYSTEMS LLC', nombre: 'Plegadiza Ref: Tequenos x 100 DELICIAS LLANERAS', troquel: 'T3-006', aprobacion: true, sap: '' },
-        { id: 6, ot: '2551 / 122025 / 1', pieza: 'Pieza Unica', cliente: 'LINK\'T SYSTEMS LLC', nombre: 'Plegadiza Ref: Cherry Pink KUMS', troquel: '', aprobacion: true, sap: '' },
-    ];
+    const [selectedId, setSelectedId] = useState(null);
 
     useEffect(() => {
-        // In a real scenario, fetch from API
-        // api.get('/fichas').then(res => setFichas(res.data));
-        setFichas(mockFichas);
-        setLoading(false);
+        fetchFichas();
     }, []);
 
-    const filteredFichas = fichas.filter(ficha =>
-        ficha.ot.toLowerCase().includes(search.toLowerCase()) ||
-        ficha.cliente.toLowerCase().includes(search.toLowerCase()) ||
-        ficha.nombre.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const handleToggleApproval = (id) => {
-        setFichas(prev => prev.map(f =>
-            f.id === id ? { ...f, aprobacion: !f.aprobacion } : f
-        ));
-
-        const isApproved = !fichas.find(f => f.id === id).aprobacion;
-        notifications.show({
-            title: isApproved ? 'Ficha Aprobada' : 'Aprobación Removida',
-            message: `La ficha OT ${fichas.find(f => f.id === id).ot} ha sido actualizada.`,
-            color: isApproved ? 'teal' : 'blue',
-            icon: isApproved ? <IconCheck size={16} /> : <IconX size={16} />,
-        });
+    const fetchFichas = async () => {
+        try {
+            setLoading(true);
+            const data = await api.get('/production/technical-sheets');
+            setFichas(data || []);
+        } catch (error) {
+            notifications.show({
+                title: 'Error cargando fichas',
+                message: error?.message || 'No se pudo consultar el listado de fichas técnicas.',
+                color: 'red',
+                icon: <IconX size={16} />,
+            });
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handlePrint = (id) => {
-        navigate(`/fichas/imprimir/${id}`);
+    const filteredFichas = useMemo(() => fichas.filter(ficha =>
+        (ficha.otNumber || '').toLowerCase().includes(search.toLowerCase()) ||
+        (ficha.cliente || '').toLowerCase().includes(search.toLowerCase()) ||
+        (ficha.productName || '').toLowerCase().includes(search.toLowerCase())
+    ), [fichas, search]);
+
+    const handleToggleApproval = async (id, approved) => {
+        try {
+            const result = await api.put(`/production/technical-sheets/${id}/approval`, { approved: !approved });
+            setFichas(prev => prev.map(f =>
+                f.id === id
+                    ? {
+                        ...f,
+                        approved: result?.approved ?? !approved,
+                        approvedAt: result?.approvedAt ?? null,
+                        approvedBy: result?.approvedBy ?? null
+                    }
+                    : f
+            ));
+
+            notifications.show({
+                title: !approved ? 'Ficha aprobada' : 'Aprobación removida',
+                message: `La ficha técnica fue actualizada correctamente.`,
+                color: !approved ? 'teal' : 'blue',
+                icon: !approved ? <IconCheck size={16} /> : <IconX size={16} />,
+            });
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudo actualizar',
+                message: error?.message || 'Error al cambiar estado de aprobación.',
+                color: 'red',
+                icon: <IconX size={16} />,
+            });
+        }
+    };
+
+    const handlePrint = () => {
+        if (!selectedId) {
+            notifications.show({
+                title: 'Selecciona una ficha',
+                message: 'Selecciona una fila y luego pulsa Imprimir.',
+                color: 'yellow',
+            });
+            return;
+        }
+        navigate(`/fichas/imprimir/${selectedId}`);
+    };
+
+    const handleOpenDocument = (partId) => {
+        if (!partId) {
+            return;
+        }
+        navigate(`/fichas/imprimir/${partId}`);
     };
 
     const rows = filteredFichas.map((ficha) => (
-        <Table.Tr key={ficha.id} style={{ cursor: 'pointer' }} onClick={() => handlePrint(ficha.id)}>
+        <Table.Tr
+            key={ficha.id}
+            style={{
+                cursor: 'pointer',
+                background: selectedId === ficha.id ? 'rgba(79,70,229,0.18)' : 'transparent'
+            }}
+            onClick={() => setSelectedId(ficha.id)}
+        >
             <Table.Td onClick={(e) => e.stopPropagation()}>
                 <Checkbox
-                    checked={ficha.aprobacion}
-                    onChange={() => handleToggleApproval(ficha.id)}
+                    checked={Boolean(ficha.approved)}
+                    onChange={() => handleToggleApproval(ficha.id, Boolean(ficha.approved))}
                     color="teal"
                 />
             </Table.Td>
-            <Table.Td>
-                <Text fw={500} c="blue">{ficha.ot}</Text>
+            <Table.Td
+                onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenDocument(ficha.id);
+                }}
+            >
+                <Group gap={6}>
+                    <Text
+                        fw={500}
+                        c="blue"
+                        style={{ textDecoration: 'underline', cursor: 'pointer' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDocument(ficha.id);
+                        }}
+                    >
+                        {ficha.otNumber}
+                    </Text>
+                    <Tooltip label="Abrir documento">
+                        <IconExternalLink
+                            size={14}
+                            color="#60a5fa"
+                            style={{ cursor: 'pointer' }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDocument(ficha.id);
+                            }}
+                        />
+                    </Tooltip>
+                </Group>
             </Table.Td>
-            <Table.Td>{ficha.pieza}</Table.Td>
-            <Table.Td>{ficha.cliente}</Table.Td>
+            <Table.Td>{ficha.pieza || '-'}</Table.Td>
+            <Table.Td>{ficha.cliente || '-'}</Table.Td>
             <Table.Td>
-                <Text size="sm" lineClamp={1}>{ficha.nombre}</Text>
+                <Text size="sm" lineClamp={1}>{ficha.productName || '-'}</Text>
             </Table.Td>
-            <Table.Td>{ficha.troquel}</Table.Td>
+            <Table.Td>{ficha.codigoTroquel || '-'}</Table.Td>
             <Table.Td>
                 <Badge
-                    color={ficha.aprobacion ? 'teal' : 'gray'}
+                    color={ficha.approved ? 'teal' : 'gray'}
                     variant="light"
                 >
-                    {ficha.aprobacion ? 'Aprobado' : 'Pendiente'}
+                    {ficha.approved ? 'Aprobado' : 'Pendiente'}
                 </Badge>
             </Table.Td>
-            <Table.Td>{ficha.sap}</Table.Td>
+            <Table.Td>{ficha.productCode || '-'}</Table.Td>
         </Table.Tr>
     ));
 
@@ -138,15 +210,9 @@ const FichasTecnicas = () => {
                                 variant="light"
                                 leftSection={<IconPrinter size={16} />}
                                 color="blue"
+                                onClick={handlePrint}
                             >
                                 Imprimir Ficha
-                            </Button>
-                            <Button
-                                variant="light"
-                                leftSection={<IconTrash size={16} />}
-                                color="red"
-                            >
-                                Eliminar Ficha
                             </Button>
                             <Button
                                 variant="subtle"
@@ -173,7 +239,13 @@ const FichasTecnicas = () => {
                     />
 
                     <ScrollArea h={600} offsetScrollbars>
-                        <Table verticalSpacing="sm" highlightOnHover>
+                        {loading ? (
+                            <Group justify="center" py="xl">
+                                <Loader size="sm" />
+                                <Text size="sm" c="dimmed">Cargando fichas...</Text>
+                            </Group>
+                        ) : (
+                            <Table verticalSpacing="sm" highlightOnHover>
                             <Table.Thead style={{ background: 'rgba(0, 0, 0, 0.2)', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <Table.Tr>
                                     <Table.Th style={{ color: 'white' }}>Aprobar</Table.Th>
@@ -188,6 +260,7 @@ const FichasTecnicas = () => {
                             </Table.Thead>
                             <Table.Tbody>{rows}</Table.Tbody>
                         </Table>
+                        )}
                     </ScrollArea>
                 </Stack>
             </Paper>

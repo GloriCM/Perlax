@@ -22,3 +22,15 @@ C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Shared\Perlax.Shared\obj\D
 C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\refint\Perlax.Shared.dll
 C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.pdb
 C:\Users\Desarrollo3\Desktop\perla\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\ref\Perlax.Shared.dll
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\bin\Debug\net9.0\Perlax.Shared.deps.json
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\bin\Debug\net9.0\Perlax.Shared.dll
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\bin\Debug\net9.0\Perlax.Shared.pdb
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.GeneratedMSBuildEditorConfig.editorconfig
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.AssemblyInfoInputs.cache
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.AssemblyInfo.cs
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.csproj.CoreCompileInputs.cache
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.sourcelink.json
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.dll
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\refint\Perlax.Shared.dll
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\Perlax.Shared.pdb
+G:\github\Perlax\backend\src\Shared\Perlax.Shared\obj\Debug\net9.0\ref\Perlax.Shared.dll

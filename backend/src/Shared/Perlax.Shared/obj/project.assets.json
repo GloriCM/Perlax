@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
+      "projectUniqueName": "G:\\github\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
       "projectName": "Perlax.Shared",
-      "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
+      "projectPath": "G:\\github\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\Perlax.Shared.csproj",
       "packagesPath": "C:\\Users\\Desarrollo3\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\obj\\",
+      "outputPath": "G:\\github\\Perlax\\backend\\src\\Shared\\Perlax.Shared\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Desarrollo3\\AppData\\Roaming\\NuGet\\NuGet.Config"

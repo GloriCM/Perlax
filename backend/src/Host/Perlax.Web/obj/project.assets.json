@@ -3450,11 +3450,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Host\\Perlax.Web\\Perlax.Web.csproj",
+      "projectUniqueName": "G:\\github\\Perlax\\backend\\src\\Host\\Perlax.Web\\Perlax.Web.csproj",
       "projectName": "Perlax.Web",
-      "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Host\\Perlax.Web\\Perlax.Web.csproj",
+      "projectPath": "G:\\github\\Perlax\\backend\\src\\Host\\Perlax.Web\\Perlax.Web.csproj",
       "packagesPath": "C:\\Users\\Desarrollo3\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Host\\Perlax.Web\\obj\\",
+      "outputPath": "G:\\github\\Perlax\\backend\\src\\Host\\Perlax.Web\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Desarrollo3\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -3469,14 +3469,14 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Audit\\Perlax.Modules.Audit.Api\\Perlax.Modules.Audit.Api.csproj": {
-              "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Audit\\Perlax.Modules.Audit.Api\\Perlax.Modules.Audit.Api.csproj"
+            "G:\\github\\Perlax\\backend\\src\\Modules\\Audit\\Perlax.Modules.Audit.Api\\Perlax.Modules.Audit.Api.csproj": {
+              "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Audit\\Perlax.Modules.Audit.Api\\Perlax.Modules.Audit.Api.csproj"
             },
-            "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Api\\Perlax.Modules.Production.Api.csproj": {
-              "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Api\\Perlax.Modules.Production.Api.csproj"
+            "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Api\\Perlax.Modules.Production.Api.csproj": {
+              "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Production\\Perlax.Modules.Production.Api\\Perlax.Modules.Production.Api.csproj"
             },
-            "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Users\\Perlax.Modules.Users.Api\\Perlax.Modules.Users.Api.csproj": {
-              "projectPath": "C:\\Users\\Desarrollo3\\Desktop\\perla\\Perlax\\backend\\src\\Modules\\Users\\Perlax.Modules.Users.Api\\Perlax.Modules.Users.Api.csproj"
+            "G:\\github\\Perlax\\backend\\src\\Modules\\Users\\Perlax.Modules.Users.Api\\Perlax.Modules.Users.Api.csproj": {
+              "projectPath": "G:\\github\\Perlax\\backend\\src\\Modules\\Users\\Perlax.Modules.Users.Api\\Perlax.Modules.Users.Api.csproj"
             }
           }
         }

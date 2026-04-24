@@ -47,6 +47,7 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.ManijaTipo).HasMaxLength(100);
             builder.Property(x => x.ManijaRef).HasMaxLength(100);
             builder.Property(x => x.ManijaLargo).HasPrecision(18, 2);
+            builder.Property(x => x.TechnicalSheetApprovedBy).HasMaxLength(255);
         });
     }
 }
