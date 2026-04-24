@@ -14,6 +14,9 @@ import PlanesDiseno from './pages/ordenes/PlanesDiseno';
 import Auditoria from './pages/admin/Auditoria';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
+import CotizacionesDesdeOT from './pages/cotizaciones/CotizacionesDesdeOT';
+import CotizacionDesdeOTForm from './pages/cotizaciones/CotizacionDesdeOTForm';
+import CotizacionManual from './pages/cotizaciones/CotizacionManual';
 import GastosProduccion from './pages/produccion/GastosProduccion';
 import GraficasGastos from './pages/produccion/GraficasGastos';
 import RubrosGastos from './pages/produccion/RubrosGastos';
@@ -120,6 +123,9 @@ function App() {
             <Route path="/ordenes/lista" element={<ListaOT />} />
             <Route path="/ordenes/planes-diseno" element={<PlanesDiseno />} />
             <Route path="/fichas/lista" element={<FichasTecnicas />} />
+            <Route path="/cotizaciones/desde-ot" element={<CotizacionesDesdeOT />} />
+            <Route path="/cotizaciones/desde-ot/:otId" element={<CotizacionDesdeOTForm />} />
+            <Route path="/cotizaciones/manual" element={<CotizacionManual />} />
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
             <Route path="/gastos/control/rubros" element={<RubrosGastos />} />
