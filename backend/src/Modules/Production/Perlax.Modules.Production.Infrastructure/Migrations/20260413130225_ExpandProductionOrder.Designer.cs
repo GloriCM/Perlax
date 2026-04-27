@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Perlax.Modules.Production.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Perlax.Modules.Production.Infrastructure.Persistence;
 namespace Perlax.Modules.Production.Infrastructure.Migrations
 {
     [DbContext(typeof(ProductionDbContext))]
-    partial class ProductionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260413130225_ExpandProductionOrder")]
+    partial class ExpandProductionOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -36,36 +39,12 @@ namespace Perlax.Modules.Production.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<decimal>("AltoPliego")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
                     b.Property<decimal>("Ancho")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<decimal>("AnchoPliego")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("Cabida")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
                     b.Property<string>("CodigoTroquel")
                         .HasColumnType("text");
-
-                    b.Property<bool>("CondicionCertificado")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CondicionFactura")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CondicionOrdenCompra")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CondicionRemision")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("DireccionFibra")
                         .HasColumnType("text");
@@ -73,63 +52,16 @@ namespace Perlax.Modules.Production.Infrastructure.Migrations
                     b.Property<string>("DireccionFlauta")
                         .HasColumnType("text");
 
-                    b.Property<string>("Disenador")
-                        .HasColumnType("text");
-
-                    b.Property<string>("EstadoAprobacion")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("EstadoArtes")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("EstadoBoceto")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("EstadoFicha")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("EstadoFotomecanica")
-                        .HasColumnType("text");
-
-                    b.Property<string>("EstadoMuestra")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("EstadoPlancha")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<bool>("Estampado")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("FabricationProcessesJson")
-                        .HasColumnType("text");
-
                     b.Property<decimal>("Fuelle")
-                        .HasColumnType("numeric");
-
-                    b.Property<bool>("IsTechnicalSheetApproved")
-                        .HasColumnType("boolean");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<decimal>("Largo")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("ManijaLargo")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("ManijaRef")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("ManijaTipo")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Notas")
                         .HasColumnType("text");
@@ -140,10 +72,6 @@ namespace Perlax.Modules.Production.Infrastructure.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("PieImprenta")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Prioridad")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<Guid>("ProductionOrderId")
@@ -158,13 +86,6 @@ namespace Perlax.Modules.Production.Infrastructure.Migrations
                     b.Property<string>("SustratoSup")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime?>("TechnicalSheetApprovedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("TechnicalSheetApprovedBy")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("Terminado1")
                         .HasColumnType("text");
@@ -264,107 +185,6 @@ namespace Perlax.Modules.Production.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ProductionOrders", "production");
-                });
-
-            modelBuilder.Entity("Perlax.Modules.Production.Domain.Entities.Quotation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ClientName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("CostValidationJson")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("DeliveryConditions")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FreightType")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<string>("PriceConditions")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ProductName")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<Guid?>("ProductionOrderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ProductionOrderNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ProspectClientName")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("QuantitiesJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("QuoteNumber")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime>("RequestDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SelectedPriceTier")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<decimal?>("SelectedUnitPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("SourceType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("TabsDataJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductionOrderId");
-
-                    b.HasIndex("QuoteNumber")
-                        .IsUnique();
-
-                    b.ToTable("Quotations", "production");
                 });
 
             modelBuilder.Entity("Perlax.Modules.Production.Domain.Entities.OrderPart", b =>

@@ -33,8 +33,10 @@ import {
     IconExternalLink,
     IconInfoCircle
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../utils/api';
+import { notifications } from '@mantine/notifications';
 
 // More extensive mock data for Design Plans
 const MOCK_DATA = [
@@ -96,6 +98,41 @@ export default function PlanesDiseno() {
     const [search, setSearch] = useState('');
     const [opened, { open, close }] = useDisclosure(false);
     const [selectedOT, setSelectedOT] = useState(null);
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchOrders();
+    }, []);
+
+    const fetchOrders = async () => {
+        try {
+            setLoading(true);
+            const data = await api.get('/production/orders');
+            // Flatten parts if needed or just show the orders
+            // For Design Plans, we usually want to see each Part as a row
+            const flattened = data.flatMap(order =>
+                order.parts.map(part => ({
+                    ...part,
+                    otNumber: order.otNumber || order.otNumber || order.OTNumber,
+                    cliente: order.cliente || order.Cliente,
+                    ejecutivo: order.ejecutivoCuenta || order.ejecutivoCuenta || order.EjecutivoCuenta,
+                    productName: order.productName || order.productName || order.ProductName,
+                    createdAt: order.createdAt || order.CreatedAt
+                }))
+            );
+            setOrders(flattened);
+        } catch (error) {
+            console.error('Error fetching design plans:', error);
+            notifications.show({
+                title: 'Error',
+                message: 'No se pudieron cargar los planes de diseño',
+                color: 'red'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const glassStyles = {
         root: {
@@ -113,31 +150,33 @@ export default function PlanesDiseno() {
         open();
     };
 
-    const rows = MOCK_DATA.filter(item =>
-        Object.values(item).some(val => String(val).toLowerCase().includes(search.toLowerCase()))
+    const rows = orders.filter(item =>
+        [item.otNumber, item.cliente, item.productName, item.partName].some(val =>
+            String(val || '').toLowerCase().includes(search.toLowerCase())
+        )
     ).map((item) => (
         <Table.Tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => handleViewDetail(item)}>
-            <Table.Td><Text size="xs" fw={700} c="indigo.3">{item.id}</Text></Table.Td>
+            <Table.Td><Text size="xs" fw={700} c="indigo.3">{item.otNumber} / {item.partName}</Text></Table.Td>
             <Table.Td><Text size="xs" truncate>{item.ejecutivo}</Text></Table.Td>
             <Table.Td><Text size="xs" fw={500} truncate>{item.cliente}</Text></Table.Td>
-            <Table.Td><Text size="xs" truncate maw={200}>{item.producto}</Text></Table.Td>
+            <Table.Td><Text size="xs" truncate maw={200}>{item.productName}</Text></Table.Td>
             <Table.Td>
                 <Badge variant="dot" size="xs" color={item.prioridad === 'Urgente' ? 'red' : item.prioridad === 'Alta' ? 'orange' : 'blue'}>
                     {item.prioridad}
                 </Badge>
             </Table.Td>
-            <Table.Td><Text size="xs">{item.disenador}</Text></Table.Td>
-            <Table.Td><Text size="xs">{item.recepcion}</Text></Table.Td>
-            <Table.Td><Badge size="xs" variant="light" color={item.boceto === 'OK' ? 'green' : 'gray'}>{item.boceto}</Badge></Table.Td>
-            <Table.Td><Badge size="xs" variant="light" color={item.artes === 'OK' ? 'green' : 'gray'}>{item.artes}</Badge></Table.Td>
-            <Table.Td><Text size="xs">{item.ficha}</Text></Table.Td>
-            <Table.Td><Text size="xs">{item.muestra}</Text></Table.Td>
+            <Table.Td><Text size="xs">{item.disenador || 'No asignado'}</Text></Table.Td>
+            <Table.Td><Text size="xs">{new Date(item.createdAt).toLocaleDateString()}</Text></Table.Td>
+            <Table.Td><Badge size="xs" variant="light" color={item.estadoBoceto === 'OK' ? 'green' : 'gray'}>{item.estadoBoceto}</Badge></Table.Td>
+            <Table.Td><Badge size="xs" variant="light" color={item.estadoArtes === 'OK' ? 'green' : 'gray'}>{item.estadoArtes}</Badge></Table.Td>
+            <Table.Td><Text size="xs">{item.estadoFicha}</Text></Table.Td>
+            <Table.Td><Text size="xs">{item.estadoMuestra}</Text></Table.Td>
             <Table.Td>
-                <Badge size="xs" color={item.aprobacion === 'Aprobado' ? 'green' : 'yellow'}>
-                    {item.aprobacion}
+                <Badge size="xs" color={item.estadoAprobacion === 'Aprobado' ? 'green' : (item.estadoAprobacion === 'Rechazado' ? 'red' : 'yellow')}>
+                    {item.estadoAprobacion}
                 </Badge>
             </Table.Td>
-            <Table.Td><Text size="xs">{item.op}</Text></Table.Td>
+            <Table.Td><Text size="xs">{item.otNumber}</Text></Table.Td>
             <Table.Td>
                 <ActionIcon variant="subtle" color="gray" size="sm">
                     <IconExternalLink size={14} />
@@ -225,7 +264,7 @@ export default function PlanesDiseno() {
                             </Box>
                             <Stack gap={0}>
                                 <Title order={3} fw={800} tt="uppercase">Orden de Trabajo</Title>
-                                <Text size="xl" fw={900}>{selectedOT?.id}</Text>
+                                <Text size="xl" fw={900}>OT {selectedOT?.otNumber || 'N/A'}</Text>
                                 <Text size="sm" fw={700} c="blue.1">{selectedOT?.cliente}</Text>
                             </Stack>
                         </Group>
@@ -244,27 +283,27 @@ export default function PlanesDiseno() {
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Descripción del diseño" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
                                     <Grid gutter="xs">
-                                        <Grid.Col span={3}><TextInput label="Id de OT" value={selectedOT?.id.split('/')[0].trim()} readOnly variant="filled" size="xs" /></Grid.Col>
-                                        <Grid.Col span={4}><TextInput label="Fecha" value={selectedOT?.recepcion} readOnly variant="filled" size="xs" /></Grid.Col>
-                                        <Grid.Col span={2}><TextInput label="Fuelle" value="0" readOnly variant="filled" size="xs" /></Grid.Col>
-                                        <Grid.Col span={3}><TextInput label="Nombre Pieza" value="Pieza Única" readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="No. de OT" value={selectedOT?.otNumber} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={4}><TextInput label="Fecha" value={selectedOT?.createdAt ? new Date(selectedOT.createdAt).toLocaleDateString() : ''} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={2}><TextInput label="Fuelle" value={selectedOT?.fuelle || 0} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="Nombre Pieza" value={selectedOT?.partName} readOnly variant="filled" size="xs" /></Grid.Col>
 
                                         <Grid.Col span={5}>
                                             <Group gap="xs" grow>
-                                                <TextInput label="Ancho" value="6.3" readOnly variant="filled" size="xs" />
-                                                <TextInput label="Largo" value="13.6" readOnly variant="filled" size="xs" />
-                                                <TextInput label="Fondo" value="14.9" readOnly variant="filled" size="xs" />
+                                                <TextInput label="Ancho" value={selectedOT?.ancho || 0} readOnly variant="filled" size="xs" />
+                                                <TextInput label="Largo" value={selectedOT?.largo || 0} readOnly variant="filled" size="xs" />
+                                                <TextInput label="Fondo" value={selectedOT?.alto || 0} readOnly variant="filled" size="xs" />
                                             </Group>
                                         </Grid.Col>
-                                        <Grid.Col span={3}><TextInput label="Alto Pliego" value="53.4" readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
-                                        <Grid.Col span={4}><TextInput label="Ancho Pliego" value="50.5" readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="Alto Pliego" value={selectedOT?.altoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
+                                        <Grid.Col span={4}><TextInput label="Ancho Pliego" value={selectedOT?.anchoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
 
-                                        <Grid.Col span={2}><TextInput label="Cabida" value="1.00" readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={2}><TextInput label="Cabida" value={selectedOT?.cabida || '1.00'} readOnly variant="filled" size="xs" /></Grid.Col>
                                         <Grid.Col span={10}>
                                             <Stack gap={2}>
                                                 <Text size="xs" fw={700}>Notas de Diseño</Text>
                                                 <Paper bg="rgba(0,0,0,0.3)" p="xs" radius="xs" style={{ minHeight: 60, border: '1px solid rgba(255,255,255,0.1)' }}>
-                                                    <Text size="xs">MONTAR FICHAS/CUANDO SE CONFIRME APROBADO/SUSTRATO: CARTULINA ESMALTADA CALIBRE 48</Text>
+                                                    <Text size="xs">{selectedOT?.notas || 'Sin notas'}</Text>
                                                 </Paper>
                                             </Stack>
                                         </Grid.Col>
@@ -290,8 +329,8 @@ export default function PlanesDiseno() {
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Materiales" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
                                     <Stack gap="xs">
-                                        <TextInput label="Sustrato" value="Cartulina Esmaltada" readOnly variant="filled" size="xs" />
-                                        <TextInput label="Fibra" value="N/A" readOnly variant="filled" size="xs" />
+                                        <TextInput label="Sustrato" value={selectedOT?.sustratoSup || 'No definido'} readOnly variant="filled" size="xs" />
+                                        <TextInput label="Fibra" value={selectedOT?.direccionFibra || 'N/A'} readOnly variant="filled" size="xs" />
                                     </Stack>
                                 </Paper>
                             </Grid.Col>
@@ -300,8 +339,8 @@ export default function PlanesDiseno() {
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Troquel" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
                                     <Group grow>
-                                        <TextInput label="Código" value="T3-003" readOnly variant="filled" size="xs" />
-                                        <Checkbox label="Troquel Nuevo" checked={false} readOnly pt="lg" size="xs" />
+                                        <TextInput label="Código" value={selectedOT?.codigoTroquel || 'N/A'} readOnly variant="filled" size="xs" />
+                                        <Checkbox label="Troquel Nuevo" checked={selectedOT?.troquelNuevo} readOnly pt="lg" size="xs" />
                                     </Group>
                                 </Paper>
                             </Grid.Col>
@@ -310,11 +349,11 @@ export default function PlanesDiseno() {
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Tintas" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
                                     <Group gap="xs">
-                                        <Badge color="cyan" radius="sm">C</Badge>
-                                        <Badge color="magenta" radius="sm">M</Badge>
-                                        <Badge color="yellow" radius="sm">Y</Badge>
-                                        <Badge color="dark" radius="sm">K</Badge>
-                                        <Text size="xs" fw={700}>Especial: 0</Text>
+                                        {selectedOT?.tintaC && <Badge color="cyan" radius="sm">C</Badge>}
+                                        {selectedOT?.tintaM && <Badge color="magenta" radius="sm">M</Badge>}
+                                        {selectedOT?.tintaY && <Badge color="yellow" radius="sm">Y</Badge>}
+                                        {selectedOT?.tintaK && <Badge color="dark" radius="sm">K</Badge>}
+                                        <Text size="xs" fw={700}>Especial: {selectedOT?.tintasEspeciales || 0}</Text>
                                     </Group>
                                 </Paper>
                             </Grid.Col>
@@ -333,18 +372,16 @@ export default function PlanesDiseno() {
                                             </Table.Tr>
                                         </Table.Thead>
                                         <Table.Tbody>
-                                            <Table.Tr>
-                                                <Table.Td>Gullotina A</Table.Td>
-                                                <Table.Td>Corte</Table.Td>
-                                                <Table.Td>40.000</Table.Td>
-                                                <Table.Td>1</Table.Td>
-                                            </Table.Tr>
-                                            <Table.Tr>
-                                                <Table.Td>Heidelberg</Table.Td>
-                                                <Table.Td>Impresión</Table.Td>
-                                                <Table.Td>20.000</Table.Td>
-                                                <Table.Td>2.000</Table.Td>
-                                            </Table.Tr>
+                                            {selectedOT?.fabricationProcessesJson ? JSON.parse(selectedOT.fabricationProcessesJson).map((proc, idx) => (
+                                                <Table.Tr key={idx}>
+                                                    <Table.Td>{proc.machine}</Table.Td>
+                                                    <Table.Td>{proc.process}</Table.Td>
+                                                    <Table.Td>{proc.capacity}</Table.Td>
+                                                    <Table.Td>{proc.equiv}</Table.Td>
+                                                </Table.Tr>
+                                            )) : (
+                                                <Table.Tr><Table.Td colSpan={4}><Text size="xs" c="dimmed" ta="center">Sin procesos definidos</Text></Table.Td></Table.Tr>
+                                            )}
                                         </Table.Tbody>
                                     </Table>
                                 </Paper>
@@ -354,10 +391,10 @@ export default function PlanesDiseno() {
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Condiciones de Entrega" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
                                     <Stack gap={4}>
-                                        <Checkbox label="Remisión" checked size="xs" />
-                                        <Checkbox label="Certificado Calidad" checked size="xs" />
-                                        <Checkbox label="Factura" checked size="xs" />
-                                        <Checkbox label="Orden Compra" checked size="xs" />
+                                        <Checkbox label="Remisión" checked={selectedOT?.condicionRemision} readOnly size="xs" />
+                                        <Checkbox label="Certificado Calidad" checked={selectedOT?.condicionCertificado} readOnly size="xs" />
+                                        <Checkbox label="Factura" checked={selectedOT?.condicionFactura} readOnly size="xs" />
+                                        <Checkbox label="Orden Compra" checked={selectedOT?.condicionOrdenCompra} readOnly size="xs" />
                                     </Stack>
                                 </Paper>
                             </Grid.Col>

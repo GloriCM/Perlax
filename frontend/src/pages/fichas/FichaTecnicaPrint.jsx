@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Container,
     Grid,
@@ -8,41 +8,69 @@ import {
     Stack,
     Box,
     Divider,
-    Button
+    Button,
+    Loader
 } from '@mantine/core';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IconPrinter, IconArrowLeft } from '@tabler/icons-react';
+import { api } from '../../utils/api';
+import { notifications } from '@mantine/notifications';
 
 const FichaTecnicaPrint = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState(null);
 
-    // Mock data
-    const data = {
-        ot: '2540 / 122025 / 1',
-        cliente: 'STF GROUP S.A.',
-        ejecutivo: 'Claude Levy',
-        linea: 'Bolsas',
-        producto: 'BOLSA ECOMMERCE GRANDE STUDIO F',
-        pieza: 'Pieza Unica',
-        sustratoSup: '',
-        sustratoMed: 'N/A',
-        sustratoInf: 'N/A',
-        direccionFibra: 'N/A',
-        tipoFlauta: 'Ninguna',
-        direccionFlauta: 'N/A',
-        medidas: { alto: '58.5', largo: '0', ancho: '116', fuelle: '14' },
-        troquelNuevo: true,
-        codigoTroq: '',
-        tintas: { c: false, m: true, y: false, k: true, especiales: 'BLANCO' },
-        terminados: { t1: 'Ninguno', t2: 'Ninguno', estampado: false, pieImprenta: 'Colombia', tipoManija: 'Ninguno', mRef: '', mLargo: '0' },
-        notas: 'FICHA APROBADA MONTAR FICHA/FICHA APROBADA X FAVOR MONTAR//montar ficha PLIEGO LADO 1: 58.5x58/PLIEGO LADO 2: 58.5x53-FONDO DE CARTULINA-SUSTRATO KRAFT SEMIEXTENSIBLE 85GR - CINTA DOBLE FAZ AMARILLA DE 1.8cm',
-        version: '3',
-        codigoDoc: 'FO PD 63',
-        fechaEmision: '2014-07-02',
-        fechaActualizacion: '2014-09-04',
-        fechaCreacion: '12/12/2025'
-    };
+    useEffect(() => {
+        const loadFicha = async () => {
+            try {
+                setLoading(true);
+                const response = await api.get(`/production/technical-sheets/${id}`);
+                setData({
+                    ...response,
+                    version: '3',
+                    codigoDoc: 'FO PD 63',
+                    fechaEmision: '2014-07-02',
+                    medidas: response?.medidas || {},
+                    tintas: response?.tintas || {},
+                    terminados: response?.terminados || {},
+                });
+            } catch (error) {
+                notifications.show({
+                    title: 'No se pudo cargar la ficha',
+                    message: error?.message || 'Error consultando información de impresión.',
+                    color: 'red',
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadFicha();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <Container py="xl">
+                <Group justify="center">
+                    <Loader size="sm" />
+                    <Text size="sm">Cargando ficha técnica...</Text>
+                </Group>
+            </Container>
+        );
+    }
+
+    if (!data) {
+        return (
+            <Container py="xl">
+                <Stack align="center">
+                    <Text>No se encontró la ficha técnica solicitada.</Text>
+                    <Button variant="light" onClick={() => navigate('/fichas/lista')}>Volver</Button>
+                </Stack>
+            </Container>
+        );
+    }
 
     return (
         <div style={{ background: '#0f172a', minHeight: '100vh', paddingTop: '80px', paddingBottom: '40px' }}>
@@ -121,7 +149,7 @@ const FichaTecnicaPrint = () => {
                                 <Text size="xs"><b>CÓDIGO:</b> {data.codigoDoc}</Text>
                                 <Text size="xs"><b>VERSIÓN:</b> {data.version}</Text>
                                 <Text size="xs"><b>Fecha de emisión:</b> {data.fechaEmision}</Text>
-                                <Text size="xs"><b>Fecha de actualización:</b> {data.fechaActualizacion}</Text>
+                                <Text size="xs"><b>Fecha de actualización:</b> {data.fechaActualizacion ? new Date(data.fechaActualizacion).toLocaleDateString() : '-'}</Text>
                             </Stack>
                         </Grid.Col>
                     </Grid>
@@ -133,11 +161,11 @@ const FichaTecnicaPrint = () => {
                                 <Grid gutter="xs">
                                     <Grid.Col span={4}>
                                         <Text className="label">Fecha de creación:</Text>
-                                        <Text className="value">{data.fechaCreacion}</Text>
+                                        <Text className="value">{data.fechaCreacion ? new Date(data.fechaCreacion).toLocaleDateString() : '-'}</Text>
                                     </Grid.Col>
                                     <Grid.Col span={4}>
                                         <Text className="label">Fecha Modific:</Text>
-                                        <Text className="value"></Text>
+                                        <Text className="value">{data.fechaActualizacion ? new Date(data.fechaActualizacion).toLocaleDateString() : '-'}</Text>
                                     </Grid.Col>
                                     <Grid.Col span={4}>
                                         <Text className="label">Cliente:</Text>

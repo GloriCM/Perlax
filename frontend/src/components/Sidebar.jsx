@@ -1,4 +1,5 @@
 import { NavLink, Text, Avatar, Group, Box } from '@mantine/core';
+import { api } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -429,6 +430,7 @@ const navSections = [
     {
         title: 'Configuración',
         items: [
+            { label: 'Auditoría', icon: IconHistory, path: '/admin/auditoria' },
             { label: 'Ajustes', icon: IconSettings, path: '/ajustes' },
         ],
     },
@@ -443,13 +445,9 @@ export default function Sidebar() {
 
     const handleLogout = async () => {
         try {
-            await fetch(`https://${window.location.hostname}:5263/api/users/auth/logout`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: user.id || null,
-                    username: user.username
-                })
+            await api.post('/users/auth/logout', {
+                userId: user.id || null,
+                username: user.username
             });
         } catch (err) {
             console.error('Error logging out:', err);

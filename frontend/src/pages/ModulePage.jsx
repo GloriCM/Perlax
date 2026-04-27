@@ -69,6 +69,11 @@ export default function ModulePage() {
                 return [
                     { title: 'Nueva OT', desc: 'Iniciar proceso de diseño y orden de trabajo.', path: '/ordenes/nueva', icon: <IconPlus size={22} /> },
                 ];
+            case 'cotizaciones':
+                return [
+                    { title: 'Desde una OT', desc: 'Lista de OTs para abrir cotización.', path: '/cotizaciones/desde-ot', icon: <IconList size={22} /> },
+                    { title: 'Manual', desc: 'Cotizador directo para cliente prospecto.', path: '/cotizaciones/manual', icon: <IconPlus size={22} /> },
+                ];
             default:
                 return [
                     { title: 'Listado', desc: 'Ver registros del módulo.', path: null, icon: <IconList size={22} /> },

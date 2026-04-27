@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../utils/api';
 import {
     TextInput,
     PasswordInput,
@@ -32,24 +33,14 @@ export default function LoginPage() {
         setError(null);
 
         try {
-            const response = await fetch(`https://${window.location.hostname}:5263/api/users/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
+            const data = await api.post('/users/auth/login', { username, password });
 
-            if (response.ok) {
-                const data = await response.json();
+            if (data) {
                 localStorage.setItem('user', JSON.stringify(data));
                 navigate('/');
-            } else {
-                const errorData = await response.text();
-                setError(errorData || 'Credenciales inválidas');
             }
         } catch (err) {
-            setError('Error de conexión con el servidor');
+            setError(err.message || 'Error de conexión con el servidor');
         } finally {
             setLoading(false);
         }
