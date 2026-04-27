@@ -62,6 +62,20 @@ import RubrosDiseno from './pages/diseno/gastos/RubrosDiseno';
 import CotizacionesDiseno from './pages/diseno/gastos/CotizacionesDiseno';
 import ProveedoresDiseno from './pages/diseno/gastos/ProveedoresDiseno';
 import PanelMantenimiento from './pages/mantenimiento_equipos/PanelMantenimiento';
+import GastosSST from './pages/sst/gastos/GastosSST';
+import CotizacionesSST from './pages/sst/gastos/CotizacionesSST';
+import GraficasSST from './pages/sst/gastos/GraficasSST';
+import RubrosSST from './pages/sst/gastos/RubrosSST';
+import TiposServicioSST from './pages/sst/gastos/TiposServicioSST';
+import ProveedoresSST from './pages/sst/gastos/ProveedoresSST';
+import OrdenAseoSST from './pages/sst/gastos/OrdenAseoSST';
+import CapturaMensual from './pages/cuadro-master/CapturaMensual';
+import DesperdicioMaster from './pages/cuadro-master/DesperdicioMaster';
+import TableroMaster from './pages/cuadro-master/TableroMaster';
+import HistorialMaster from './pages/cuadro-master/HistorialMaster';
+import ConfigMaquinasMaster from './pages/cuadro-master/ConfigMaquinasMaster';
+import OperariosMaster from './pages/cuadro-master/OperariosMaster';
+import CartasMaster from './pages/cuadro-master/CartasMaster';
 import '@mantine/core/styles.css';
 import './App.css';
 
@@ -176,6 +190,26 @@ function App() {
             <Route path="/calidad/reporte-nc" element={<ReporteNC />} />
             <Route path="/calidad/consolidado-nc" element={<ConsolidadoNC />} />
             <Route path="/calidad/planes-accion" element={<PlanesAccion />} />
+
+            {/* SST */}
+            <Route path="/sst/gastos/captura" element={<GastosSST />} />
+            <Route path="/sst/gastos/cotizaciones" element={<CotizacionesSST />} />
+            <Route path="/sst/gastos/graficas" element={<GraficasSST />} />
+            <Route path="/sst/gastos/rubros" element={<RubrosSST />} />
+            <Route path="/sst/gastos/servicios" element={<TiposServicioSST />} />
+            <Route path="/sst/gastos/proveedores" element={<ProveedoresSST />} />
+            <Route path="/sst/orden-aseo" element={<OrdenAseoSST />} />
+
+            {/* Cuadro Master */}
+            <Route path="cuadro-master">
+              <Route path="captura" element={<CapturaMensual />} />
+              <Route path="desperdicio" element={<DesperdicioMaster />} />
+              <Route path="tablero" element={<TableroMaster />} />
+              <Route path="historial" element={<HistorialMaster />} />
+              <Route path="config-maquinas" element={<ConfigMaquinasMaster />} />
+              <Route path="operarios" element={<OperariosMaster />} />
+              <Route path="cartas" element={<CartasMaster />} />
+            </Route>
 
             {/* Dynamic Module Route LATER */}
             <Route path=":moduleName" element={<ModulePage />} />

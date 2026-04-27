@@ -34,6 +34,7 @@ const moduleInfo = {
 };
 
 export default function ModulePage() {
+    const { moduleName } = useParams();
     const navigate = useNavigate();
     const info = moduleInfo[moduleName] || {
         title: moduleName,
