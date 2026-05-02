@@ -10,7 +10,11 @@ frontend/dist-ssr
 frontend/*.local
 frontend/.eslintcache
 
+# --- Uploads (adjuntos generados en servidor, no versionar) ---
+backend/src/Host/Perlax.Web/uploads/
+
 # --- Backend (.NET) ---
+**/appsettings.Development.local.json
 **/bin/
 **/obj/
 **/App_Data/

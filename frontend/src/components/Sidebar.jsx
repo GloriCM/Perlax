@@ -133,32 +133,13 @@ const navSections = [
         items: [
             { label: 'Dashboard', icon: IconChartPie, path: '/' },
             {
-                label: 'Compras & Almacén',
-                icon: IconShoppingCart,
-                path: '/compras',
+                label: 'Ordenes de Trabajo',
+                icon: IconClipboardList,
+                path: '/ordenes',
                 children: [
-                    { label: 'Requisición', icon: IconFilePlus, path: '/compras/requisicion' },
-                    { label: 'Compras', icon: IconBuildingStore, path: '/compras/compras' },
-                    { label: 'Consumos', icon: IconStack2, path: '/compras/consumos' },
-                    { label: 'Saldos de Inventario', icon: IconCalculator, path: '/compras/saldos' },
-                ]
-            },
-            {
-                label: 'Cotizaciones',
-                icon: IconFileText,
-                path: '/cotizaciones',
-                children: [
-                    { label: 'Desde OT', icon: IconClipboardPlus, path: '/cotizaciones/desde-ot' },
-                    { label: 'Manual', icon: IconPencil, path: '/cotizaciones/manual' },
-                ]
-            },
-            {
-                label: 'Facturación',
-                icon: IconFileInvoice,
-                path: '/facturacion',
-                children: [
-                    { label: 'Nueva Factura', icon: IconReceipt, path: '/facturacion/nueva' },
-                    { label: 'Informe', icon: IconChartBar, path: '/facturacion/informe' },
+                    { label: 'Nueva OT', icon: IconSquarePlus, path: '/ordenes/nueva' },
+                    { label: 'Lista de OT', icon: IconLayoutList, path: '/ordenes/lista' },
+                    { label: 'Planes de Diseño', icon: IconArtboard, path: '/ordenes/planes-diseno' },
                 ]
             },
             {
@@ -170,22 +151,12 @@ const navSections = [
                 ]
             },
             {
-                label: 'Inventario PT',
-                icon: IconPackages,
-                path: '/inventario',
+                label: 'Cotizaciones',
+                icon: IconFileText,
+                path: '/cotizaciones',
                 children: [
-                    { label: 'Existencias', icon: IconArchive, path: '/inventario/existencias' },
-                    { label: 'Devoluciones', icon: IconArrowBackUp, path: '/inventario/devoluciones' },
-                ]
-            },
-            {
-                label: 'Ordenes de Trabajo',
-                icon: IconClipboardList,
-                path: '/ordenes',
-                children: [
-                    { label: 'Nueva OT', icon: IconSquarePlus, path: '/ordenes/nueva' },
-                    { label: 'Lista de OT', icon: IconLayoutList, path: '/ordenes/lista' },
-                    { label: 'Planes de Diseño', icon: IconArtboard, path: '/ordenes/planes-diseno' },
+                    { label: 'Desde OT', icon: IconClipboardPlus, path: '/cotizaciones/desde-ot' },
+                    { label: 'Manual', icon: IconPencil, path: '/cotizaciones/manual' },
                 ]
             },
             {
@@ -227,6 +198,18 @@ const navSections = [
                     },
                 ]
             },
+            { label: 'Reporte Diario', icon: IconClock, path: '/reporte-diario' },
+            {
+                label: 'Compras & Almacén',
+                icon: IconShoppingCart,
+                path: '/compras',
+                children: [
+                    { label: 'Requisición', icon: IconFilePlus, path: '/compras/requisicion' },
+                    { label: 'Compras', icon: IconBuildingStore, path: '/compras/compras' },
+                    { label: 'Consumos', icon: IconStack2, path: '/compras/consumos' },
+                    { label: 'Saldos de Inventario', icon: IconCalculator, path: '/compras/saldos' },
+                ]
+            },
             {
                 label: 'Remisiones',
                 icon: IconTruck,
@@ -236,7 +219,24 @@ const navSections = [
                     { label: 'Informe', icon: IconChartBar, path: '/remisiones/informe' },
                 ]
             },
-            { label: 'Reporte Diario', icon: IconClock, path: '/reporte-diario' },
+            {
+                label: 'Facturación',
+                icon: IconFileInvoice,
+                path: '/facturacion',
+                children: [
+                    { label: 'Nueva Factura', icon: IconReceipt, path: '/facturacion/nueva' },
+                    { label: 'Informe', icon: IconChartBar, path: '/facturacion/informe' },
+                ]
+            },
+            {
+                label: 'Inventario PT',
+                icon: IconPackages,
+                path: '/inventario',
+                children: [
+                    { label: 'Existencias', icon: IconArchive, path: '/inventario/existencias' },
+                    { label: 'Devoluciones', icon: IconArrowBackUp, path: '/inventario/devoluciones' },
+                ]
+            },
         ],
     },
     {
@@ -440,15 +440,19 @@ export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Get user from localStorage
-    const user = JSON.parse(localStorage.getItem('user') || '{"username": "Admin Master", "role": "Super Administrador"}');
+    const user = (() => {
+        try {
+            const raw = localStorage.getItem('user');
+            if (!raw) return { username: 'Invitado', role: '' };
+            return JSON.parse(raw);
+        } catch {
+            return { username: 'Invitado', role: '' };
+        }
+    })();
 
     const handleLogout = async () => {
         try {
-            await api.post('/users/auth/logout', {
-                userId: user.id || null,
-                username: user.username
-            });
+            await api.post('/users/auth/logout', {});
         } catch (err) {
             console.error('Error logging out:', err);
         } finally {

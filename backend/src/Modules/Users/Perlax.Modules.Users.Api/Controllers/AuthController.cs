@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Users.Infrastructure.Persistence;
@@ -26,6 +27,7 @@ public class AuthController : ControllerBase
         _configuration = configuration;
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
@@ -109,48 +111,18 @@ public class AuthController : ControllerBase
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    // Endpoint to test deletion protection for admin
-    [HttpDelete("test-delete/{id}")]
-    public async Task<IActionResult> DeleteUser(Guid id)
-    {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null) return NotFound();
-
-        try
-        {
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-            
-            await _auditService.LogAsync(
-                null, 
-                "system", 
-                "UserDeleted", 
-                $"User {user.Username} deleted", 
-                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-            
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            await _auditService.LogAsync(
-                null, 
-                "system", 
-                "UserDeletionFailed", 
-                $"Failed to delete user {user.Username}: {ex.Message}", 
-                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-            
-            return BadRequest(ex.Message);
-        }
-    }
-
+    [Authorize]
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+    public async Task<IActionResult> Logout()
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var username = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name ?? "unknown";
+
         await _auditService.LogAsync(
-            request.UserId, 
-            request.Username, 
-            "Logout", 
-            "User logged out successfully", 
+            userId,
+            username,
+            "Logout",
+            "User logged out successfully",
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
         return Ok();
@@ -158,4 +130,3 @@ public class AuthController : ControllerBase
 }
 
 public record LoginRequest(string Username, string Password);
-public record LogoutRequest(string UserId, string Username);

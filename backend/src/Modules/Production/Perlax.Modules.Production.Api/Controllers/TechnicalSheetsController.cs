@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -73,6 +74,9 @@ public class TechnicalSheetsController : ControllerBase
             return NotFound();
         }
 
+        var ampliacionesUrls = FilterAttachmentPublicUrls(part.AdjuntosJson, "ampliaciones", "ampliacion");
+        var adjuntosUrls = FilterAttachmentPublicUrls(part.AdjuntosJson, "adjuntos", "adjunto");
+
         return Ok(new
         {
             id = part.Id,
@@ -84,6 +88,13 @@ public class TechnicalSheetsController : ControllerBase
             producto = part.Order.ProductName,
             pieza = part.PartName,
             codigoSap = part.Order.ProductCode,
+            fechaSolicitud = part.Order.FechaSolicitud,
+            asignacion = part.Order.Asignacion,
+            cabida = part.Cabida,
+            altoPliego = part.AltoPliego,
+            anchoPliego = part.AnchoPliego,
+            ampliacionesUrls,
+            adjuntosUrls,
             sustratoSup = part.SustratoSup,
             sustratoMed = part.SustratoMed,
             sustratoInf = part.SustratoInf,
@@ -166,5 +177,48 @@ public class TechnicalSheetsController : ControllerBase
     public sealed class SetTechnicalSheetApprovalRequest
     {
         public bool Approved { get; set; }
+    }
+
+    /// <summary>Filtra URLs públicas de adjuntos por categoría o kind guardados en AdjuntosJson.</summary>
+    private static List<string> FilterAttachmentPublicUrls(string? adjuntosJson, string categoryMatch, string kindMatch)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(adjuntosJson) || adjuntosJson == "[]")
+            return result;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(adjuntosJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return result;
+
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                var cat = el.TryGetProperty("category", out var cEl) && cEl.ValueKind == JsonValueKind.String
+                    ? cEl.GetString()
+                    : null;
+                var kind = el.TryGetProperty("kind", out var kEl) && kEl.ValueKind == JsonValueKind.String
+                    ? kEl.GetString()
+                    : null;
+                var url = el.TryGetProperty("publicUrl", out var uEl) && uEl.ValueKind == JsonValueKind.String
+                    ? uEl.GetString()
+                    : null;
+                if (string.IsNullOrWhiteSpace(url))
+                    continue;
+
+                var matchCat = !string.IsNullOrEmpty(cat) &&
+                    string.Equals(cat, categoryMatch, StringComparison.OrdinalIgnoreCase);
+                var matchKind = !string.IsNullOrEmpty(kind) &&
+                    string.Equals(kind, kindMatch, StringComparison.OrdinalIgnoreCase);
+                if (matchCat || matchKind)
+                    result.Add(url);
+            }
+        }
+        catch
+        {
+            // ignorar JSON inválido
+        }
+
+        return result;
     }
 }

@@ -13,8 +13,17 @@ import {
 } from '@mantine/core';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IconPrinter, IconArrowLeft } from '@tabler/icons-react';
-import { api } from '../../utils/api';
+import { api, getApiOrigin } from '../../utils/api';
 import { notifications } from '@mantine/notifications';
+
+function absoluteUploadUrl(publicPath) {
+    if (!publicPath || typeof publicPath !== 'string') return '';
+    const trimmed = publicPath.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    const origin = getApiOrigin();
+    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${origin}${path}`;
+}
 
 const FichaTecnicaPrint = () => {
     const { id } = useParams();
@@ -29,12 +38,20 @@ const FichaTecnicaPrint = () => {
                 const response = await api.get(`/production/technical-sheets/${id}`);
                 setData({
                     ...response,
-                    version: '3',
-                    codigoDoc: 'FO PD 63',
-                    fechaEmision: '2014-07-02',
+                    version: response.version ?? '3',
+                    codigoDoc: response.codigoDoc ?? 'FO-PD-63',
+                    fechaEmision: response.fechaCreacion
+                        ? new Date(response.fechaCreacion).toLocaleDateString()
+                        : '-',
                     medidas: response?.medidas || {},
                     tintas: response?.tintas || {},
                     terminados: response?.terminados || {},
+                    ampliacionesUrls: Array.isArray(response?.ampliacionesUrls)
+                        ? response.ampliacionesUrls
+                        : [],
+                    adjuntosUrls: Array.isArray(response?.adjuntosUrls)
+                        ? response.adjuntosUrls
+                        : [],
                 });
             } catch (error) {
                 notifications.show({
@@ -85,6 +102,9 @@ const FichaTecnicaPrint = () => {
                     .print-container { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; border: none !important; }
                     .no-print { display: none !important; }
                     .main-content-area { margin-top: 0 !important; }
+                    .ficha-sheet--page1.ficha-sheet--with-page2 { page-break-after: always; break-after: page; }
+                    .ficha-sheet--page2 { page-break-before: always; break-before: page; }
+                    .ficha-sheet--page2 .print-container { margin-top: 0 !important; }
                 }
                 .print-actions-bar {
                     position: fixed;
@@ -130,8 +150,15 @@ const FichaTecnicaPrint = () => {
                 </Button>
             </div>
 
-            {/* Documento Ficha Técnica */}
-            <Container size="xl" py="xl" className="print-container main-content-area" style={{ background: 'white', color: 'black', boxShadow: '0 0 40px rgba(0,0,0,0.5)', borderRadius: '4px' }}>
+            {/* Documento Ficha Técnica — hoja 1 */}
+            <div
+                className={
+                    (data.adjuntosUrls?.length ?? 0) > 0
+                        ? 'ficha-sheet ficha-sheet--page1 ficha-sheet--with-page2'
+                        : 'ficha-sheet ficha-sheet--page1'
+                }
+            >
+                <Container size="xl" py="xl" className="print-container main-content-area" style={{ background: 'white', color: 'black', boxShadow: '0 0 40px rgba(0,0,0,0.5)', borderRadius: '4px' }}>
                 <Box p="md" style={{ border: '2px solid black' }}>
                     {/* Header Section */}
                     <Grid align="center" mb="md">
@@ -146,6 +173,7 @@ const FichaTecnicaPrint = () => {
                         </Grid.Col>
                         <Grid.Col span={3}>
                             <Stack gap={0} ta="right">
+                                <Text size="xs"><b>N° OT:</b> {data.otNumber ?? '-'}</Text>
                                 <Text size="xs"><b>CÓDIGO:</b> {data.codigoDoc}</Text>
                                 <Text size="xs"><b>VERSIÓN:</b> {data.version}</Text>
                                 <Text size="xs"><b>Fecha de emisión:</b> {data.fechaEmision}</Text>
@@ -185,6 +213,23 @@ const FichaTecnicaPrint = () => {
                                     <Grid.Col span={3}>
                                         <Text className="label">Pieza:</Text>
                                         <Text className="value">{data.pieza}</Text>
+                                    </Grid.Col>
+                                </Grid>
+
+                                <Grid gutter="xs">
+                                    <Grid.Col span={4}>
+                                        <Text className="label">Fecha solicitud OT:</Text>
+                                        <Text className="value">
+                                            {data.fechaSolicitud ? new Date(data.fechaSolicitud).toLocaleDateString() : '-'}
+                                        </Text>
+                                    </Grid.Col>
+                                    <Grid.Col span={4}>
+                                        <Text className="label">Asignación:</Text>
+                                        <Text className="value">{data.asignacion ?? '-'}</Text>
+                                    </Grid.Col>
+                                    <Grid.Col span={4}>
+                                        <Text className="label">Ejecutivo de cuenta:</Text>
+                                        <Text className="value">{data.ejecutivo ?? '-'}</Text>
                                     </Grid.Col>
                                 </Grid>
 
@@ -229,6 +274,20 @@ const FichaTecnicaPrint = () => {
                                     <Grid.Col span={3}>
                                         <Text fw={700} size="xs" c="white">FUELLE:</Text>
                                         <Text size="md" c="white" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', minHeight: '25px' }}>{data.medidas.fuelle}</Text>
+                                    </Grid.Col>
+                                </Grid>
+                                <Grid gutter="xs" mt={4}>
+                                    <Grid.Col span={4}>
+                                        <Text className="label">Cabida:</Text>
+                                        <Text className="value">{data.cabida != null && data.cabida !== '' ? data.cabida : '-'}</Text>
+                                    </Grid.Col>
+                                    <Grid.Col span={4}>
+                                        <Text className="label">Alto pliego (cm):</Text>
+                                        <Text className="value">{data.altoPliego ?? '-'}</Text>
+                                    </Grid.Col>
+                                    <Grid.Col span={4}>
+                                        <Text className="label">Ancho pliego (cm):</Text>
+                                        <Text className="value">{data.anchoPliego ?? '-'}</Text>
                                     </Grid.Col>
                                 </Grid>
 
@@ -289,33 +348,43 @@ const FichaTecnicaPrint = () => {
                         </Grid.Col>
 
                         <Grid.Col span={4}>
-                            {/* Right Column Preview */}
-                            <Stack align="center" justify="center" h="100%">
-                                <Box style={{ border: '1px dashed #ced4da', padding: '15px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Stack align="center" gap={0}>
-                                        <Text fw={900} style={{ fontSize: '3.5rem', lineHeight: 1, letterSpacing: '-2px' }}>STUDIO F</Text>
-                                        <Text size="xs" fw={700} ta="center" mt={4} style={{ letterSpacing: '1px', lineHeight: 1.2 }}>
-                                            MÉXICO · COLOMBIA · PUERTO RICO · PANAMÁ · CHILE<br />
-                                            ECUADOR · GUATEMALA · UNITED STATES
+                            {/* Ampliaciones (OT) */}
+                            <Stack align="center" justify="flex-start" h="100%">
+                                <Text size="xs" fw={700} mb={6} ta="center" style={{ width: '100%' }}>
+                                    AMPLIACIÓN
+                                </Text>
+                                <Box
+                                    style={{
+                                        border: '1px dashed #ced4da',
+                                        padding: '12px',
+                                        width: '100%',
+                                        minHeight: '320px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'flex-start',
+                                        gap: '12px',
+                                    }}
+                                >
+                                    {(data.ampliacionesUrls?.length ?? 0) > 0 ? (
+                                        data.ampliacionesUrls.map((url, i) => (
+                                            <img
+                                                key={`${url}-${i}`}
+                                                src={absoluteUploadUrl(url)}
+                                                alt={`Ampliación ${i + 1}`}
+                                                style={{
+                                                    maxWidth: '100%',
+                                                    width: 'auto',
+                                                    height: 'auto',
+                                                    objectFit: 'contain',
+                                                }}
+                                            />
+                                        ))
+                                    ) : (
+                                        <Text size="sm" c="dimmed" ta="center" mt="xl">
+                                            Sin imagen de ampliación
                                         </Text>
-
-                                        <Text fw={900} mt="xl" style={{ fontSize: '3.5rem', lineHeight: 1, letterSpacing: '-2px' }}>STUDIO F</Text>
-                                        <Text size="xs" mt="lg" ta="center" fw={600}>ESCANEA EL QR Y CONOCE NUESTRAS POLÍTICAS DE DEVOLUCIÓN</Text>
-
-                                        <Group mt="xl" align="center" gap="md">
-                                            {/* Mock QR */}
-                                            <Box w={70} h={70} style={{ border: '2px solid black', padding: '4px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px' }}>
-                                                {Array(16).fill(0).map((_, i) => (
-                                                    <Box key={i} style={{ background: (i % 3 === 0 || i % 5 === 0) ? 'black' : 'white' }} />
-                                                ))}
-                                            </Box>
-                                            <Stack gap={0}>
-                                                <Text fw={900} size="lg">STUDIO F</Text>
-                                                <Text size="xs">SHOP ONLINE 24/7</Text>
-                                                <Text size="xs" fw={800}>STUDIOF.COM</Text>
-                                            </Stack>
-                                        </Group>
-                                    </Stack>
+                                    )}
                                 </Box>
                             </Stack>
                         </Grid.Col>
@@ -351,6 +420,62 @@ const FichaTecnicaPrint = () => {
                     </Box>
                 </Box>
             </Container>
+            </div>
+
+            {(data.adjuntosUrls?.length ?? 0) > 0 && (
+                <div className="ficha-sheet ficha-sheet--page2">
+                    <Container
+                        size="xl"
+                        py="xl"
+                        className="print-container main-content-area"
+                        style={{
+                            background: 'white',
+                            color: 'black',
+                            boxShadow: '0 0 40px rgba(0,0,0,0.5)',
+                            borderRadius: '4px',
+                            marginTop: 32,
+                        }}
+                    >
+                        <Box p="md" style={{ border: '2px solid black', minHeight: '70vh' }}>
+                            <Grid align="center" mb="md">
+                                <Grid.Col span={3}>
+                                    <Stack gap={0} align="center">
+                                        <Text fw={900} size="xl" style={{ letterSpacing: '2px' }}>aleph</Text>
+                                        <Text size="xs" fw={700}>impresores</Text>
+                                    </Stack>
+                                </Grid.Col>
+                                <Grid.Col span={6}>
+                                    <Title order={3} ta="center" style={{ textDecoration: 'underline' }}>
+                                        ADJUNTO — OT {data.otNumber ?? '-'}
+                                    </Title>
+                                </Grid.Col>
+                                <Grid.Col span={3}>
+                                    <Stack gap={0} ta="right">
+                                        <Text size="xs"><b>N° OT:</b> {data.otNumber ?? '-'}</Text>
+                                        <Text size="xs"><b>Pieza:</b> {data.pieza ?? '-'}</Text>
+                                    </Stack>
+                                </Grid.Col>
+                            </Grid>
+                            <Stack gap="lg" align="center">
+                                {data.adjuntosUrls.map((url, i) => (
+                                    <img
+                                        key={`adj-${url}-${i}`}
+                                        src={absoluteUploadUrl(url)}
+                                        alt={`Adjunto ${i + 1}`}
+                                        style={{
+                                            maxWidth: '100%',
+                                            width: 'auto',
+                                            height: 'auto',
+                                            objectFit: 'contain',
+                                            display: 'block',
+                                        }}
+                                    />
+                                ))}
+                            </Stack>
+                        </Box>
+                    </Container>
+                </div>
+            )}
         </div>
     );
 };
