@@ -24,6 +24,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../utils/api';
 
+function deriveOrderStatus(order) {
+    const parts = Array.isArray(order?.parts) ? order.parts : [];
+    if (parts.length === 0) return 'Pendiente';
+    const allApproved = parts.every((p) => String(p?.estadoAprobacion || '').toLowerCase() === 'aprobado');
+    return allApproved ? 'Aprobada' : 'Pendiente';
+}
+
 export default function ListaOT() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -95,7 +102,15 @@ export default function ListaOT() {
             backgroundColor: 'transparent'
         }}>
             <Table.Td>
-                <Text size="sm" fw={700} c="indigo.4">{item.otNumber || item.otNumber || item.OTNumber || 'N/A'}</Text>
+                <Text
+                    size="sm"
+                    fw={700}
+                    c="indigo.4"
+                    style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                    onClick={() => navigate(`/ordenes/nueva?orderId=${encodeURIComponent(item.id)}`)}
+                >
+                    {item.otNumber || item.otNumber || item.OTNumber || 'N/A'}
+                </Text>
             </Table.Td>
             <Table.Td><Text size="sm">{item.lineaPT}</Text></Table.Td>
             <Table.Td><Text size="sm" fw={500}>{item.cliente}</Text></Table.Td>
@@ -103,14 +118,14 @@ export default function ListaOT() {
             <Table.Td><Text size="sm">{item.parts?.length || 0}</Text></Table.Td>
             <Table.Td><Text size="sm">{new Date(item.createdAt).toLocaleDateString()}</Text></Table.Td>
             <Table.Td><Text size="sm">{item.ejecutivoCuenta}</Text></Table.Td>
-            <Table.Td><Text size="sm">{item.status}</Text></Table.Td>
+            <Table.Td><Text size="sm">{deriveOrderStatus(item)}</Text></Table.Td>
             <Table.Td>
                 <Badge
                     variant="light"
-                    color={item.status === 'Aprobado' ? 'green' : 'yellow'}
-                    leftSection={item.status === 'Aprobado' ? <IconCircleCheck size={12} /> : <IconCircleX size={12} />}
+                    color={deriveOrderStatus(item) === 'Aprobada' ? 'green' : 'yellow'}
+                    leftSection={deriveOrderStatus(item) === 'Aprobada' ? <IconCircleCheck size={12} /> : <IconCircleX size={12} />}
                 >
-                    {item.status}
+                    {deriveOrderStatus(item)}
                 </Badge>
             </Table.Td>
             <Table.Td>

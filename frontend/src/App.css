@@ -104,3 +104,33 @@ body::before {
     transform: translateY(0);
   }
 }
+
+/* Impresión: fondo oscuro del sitio no debe verse (vista previa / PDF) */
+@media print {
+  html {
+    background: #fff !important;
+    height: auto !important;
+    color-scheme: light !important;
+  }
+
+  body {
+    background: #fff !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  body::before {
+    display: none !important;
+    content: none !important;
+    background: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  #root {
+    background: #fff !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+}

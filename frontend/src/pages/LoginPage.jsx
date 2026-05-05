@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
+import { getDefaultPostLoginPath } from '../utils/permissions';
 import {
     TextInput,
     PasswordInput,
@@ -37,7 +38,7 @@ export default function LoginPage() {
 
             if (data) {
                 localStorage.setItem('user', JSON.stringify(data));
-                navigate('/');
+                navigate(getDefaultPostLoginPath(data));
             }
         } catch (err) {
             setError(err.message || 'Error de conexión con el servidor');

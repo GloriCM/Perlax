@@ -10,11 +10,13 @@ import {
     TextInput,
     Button,
     Badge,
-    Checkbox,
     ScrollArea,
     Stack,
     Loader,
-    Tooltip
+    Tooltip,
+    Menu,
+    Modal,
+    Textarea
 } from '@mantine/core';
 import {
     IconSearch,
@@ -22,7 +24,8 @@ import {
     IconArrowLeft,
     IconCheck,
     IconX,
-    IconExternalLink
+    IconExternalLink,
+    IconDotsVertical
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
@@ -34,6 +37,10 @@ const FichasTecnicas = () => {
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState([]);
     const [selectedId, setSelectedId] = useState(null);
+    const [rejectModalOpen, setRejectModalOpen] = useState(false);
+    const [rejectPartId, setRejectPartId] = useState(null);
+    const [rejectReason, setRejectReason] = useState('');
+    const [rejectSubmitting, setRejectSubmitting] = useState(false);
 
     useEffect(() => {
         fetchFichas();
@@ -62,33 +69,85 @@ const FichasTecnicas = () => {
         (ficha.productName || '').toLowerCase().includes(search.toLowerCase())
     ), [fichas, search]);
 
-    const handleToggleApproval = async (id, approved) => {
-        try {
-            const result = await api.put(`/production/technical-sheets/${id}/approval`, { approved: !approved });
-            setFichas(prev => prev.map(f =>
+    const patchFichaFromResult = (id, result) => {
+        setFichas((prev) =>
+            prev.map((f) =>
                 f.id === id
                     ? {
                         ...f,
-                        approved: result?.approved ?? !approved,
+                        approved: result?.approved ?? false,
                         approvedAt: result?.approvedAt ?? null,
-                        approvedBy: result?.approvedBy ?? null
+                        approvedBy: result?.approvedBy ?? null,
+                        rejectionReason: result?.rejectionReason ?? null
                     }
                     : f
-            ));
+            )
+        );
+    };
 
+    const handleApprove = async (id) => {
+        try {
+            const result = await api.put(`/production/technical-sheets/${id}/approval`, { approved: true });
+            patchFichaFromResult(id, result);
             notifications.show({
-                title: !approved ? 'Ficha aprobada' : 'Aprobación removida',
-                message: `La ficha técnica fue actualizada correctamente.`,
-                color: !approved ? 'teal' : 'blue',
-                icon: !approved ? <IconCheck size={16} /> : <IconX size={16} />,
+                title: 'Ficha aprobada',
+                message: 'La ficha técnica fue actualizada correctamente.',
+                color: 'teal',
+                icon: <IconCheck size={16} />
             });
         } catch (error) {
             notifications.show({
                 title: 'No se pudo actualizar',
-                message: error?.message || 'Error al cambiar estado de aprobación.',
+                message: error?.message || 'Error al aprobar la ficha.',
                 color: 'red',
-                icon: <IconX size={16} />,
+                icon: <IconX size={16} />
             });
+        }
+    };
+
+    const openRejectModal = (id) => {
+        setRejectPartId(id);
+        setRejectReason('');
+        setRejectModalOpen(true);
+    };
+
+    const handleConfirmReject = async () => {
+        const trimmed = rejectReason.trim();
+        if (trimmed.length < 5) {
+            notifications.show({
+                title: 'Motivo requerido',
+                message: 'Escribe al menos 5 caracteres explicando por qué no se aprueba.',
+                color: 'yellow',
+                icon: <IconX size={16} />
+            });
+            return;
+        }
+        if (!rejectPartId) return;
+        try {
+            setRejectSubmitting(true);
+            const result = await api.put(`/production/technical-sheets/${rejectPartId}/approval`, {
+                approved: false,
+                rejectionReason: trimmed
+            });
+            patchFichaFromResult(rejectPartId, result);
+            setRejectModalOpen(false);
+            setRejectPartId(null);
+            setRejectReason('');
+            notifications.show({
+                title: 'Ficha desaprobada',
+                message: 'Se registró el motivo y el estado quedó como rechazado.',
+                color: 'orange',
+                icon: <IconCheck size={16} />
+            });
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudo desaprobar',
+                message: error?.message || 'Error al actualizar la ficha.',
+                color: 'red',
+                icon: <IconX size={16} />
+            });
+        } finally {
+            setRejectSubmitting(false);
         }
     };
 
@@ -121,11 +180,32 @@ const FichasTecnicas = () => {
             onClick={() => setSelectedId(ficha.id)}
         >
             <Table.Td onClick={(e) => e.stopPropagation()}>
-                <Checkbox
-                    checked={Boolean(ficha.approved)}
-                    onChange={() => handleToggleApproval(ficha.id, Boolean(ficha.approved))}
-                    color="teal"
-                />
+                <Menu withinPortal position="bottom-end">
+                    <Menu.Target>
+                        <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Acciones de aprobación">
+                            <IconDotsVertical size={18} />
+                        </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                        {!ficha.approved && (
+                            <Menu.Item
+                                leftSection={<IconCheck size={14} />}
+                                onClick={() => handleApprove(ficha.id)}
+                            >
+                                Aprobar
+                            </Menu.Item>
+                        )}
+                        {ficha.approved && (
+                            <Menu.Item
+                                color="red"
+                                leftSection={<IconX size={14} />}
+                                onClick={() => openRejectModal(ficha.id)}
+                            >
+                                Desaprobar
+                            </Menu.Item>
+                        )}
+                    </Menu.Dropdown>
+                </Menu>
             </Table.Td>
             <Table.Td
                 onClick={(e) => {
@@ -166,10 +246,12 @@ const FichasTecnicas = () => {
             <Table.Td>{ficha.codigoTroquel || '-'}</Table.Td>
             <Table.Td>
                 <Badge
-                    color={ficha.approved ? 'teal' : 'gray'}
+                    color={
+                        ficha.approved ? 'teal' : ficha.rejectionReason ? 'red' : 'gray'
+                    }
                     variant="light"
                 >
-                    {ficha.approved ? 'Aprobado' : 'Pendiente'}
+                    {ficha.approved ? 'Aprobado' : ficha.rejectionReason ? 'Rechazado' : 'Pendiente'}
                 </Badge>
             </Table.Td>
             <Table.Td>{ficha.productCode || '-'}</Table.Td>
@@ -248,7 +330,7 @@ const FichasTecnicas = () => {
                             <Table verticalSpacing="sm" highlightOnHover>
                             <Table.Thead style={{ background: 'rgba(0, 0, 0, 0.2)', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <Table.Tr>
-                                    <Table.Th style={{ color: 'white' }}>Aprobar</Table.Th>
+                                    <Table.Th style={{ color: 'white' }}>Acciones</Table.Th>
                                     <Table.Th style={{ color: 'white' }}>Numero OT</Table.Th>
                                     <Table.Th style={{ color: 'white' }}>Pieza N</Table.Th>
                                     <Table.Th style={{ color: 'white' }}>Cliente</Table.Th>
@@ -264,6 +346,48 @@ const FichasTecnicas = () => {
                     </ScrollArea>
                 </Stack>
             </Paper>
+
+            <Modal
+                opened={rejectModalOpen}
+                onClose={() => {
+                    if (!rejectSubmitting) {
+                        setRejectModalOpen(false);
+                        setRejectPartId(null);
+                        setRejectReason('');
+                    }
+                }}
+                title="Motivo para no aprobar"
+                centered
+            >
+                <Stack gap="md">
+                    <Text size="sm" c="dimmed">
+                        Indica la razón por la que se desaprueba esta ficha técnica. Quedará registrada en el sistema.
+                    </Text>
+                    <Textarea
+                        placeholder="Ej. Faltan medidas de pliego, error en troquel, cliente solicitó cambio…"
+                        minRows={4}
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.currentTarget.value)}
+                        disabled={rejectSubmitting}
+                    />
+                    <Group justify="flex-end">
+                        <Button
+                            variant="default"
+                            onClick={() => {
+                                setRejectModalOpen(false);
+                                setRejectPartId(null);
+                                setRejectReason('');
+                            }}
+                            disabled={rejectSubmitting}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button color="red" onClick={handleConfirmReject} loading={rejectSubmitting}>
+                            Desaprobar
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
         </Container>
     );
 };

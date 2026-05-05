@@ -1,69 +1,11 @@
-import { NavLink, Text, Avatar, Group, Box } from '@mantine/core';
+import { NavLink, Text, Box } from '@mantine/core';
 import { api } from '../utils/api';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-    IconChartPie,
-    IconCube,
-    IconPackages,
-    IconShoppingCart,
-    IconFileInvoice,
-    IconCalculator,
-    IconUsersGroup,
-    IconWallet,
-    IconSettings,
-    IconClipboardList,
-    IconFileText,
-    IconTruck,
-    IconReportAnalytics,
-    IconCalendarStats,
-    IconCheckupList,
-    IconTools,
-    IconPalette,
-    IconShieldCheck,
-    IconBriefcase,
-    IconLogout,
-    IconDoorEnter,
-    IconListDetails,
-    IconCalendarTime,
-    IconArchive,
-    IconArrowBackUp,
-    IconFilePlus,
-    IconBuildingStore,
-    IconStack2,
-    IconClipboardPlus,
-    IconPencil,
-    IconSquarePlus,
-    IconLayoutList,
-    IconArtboard,
-    IconList,
-    IconPackage,
-    IconChartBar,
-    IconReceipt,
-    IconClock,
-    IconClipboardCheck,
-    IconClipboardData,
-    IconFileAnalytics,
-    IconCalendarMonth,
-    IconTrash,
-    IconTrafficLights,
-    IconHistory,
-    IconSettingsAutomation,
-    IconUsers,
-    IconMail,
-    IconCash,
-    IconTags,
-    IconBuildingFactory2,
-    IconFileDollar,
-    IconCoins,
-    IconPercentage,
-    IconReceipt2,
-    IconCategory,
-    IconLayoutDashboard,
-    IconEngine,
-    IconBrush,
-} from '@tabler/icons-react';
+import { IconLogout } from '@tabler/icons-react';
+import { filterNavSections, getCurrentUser } from '../utils/permissions';
 import './Sidebar.css';
+
+export { navSections } from '../config/navSections';
 
 /**
  * Recursive function to check if any child (or nested child) is active
@@ -127,328 +69,17 @@ function renderNavLink(item, location, navigate, level = 0) {
     );
 }
 
-const navSections = [
-    {
-        title: 'Operaciones',
-        items: [
-            { label: 'Dashboard', icon: IconChartPie, path: '/' },
-            {
-                label: 'Ordenes de Trabajo',
-                icon: IconClipboardList,
-                path: '/ordenes',
-                children: [
-                    { label: 'Nueva OT', icon: IconSquarePlus, path: '/ordenes/nueva' },
-                    { label: 'Lista de OT', icon: IconLayoutList, path: '/ordenes/lista' },
-                    { label: 'Planes de Diseño', icon: IconArtboard, path: '/ordenes/planes-diseno' },
-                ]
-            },
-            {
-                label: 'Fichas Técnicas',
-                icon: IconReportAnalytics,
-                path: '/fichas',
-                children: [
-                    { label: 'Listado', icon: IconList, path: '/fichas/lista' },
-                ]
-            },
-            {
-                label: 'Cotizaciones',
-                icon: IconFileText,
-                path: '/cotizaciones',
-                children: [
-                    { label: 'Desde OT', icon: IconClipboardPlus, path: '/cotizaciones/desde-ot' },
-                    { label: 'Manual', icon: IconPencil, path: '/cotizaciones/manual' },
-                ]
-            },
-            {
-                label: 'Pedidos',
-                icon: IconBriefcase,
-                path: '/pedidos',
-                children: [
-                    { label: 'Nuevo Pedido', icon: IconPackage, path: '/pedidos/nuevo' },
-                    { label: 'Informe', icon: IconChartBar, path: '/pedidos/informe' },
-                ]
-            },
-            {
-                label: 'Producción',
-                icon: IconCube,
-                path: '/produccion',
-                children: [
-                    { label: 'Apertura', icon: IconDoorEnter, path: '/produccion/apertura' },
-                    { label: 'Estado de Ordenes', icon: IconListDetails, path: '/produccion/estado-ordenes' },
-                    {
-                        label: 'Planeación',
-                        icon: IconCalendarTime,
-                        path: '/planeacion',
-                        children: [
-                            { label: 'Panel', icon: IconLayoutDashboard, path: '/produccion/planeacion' },
-                            {
-                                label: 'Gastos',
-                                icon: IconCoins,
-                                path: '/planeacion/gastos',
-                                children: [
-                                    { label: 'Captura de Gastos', icon: IconCash, path: '/planeacion/gastos/captura' },
-                                    { label: 'Gráficas', icon: IconChartBar, path: '/planeacion/gastos/graficas' },
-                                    { label: 'Rubros', icon: IconTags, path: '/planeacion/gastos/rubros' },
-                                    { label: 'Cotizaciones', icon: IconFileDollar, path: '/planeacion/gastos/cotizaciones' },
-                                    { label: 'Proveedores', icon: IconBuildingFactory2, path: '/planeacion/gastos/proveedores' },
-                                    { label: 'Personal', icon: IconUsers, path: '/planeacion/gastos/personal' },
-                                ]
-                            }
-                        ]
-                    },
-                ]
-            },
-            { label: 'Reporte Diario', icon: IconClock, path: '/reporte-diario' },
-            {
-                label: 'Compras & Almacén',
-                icon: IconShoppingCart,
-                path: '/compras',
-                children: [
-                    { label: 'Requisición', icon: IconFilePlus, path: '/compras/requisicion' },
-                    { label: 'Compras', icon: IconBuildingStore, path: '/compras/compras' },
-                    { label: 'Consumos', icon: IconStack2, path: '/compras/consumos' },
-                    { label: 'Saldos de Inventario', icon: IconCalculator, path: '/compras/saldos' },
-                ]
-            },
-            {
-                label: 'Remisiones',
-                icon: IconTruck,
-                path: '/remisiones',
-                children: [
-                    { label: 'Nueva Remisión', icon: IconFilePlus, path: '/remisiones/nueva' },
-                    { label: 'Informe', icon: IconChartBar, path: '/remisiones/informe' },
-                ]
-            },
-            {
-                label: 'Facturación',
-                icon: IconFileInvoice,
-                path: '/facturacion',
-                children: [
-                    { label: 'Nueva Factura', icon: IconReceipt, path: '/facturacion/nueva' },
-                    { label: 'Informe', icon: IconChartBar, path: '/facturacion/informe' },
-                ]
-            },
-            {
-                label: 'Inventario PT',
-                icon: IconPackages,
-                path: '/inventario',
-                children: [
-                    { label: 'Existencias', icon: IconArchive, path: '/inventario/existencias' },
-                    { label: 'Devoluciones', icon: IconArrowBackUp, path: '/inventario/devoluciones' },
-                ]
-            },
-        ],
-    },
-    {
-        title: 'Administración',
-        items: [
-            {
-                label: 'Calidad',
-                icon: IconCheckupList,
-                path: '/calidad',
-                children: [
-                    { label: 'Encuestas de Calidad', icon: IconClipboardCheck, path: '/calidad/encuestas-calidad' },
-                    { label: 'Reporte de NC', icon: IconReportAnalytics, path: '/calidad/reporte-nc' },
-                    { label: 'Consolidado de NC', icon: IconFileAnalytics, path: '/calidad/consolidado-nc' },
-                    { label: 'Planes de Acción', icon: IconCalendarStats, path: '/calidad/planes-accion' },
-                ]
-            },
-            {
-                label: 'Cuadro Master',
-                icon: IconCalendarStats,
-                path: '/cuadro-master',
-                children: [
-                    { label: 'Captura Mensual', icon: IconCalendarMonth, path: '/cuadro-master/captura' },
-                    { label: 'Desperdicio', icon: IconTrash, path: '/cuadro-master/desperdicio' },
-                    { label: 'Tablero Semáforos', icon: IconTrafficLights, path: '/cuadro-master/tablero' },
-                    { label: 'Historial', icon: IconHistory, path: '/cuadro-master/historial' },
-                    { label: 'Config Máquinas', icon: IconSettingsAutomation, path: '/cuadro-master/config-maquinas' },
-                    { label: 'Operarios', icon: IconUsers, path: '/cuadro-master/operarios' },
-                    { label: 'Cartas', icon: IconMail, path: '/cuadro-master/cartas' },
-                ]
-            },
-            {
-                label: 'Diseño',
-                icon: IconPalette,
-                path: '/diseno',
-                children: [
-                    {
-                        label: 'Cuadro de Gastos',
-                        icon: IconCalculator,
-                        path: '/diseno/gastos',
-                        children: [
-                            { label: 'Captura de Gastos', icon: IconCash, path: '/diseno/gastos/captura' },
-                            { label: 'Gráficas', icon: IconChartBar, path: '/diseno/gastos/graficas' },
-                            { label: 'Rubros', icon: IconTags, path: '/diseno/gastos/rubros' },
-                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/diseno/gastos/cotizaciones' },
-                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/diseno/gastos/proveedores' },
-                        ]
-                    }
-                ]
-            },
-            {
-                label: 'Producción',
-                icon: IconCalculator,
-                path: '/gastos',
-                children: [
-                    {
-                        label: 'Control de Gastos',
-                        icon: IconCoins,
-                        path: '/gastos/control',
-                        children: [
-                            { label: 'Captura de Gastos', icon: IconCash, path: '/gastos/control/captura' },
-                            { label: 'Gráficas', icon: IconChartBar, path: '/gastos/control/graficas' },
-                            { label: 'Rubros', icon: IconTags, path: '/gastos/control/rubros' },
-                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/gastos/control/cotizaciones' },
-                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/gastos/control/proveedores' },
-                        ]
-                    },
-                    {
-                        label: 'Control de Personal',
-                        icon: IconUsers,
-                        path: '/gastos/personal',
-                        children: [
-                            { label: 'Horas Extra', icon: IconClock, path: '/gastos/personal/horas-extra' },
-                            { label: 'Recargo', icon: IconPercentage, path: '/gastos/personal/recargo' },
-                            { label: 'Salarios', icon: IconReceipt2, path: '/gastos/personal/salarios' },
-                        ]
-                    }
-                ]
-            },
-            {
-                label: 'Talleres y Despachos',
-                icon: IconTools,
-                path: '/talleres-gastos',
-                children: [
-                    {
-                        label: 'Cuadro de Gastos',
-                        icon: IconCoins,
-                        path: '/talleres-gastos/control',
-                        children: [
-                            { label: 'Captura de Gastos', icon: IconCash, path: '/talleres-gastos/control/captura' },
-                            { label: 'Gráficas', icon: IconChartBar, path: '/talleres-gastos/control/graficas' },
-                            { label: 'Rubros', icon: IconTags, path: '/talleres-gastos/control/rubros' },
-                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/talleres-gastos/control/cotizaciones' },
-                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/talleres-gastos/control/proveedores' },
-                        ]
-                    },
-                    {
-                        label: 'Personal',
-                        icon: IconUsers,
-                        path: '/talleres-gastos/personal',
-                        children: [
-                            { label: 'Salarios', icon: IconReceipt2, path: '/talleres-gastos/personal/salarios' },
-                        ]
-                    }
-                ]
-            },
-            {
-                label: 'Gestión Humana',
-                icon: IconUsersGroup,
-                path: '/gestion-humana',
-                children: [
-                    {
-                        label: 'Cuadro de Gastos',
-                        icon: IconCalculator,
-                        path: '/gestion-humana/gastos',
-                        children: [
-                            { label: 'Captura de Gastos', icon: IconCash, path: '/gestion-humana/gastos/captura' },
-                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/gestion-humana/gastos/cotizaciones' },
-                            { label: 'Gráficas', icon: IconChartBar, path: '/gestion-humana/gastos/graficas' },
-                            { label: 'Rubros', icon: IconTags, path: '/gestion-humana/gastos/rubros' },
-                            { label: 'Tipos de Servicios', icon: IconCategory, path: '/gestion-humana/gastos/servicios' },
-                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/gestion-humana/gastos/proveedores' },
-                        ]
-                    }
-                ]
-            },
-            {
-                label: 'Mantenimiento de Equipos',
-                icon: IconTools,
-                path: '/mantenimiento',
-                children: [
-                    { label: 'Panel de Control', icon: IconLayoutDashboard, path: '/mantenimiento/panel' },
-                    { label: 'Equipos', icon: IconEngine, path: '/mantenimiento/equipos' },
-                ]
-            },
-            {
-                label: 'Planeación',
-                icon: IconReportAnalytics,
-                path: '/planeacion',
-                children: [
-                    {
-                        label: 'Cuadro de Gastos',
-                        icon: IconCalculator,
-                        path: '/planeacion/gastos',
-                        children: [
-                            { label: 'Captura de Gastos', icon: IconCash, path: '/planeacion/gastos/captura' },
-                            { label: 'Gráficas', icon: IconChartBar, path: '/planeacion/gastos/graficas' },
-                            { label: 'Rubros', icon: IconTags, path: '/planeacion/gastos/rubros' },
-                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/planeacion/gastos/cotizaciones' },
-                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/planeacion/gastos/proveedores' },
-                        ]
-                    },
-                    { label: 'Personal', icon: IconUsers, path: '/planeacion/personal' },
-                ]
-            },
-            {
-                label: 'Presupuestos',
-                icon: IconWallet,
-                path: '/presupuestos',
-                children: [
-                    { label: 'Producción', icon: IconCube, path: '/presupuestos/produccion' },
-                    { label: 'Talleres', icon: IconTools, path: '/presupuestos/talleres' },
-                    { label: 'G. Humana', icon: IconUsers, path: '/presupuestos/gestion-humana' },
-                    { label: 'Sst', icon: IconShieldCheck, path: '/presupuestos/sst' },
-                    { label: 'Planeación', icon: IconReportAnalytics, path: '/presupuestos/planeacion' },
-                    { label: 'Diseño', icon: IconPalette, path: '/presupuestos/diseno' },
-                ]
-            },
-            {
-                label: 'SST',
-                icon: IconShieldCheck,
-                path: '/sst',
-                children: [
-                    {
-                        label: 'Cuadro de Gastos',
-                        icon: IconCalculator,
-                        path: '/sst/gastos',
-                        children: [
-                            { label: 'Captura de Gastos', icon: IconCash, path: '/sst/gastos/captura' },
-                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/sst/gastos/cotizaciones' },
-                            { label: 'Gráficas', icon: IconChartBar, path: '/sst/gastos/graficas' },
-                            { label: 'Rubros', icon: IconTags, path: '/sst/gastos/rubros' },
-                            { label: 'Tipos de Servicios', icon: IconCategory, path: '/sst/gastos/servicios' },
-                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/sst/gastos/proveedores' },
-                        ]
-                    },
-                    { label: 'Orden y Aseo', icon: IconBrush, path: '/sst/orden-aseo' },
-                ]
-            },
-        ],
-    },
-    {
-        title: 'Configuración',
-        items: [
-            { label: 'Auditoría', icon: IconHistory, path: '/admin/auditoria' },
-            { label: 'Ajustes', icon: IconSettings, path: '/ajustes' },
-        ],
-    },
-];
-
 export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const user = (() => {
-        try {
-            const raw = localStorage.getItem('user');
-            if (!raw) return { username: 'Invitado', role: '' };
-            return JSON.parse(raw);
-        } catch {
-            return { username: 'Invitado', role: '' };
-        }
-    })();
+    const user = getCurrentUser() || {};
+    const sections = filterNavSections(user);
+    const displayName =
+        [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+        user.username ||
+        user.Username ||
+        'Usuario';
 
     const handleLogout = async () => {
         try {
@@ -469,13 +100,13 @@ export default function Sidebar() {
                 </div>
 
                 <div className="sidebar-user-header">
-                    <Text className="user-name" fw={700}>{user.username}</Text>
-                    <Text className="user-role" size="xs">{user.role || 'Usuario'}</Text>
+                    <Text className="user-name" fw={700}>{displayName}</Text>
+                    <Text className="user-role" size="xs">{user.role || user.Role || 'Usuario'}</Text>
                 </div>
             </div>
 
             <Box className="sidebar-nav-container">
-                {navSections.map((section) => (
+                {sections.map((section) => (
                     <Box key={section.title} mb="md">
                         <Text
                             size="xs"

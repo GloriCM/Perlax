@@ -11,7 +11,8 @@ import {
     Button,
     Loader
 } from '@mantine/core';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { getCurrentUser, canAccessRoute, getFirstAllowedPath } from '../../utils/permissions';
 import { IconPrinter, IconArrowLeft } from '@tabler/icons-react';
 import { api, getApiOrigin } from '../../utils/api';
 import { notifications } from '@mantine/notifications';
@@ -23,6 +24,89 @@ function absoluteUploadUrl(publicPath) {
     const origin = getApiOrigin();
     const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
     return `${origin}${path}`;
+}
+
+/** Casilla impresión: fondo blanco y ✓ si aplica (p. ej. troquel nuevo). */
+function FichaCheckBox({ checked, boxSize = 16, border = '2px solid black' }) {
+    return (
+        <Box
+            w={boxSize}
+            h={boxSize}
+            style={{
+                border,
+                borderRadius: 3,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#fff',
+                fontSize: boxSize >= 16 ? 11 : 10,
+                fontWeight: 900,
+                lineHeight: 1,
+                color: '#111',
+            }}
+        >
+            {checked ? '\u2713' : ''}
+        </Box>
+    );
+}
+
+const INK_LETTER = {
+    c: '#0097a7',
+    m: '#c2185b',
+    y: '#f9a825',
+    k: '#1a1a1a',
+};
+
+/** Letra CMYK en color + casilla con ✕ si está marcada (fondo blanco). */
+function FichaTintInkMark({ letter, inkKey, checked }) {
+    const color = INK_LETTER[inkKey] ?? '#111';
+    const markColor = inkKey === 'k' ? '#111' : inkKey === 'y' ? '#6d4c00' : color;
+    return (
+        <Group gap={4} align="center" wrap="nowrap">
+            <Text size="xs" fw={800} style={{ color, minWidth: 11 }}>
+                {letter}
+            </Text>
+            <Box
+                w={14}
+                h={14}
+                style={{
+                    border: '1px solid #222',
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#fff',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    color: checked ? markColor : 'transparent',
+                }}
+            >
+                {checked ? '\u2715' : ''}
+            </Box>
+        </Group>
+    );
+}
+
+/** Logo corporativo (`frontend/public/empresa-logo.jpeg`). */
+function EmpresaLogoMark() {
+    return (
+        <Stack align="center" justify="center" gap={0}>
+            <img
+                className="ficha-empresa-logo"
+                src="/empresa-logo.jpeg"
+                alt="aleph impresores"
+                style={{
+                    maxHeight: 72,
+                    maxWidth: '100%',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    display: 'block',
+                }}
+            />
+        </Stack>
+    );
 }
 
 const FichaTecnicaPrint = () => {
@@ -90,21 +174,138 @@ const FichaTecnicaPrint = () => {
     }
 
     return (
-        <div style={{ background: '#0f172a', minHeight: '100vh', paddingTop: '80px', paddingBottom: '40px' }}>
+        <div className="ficha-print-root">
             <style>
                 {`
                 @media screen {
                     body { overflow-y: auto !important; height: auto !important; }
+                    .ficha-print-root {
+                        background: #0f172a;
+                        min-height: 100vh;
+                        padding-top: 80px;
+                        padding-bottom: 40px;
+                    }
+                    .ficha-ampliacion-img { max-height: 720px; }
                 }
                 @media print {
-                    body { background: white !important; -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
-                    body::before { display: none !important; }
-                    .print-container { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; border: none !important; }
+                    /* Una sola hoja A4: márgenes mínimos + tipografía compacta + imagen prioritaria */
+                    @page { size: A4 portrait; margin: 5mm; }
+                    html, body {
+                        background: #fff !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        height: auto !important;
+                    }
+                    body::before {
+                        display: none !important;
+                        content: none !important;
+                        visibility: hidden !important;
+                    }
+                    #root {
+                        background: #fff !important;
+                        min-height: 0 !important;
+                        overflow: visible !important;
+                    }
+                    .ficha-print-root {
+                        background: #fff !important;
+                        padding: 0 !important;
+                        min-height: 0 !important;
+                    }
+                    .print-container {
+                        margin: 0 auto !important;
+                        padding: 4px 6px !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                    }
                     .no-print { display: none !important; }
                     .main-content-area { margin-top: 0 !important; }
-                    .ficha-sheet--page1.ficha-sheet--with-page2 { page-break-after: always; break-after: page; }
-                    .ficha-sheet--page2 { page-break-before: always; break-before: page; }
+                    /* Cada bloque .ficha-sheet termina en salto de página (excepto el último) */
+                    .ficha-sheet {
+                        page-break-after: always;
+                        break-after: page;
+                    }
+                    .ficha-sheet:last-child {
+                        page-break-after: auto;
+                        break-after: auto;
+                    }
+                    .ficha-sheet--page2 {
+                        page-break-before: always;
+                        break-before: page;
+                    }
                     .ficha-sheet--page2 .print-container { margin-top: 0 !important; }
+                    .ficha-print-hoja1 {
+                        font-size: 8pt;
+                        line-height: 1.12;
+                    }
+                    .ficha-print-hoja1 .mantine-Title-root { font-size: 0.95rem !important; }
+                    .ficha-print-hoja1 .mantine-Divider-root { margin-top: 0.2rem !important; margin-bottom: 0.2rem !important; }
+                    .ficha-print-hoja1 .label {
+                        font-size: 7px !important;
+                        line-height: 1.1 !important;
+                    }
+                    .ficha-print-hoja1 .value {
+                        font-size: 8.5pt !important;
+                        min-height: 11px !important;
+                        margin-top: 0 !important;
+                    }
+                    .ficha-print-header-print { margin-bottom: 0.35rem !important; }
+                    .ficha-print-left-stack { gap: 4px !important; }
+                    .ficha-print-right-stack { gap: 3px !important; }
+                    .ficha-print-pre-firmas { margin-top: 0.35rem !important; margin-bottom: 0.35rem !important; }
+                    .ficha-print-firmas-line { height: 18px !important; }
+                    .ficha-print-legal { font-size: 6.5pt !important; line-height: 1.15 !important; margin-top: 0.35rem !important; }
+                    .ficha-ampliacion-stack {
+                        min-height: 0 !important;
+                        height: auto !important;
+                    }
+                    .ficha-ampliacion-box {
+                        min-height: 0 !important;
+                        flex: none !important;
+                        max-height: none !important;
+                        padding: 4px !important;
+                    }
+                    .ficha-ampliacion-img {
+                        max-height: 122mm !important;
+                        width: 100% !important;
+                        object-fit: contain !important;
+                    }
+                    .ficha-terminados-derecha {
+                        max-height: 24mm !important;
+                        overflow-y: auto !important;
+                        margin-top: 0.15rem !important;
+                    }
+                    .ficha-terminados-derecha .mantine-Divider-root {
+                        margin-top: 0.15rem !important;
+                        margin-bottom: 0.15rem !important;
+                    }
+                    .ficha-notas-caja {
+                        max-height: 18mm !important;
+                        overflow-y: auto !important;
+                        font-size: 7pt !important;
+                    }
+                    .ficha-empresa-logo { max-height: 11mm !important; }
+                    .ficha-print-hoja1 { padding: 4px 6px !important; }
+                    .ficha-dimensiones-compact {
+                        padding: 2px 4px !important;
+                        border-color: #adb5bd !important;
+                    }
+                    .ficha-print-hoja1 .ficha-dimension-valor {
+                        min-height: 10px !important;
+                        font-size: 8.5pt !important;
+                    }
+                    .ficha-print-hoja2 {
+                        min-height: 0 !important;
+                        padding: 6px 8px !important;
+                    }
+                    .ficha-adjunto-img {
+                        max-width: 100% !important;
+                        max-height: 250mm !important;
+                        object-fit: contain !important;
+                    }
                 }
                 .print-actions-bar {
                     position: fixed;
@@ -123,6 +324,11 @@ const FichaTecnicaPrint = () => {
                 }
                 .label { font-weight: bold; font-size: 11px; text-transform: uppercase; color: #495057; }
                 .value { font-size: 13px; border-bottom: 1px solid #ced4da; min-height: 20px; display: block; margin-top: 2px; }
+                .ficha-dimension-valor {
+                    font-size: 12px;
+                    min-height: 16px;
+                    margin-top: 0;
+                }
                 `}
             </style>
 
@@ -159,14 +365,11 @@ const FichaTecnicaPrint = () => {
                 }
             >
                 <Container size="xl" py="xl" className="print-container main-content-area" style={{ background: 'white', color: 'black', boxShadow: '0 0 40px rgba(0,0,0,0.5)', borderRadius: '4px' }}>
-                <Box p="md" style={{ border: '2px solid black' }}>
+                <Box p="md" className="ficha-print-hoja1" style={{ border: '2px solid black' }}>
                     {/* Header Section */}
-                    <Grid align="center" mb="md">
+                    <Grid align="center" mb="md" className="ficha-print-header-print">
                         <Grid.Col span={3}>
-                            <Stack gap={0} align="center">
-                                <Text fw={900} size="xl" style={{ letterSpacing: '2px' }}>aleph</Text>
-                                <Text size="xs" fw={700}>impresores</Text>
-                            </Stack>
+                            <EmpresaLogoMark />
                         </Grid.Col>
                         <Grid.Col span={6}>
                             <Title order={3} ta="center" style={{ textDecoration: 'underline' }}>FICHA TÉCNICA DEL PRODUCTO</Title>
@@ -182,10 +385,10 @@ const FichaTecnicaPrint = () => {
                         </Grid.Col>
                     </Grid>
 
-                    <Grid grow gutter="xs">
-                        <Grid.Col span={8}>
+                    <Grid grow gutter="xs" align="flex-start">
+                        <Grid.Col span={5}>
                             {/* Left Column Data */}
-                            <Stack gap="xs">
+                            <Stack gap="xs" className="ficha-print-left-stack">
                                 <Grid gutter="xs">
                                     <Grid.Col span={4}>
                                         <Text className="label">Fecha de creación:</Text>
@@ -258,22 +461,31 @@ const FichaTecnicaPrint = () => {
                                 </Grid>
 
                                 <Divider label="DIMENSIONES (cm)" labelPosition="center" my="xs" />
-                                <Grid gutter="xs" style={{ background: '#2c3e50', padding: '8px', borderRadius: '4px' }}>
+                                <Grid
+                                    gutter={4}
+                                    className="ficha-dimensiones-compact"
+                                    style={{
+                                        border: '1px solid #ced4da',
+                                        borderRadius: '4px',
+                                        padding: '6px 8px',
+                                        background: '#fff',
+                                    }}
+                                >
                                     <Grid.Col span={3}>
-                                        <Text fw={700} size="xs" c="white">ALTO:</Text>
-                                        <Text size="md" c="white" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', minHeight: '25px' }}>{data.medidas.alto}</Text>
+                                        <Text className="label">Alto:</Text>
+                                        <Text className="value ficha-dimension-valor">{data.medidas.alto}</Text>
                                     </Grid.Col>
                                     <Grid.Col span={3}>
-                                        <Text fw={700} size="xs" c="white">LARGO:</Text>
-                                        <Text size="md" c="white" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', minHeight: '25px' }}>{data.medidas.largo}</Text>
+                                        <Text className="label">Largo:</Text>
+                                        <Text className="value ficha-dimension-valor">{data.medidas.largo}</Text>
                                     </Grid.Col>
                                     <Grid.Col span={3}>
-                                        <Text fw={700} size="xs" c="white">ANCHO:</Text>
-                                        <Text size="md" c="white" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', minHeight: '25px' }}>{data.medidas.ancho}</Text>
+                                        <Text className="label">Ancho:</Text>
+                                        <Text className="value ficha-dimension-valor">{data.medidas.ancho}</Text>
                                     </Grid.Col>
                                     <Grid.Col span={3}>
-                                        <Text fw={700} size="xs" c="white">FUELLE:</Text>
-                                        <Text size="md" c="white" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', minHeight: '25px' }}>{data.medidas.fuelle}</Text>
+                                        <Text className="label">Fuelle:</Text>
+                                        <Text className="value ficha-dimension-valor">{data.medidas.fuelle}</Text>
                                     </Grid.Col>
                                 </Grid>
                                 <Grid gutter="xs" mt={4}>
@@ -293,7 +505,7 @@ const FichaTecnicaPrint = () => {
 
                                 <Group mt="xs" gap="xl">
                                     <Group gap="xs">
-                                        <Box w={16} h={16} style={{ border: '2px solid black', borderRadius: '3px', background: data.troquelNuevo ? 'black' : 'white' }} />
+                                        <FichaCheckBox checked={data.troquelNuevo} />
                                         <Text size="xs" fw={700}>Troquel nuevo</Text>
                                     </Group>
                                     <Group gap="xs">
@@ -305,64 +517,42 @@ const FichaTecnicaPrint = () => {
                                 <Divider label="TINTAS" labelPosition="center" my="xs" />
                                 <Group grow gutter="xs">
                                     <Group gap="md">
-                                        <Group gap={4}><Text size="xs" fw={700}>C</Text><Box w={12} h={12} style={{ border: '1px solid black', background: data.tintas.c ? '#00FFFF' : 'white' }} /></Group>
-                                        <Group gap={4}><Text size="xs" fw={700}>M</Text><Box w={12} h={12} style={{ border: '1px solid black', background: data.tintas.m ? '#FF00FF' : 'white' }} /></Group>
-                                        <Group gap={4}><Text size="xs" fw={700}>Y</Text><Box w={12} h={12} style={{ border: '1px solid black', background: data.tintas.y ? '#FFFF00' : 'white' }} /></Group>
-                                        <Group gap={4}><Text size="xs" fw={700}>K</Text><Box w={12} h={12} style={{ border: '1px solid black', background: data.tintas.k ? '#000000' : 'white' }} /></Group>
+                                        <FichaTintInkMark letter="C" inkKey="c" checked={!!data.tintas.c} />
+                                        <FichaTintInkMark letter="M" inkKey="m" checked={!!data.tintas.m} />
+                                        <FichaTintInkMark letter="Y" inkKey="y" checked={!!data.tintas.y} />
+                                        <FichaTintInkMark letter="K" inkKey="k" checked={!!data.tintas.k} />
                                     </Group>
                                     <Group gap="xs">
                                         <Text size="xs" fw={700}>Especiales:</Text>
                                         <Text size="xs" style={{ borderBottom: '1px solid #ced4da', flex: 1 }}>{data.tintas.especiales}</Text>
                                     </Group>
                                 </Group>
-
-                                <Divider label="TERMINADOS" labelPosition="center" my="xs" />
-                                <Grid gutter="xs">
-                                    <Grid.Col span={6}>
-                                        <Text className="label">Terminado 1:</Text>
-                                        <Text className="value">{data.terminados.t1}</Text>
-                                    </Grid.Col>
-                                    <Grid.Col span={6}>
-                                        <Text className="label">Terminado 2:</Text>
-                                        <Text className="value">{data.terminados.t2}</Text>
-                                    </Grid.Col>
-                                    <Grid.Col span={4}>
-                                        <Group gap="xs">
-                                            <Box w={14} h={14} style={{ border: '1px solid black', background: data.terminados.estampado ? 'black' : 'white' }} />
-                                            <Text size="xs" fw={700}>Estampado</Text>
-                                        </Group>
-                                    </Grid.Col>
-                                    <Grid.Col span={8}>
-                                        <Text className="label">Pie de imprenta:</Text>
-                                        <Text className="value">{data.terminados.pieImprenta}</Text>
-                                    </Grid.Col>
-                                </Grid>
-
-                                <Box mt="md">
-                                    <Text className="label">Notas:</Text>
-                                    <Box p="xs" style={{ border: '1px solid #ced4da', minHeight: '80px', borderRadius: '4px' }}>
-                                        <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{data.notas}</Text>
-                                    </Box>
-                                </Box>
                             </Stack>
                         </Grid.Col>
 
-                        <Grid.Col span={4}>
-                            {/* Ampliaciones (OT) */}
-                            <Stack align="center" justify="flex-start" h="100%">
-                                <Text size="xs" fw={700} mb={6} ta="center" style={{ width: '100%' }}>
+                        <Grid.Col span={7}>
+                            {/* Ampliaciones (OT) — columna derecha más ancha para impresión */}
+                            <Stack
+                                align="stretch"
+                                justify="flex-start"
+                                gap="xs"
+                                className="ficha-ampliacion-stack ficha-print-right-stack"
+                                style={{ minHeight: 0 }}
+                            >
+                                <Text size="sm" fw={700} ta="center" style={{ width: '100%' }}>
                                     AMPLIACIÓN
                                 </Text>
                                 <Box
+                                    className="ficha-ampliacion-box"
                                     style={{
                                         border: '1px dashed #ced4da',
-                                        padding: '12px',
+                                        padding: '10px',
                                         width: '100%',
-                                        minHeight: '320px',
+                                        minHeight: 220,
                                         display: 'flex',
                                         flexDirection: 'column',
                                         alignItems: 'center',
-                                        justifyContent: 'flex-start',
+                                        justifyContent: 'center',
                                         gap: '12px',
                                     }}
                                 >
@@ -370,11 +560,12 @@ const FichaTecnicaPrint = () => {
                                         data.ampliacionesUrls.map((url, i) => (
                                             <img
                                                 key={`${url}-${i}`}
+                                                className="ficha-ampliacion-img"
                                                 src={absoluteUploadUrl(url)}
                                                 alt={`Ampliación ${i + 1}`}
                                                 style={{
+                                                    width: '100%',
                                                     maxWidth: '100%',
-                                                    width: 'auto',
                                                     height: 'auto',
                                                     objectFit: 'contain',
                                                 }}
@@ -386,37 +577,78 @@ const FichaTecnicaPrint = () => {
                                         </Text>
                                     )}
                                 </Box>
+
+                                <Box mt="xs" className="ficha-terminados-derecha" style={{ width: '100%' }}>
+                                    <Divider label="TERMINADOS" labelPosition="center" my="xs" />
+                                    <Stack gap="xs">
+                                        <Box>
+                                            <Text className="label">Terminado 1:</Text>
+                                            <Text className="value">{data.terminados.t1}</Text>
+                                        </Box>
+                                        <Box>
+                                            <Text className="label">Terminado 2:</Text>
+                                            <Text className="value">{data.terminados.t2}</Text>
+                                        </Box>
+                                        <Group gap="xs">
+                                            <FichaCheckBox checked={!!data.terminados.estampado} boxSize={14} border="1px solid black" />
+                                            <Text size="xs" fw={700}>Estampado</Text>
+                                        </Group>
+                                        <Box>
+                                            <Text className="label">Pie de imprenta:</Text>
+                                            <Text className="value">{data.terminados.pieImprenta}</Text>
+                                        </Box>
+                                    </Stack>
+                                </Box>
+
+                                <Box mt="xs" className="ficha-notas-columna" style={{ width: '100%' }}>
+                                    <Text className="label">Notas:</Text>
+                                    <Box
+                                        p="xs"
+                                        className="ficha-notas-caja"
+                                        style={{
+                                            border: '1px solid #ced4da',
+                                            minHeight: '56px',
+                                            maxHeight: '200px',
+                                            overflowY: 'auto',
+                                            borderRadius: '4px',
+                                        }}
+                                    >
+                                        <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{data.notas}</Text>
+                                    </Box>
+                                </Box>
                             </Stack>
                         </Grid.Col>
                     </Grid>
 
-                    <Divider my="xl" />
+                    <Box>
+                        <Divider my="md" className="ficha-print-pre-firmas" />
 
-                    <Grid grow>
-                        <Grid.Col span={4}>
-                            <Stack gap={2}>
-                                <Text size="xs"><b>Revisado Diseñador:</b></Text>
-                                <Box style={{ borderBottom: '1px solid black', height: '30px', width: '80%' }} />
-                            </Stack>
-                        </Grid.Col>
-                        <Grid.Col span={4}>
-                            <Stack gap={2}>
-                                <Text size="xs"><b>Revisado Ejecutivo de cuenta:</b></Text>
-                                <Box style={{ borderBottom: '1px solid black', height: '30px', width: '80%' }} />
-                            </Stack>
-                        </Grid.Col>
-                        <Grid.Col span={4}>
-                            <Stack gap={2}>
-                                <Text size="xs"><b>Aprobación Cliente:</b></Text>
-                                <Box style={{ borderBottom: '1px solid black', height: '30px', width: '80%' }} />
-                            </Stack>
-                        </Grid.Col>
-                    </Grid>
+                        <Grid grow>
+                            <Grid.Col span={4}>
+                                <Stack gap={2}>
+                                    <Text size="xs"><b>Revisado Diseñador:</b></Text>
+                                    <Box className="ficha-print-firmas-line" style={{ borderBottom: '1px solid black', height: '30px', width: '80%' }} />
+                                </Stack>
+                            </Grid.Col>
+                            <Grid.Col span={4}>
+                                <Stack gap={2}>
+                                    <Text size="xs"><b>Revisado Ejecutivo de cuenta:</b></Text>
+                                    <Box className="ficha-print-firmas-line" style={{ borderBottom: '1px solid black', height: '30px', width: '80%' }} />
+                                </Stack>
+                            </Grid.Col>
+                            <Grid.Col span={4}>
+                                <Stack gap={2}>
+                                    <Text size="xs"><b>Aprobación Cliente:</b></Text>
+                                    <Box className="ficha-print-firmas-line" style={{ borderBottom: '1px solid black', height: '30px', width: '80%' }} />
+                                </Stack>
+                            </Grid.Col>
+                        </Grid>
 
-                    <Box mt="xl">
-                        <Text size="xs" c="dimmed" style={{ fontStyle: 'italic', lineHeight: 1.3, textAlign: 'justify' }}>
-                            <b>IMPORTANTE:</b> Revisar cuidadosamente FICHA TÉCNICA Y TEXTOS ARTE FINAL. LA APROBACIÓN de este material no excluye a ninguno de los que interviene en el proceso. Los COLORES de esta impresión son de referencia. La ÚNICA representación de COLORES CONFIABLE se obtiene con la GUÍA DE COLORES PANTONE, excepto sobre material KRAFT.
-                        </Text>
+                        <Box mt="sm">
+                            <Text className="ficha-print-legal" size="xs" c="dimmed" style={{ fontStyle: 'italic', lineHeight: 1.3, textAlign: 'justify' }}>
+                                <b>IMPORTANTE:</b> Revisar cuidadosamente FICHA TÉCNICA Y TEXTOS ARTE FINAL. LA APROBACIÓN de este material no excluye a ninguno de los que interviene en el proceso. Los COLORES de esta impresión son de referencia. La ÚNICA representación de COLORES CONFIABLE se obtiene con la GUÍA DE COLORES PANTONE, excepto sobre material KRAFT.
+                            </Text>
+                        </Box>
                     </Box>
                 </Box>
             </Container>
@@ -436,13 +668,10 @@ const FichaTecnicaPrint = () => {
                             marginTop: 32,
                         }}
                     >
-                        <Box p="md" style={{ border: '2px solid black', minHeight: '70vh' }}>
+                        <Box p="md" className="ficha-print-hoja2" style={{ border: '2px solid black', minHeight: '70vh' }}>
                             <Grid align="center" mb="md">
                                 <Grid.Col span={3}>
-                                    <Stack gap={0} align="center">
-                                        <Text fw={900} size="xl" style={{ letterSpacing: '2px' }}>aleph</Text>
-                                        <Text size="xs" fw={700}>impresores</Text>
-                                    </Stack>
+                                    <EmpresaLogoMark />
                                 </Grid.Col>
                                 <Grid.Col span={6}>
                                     <Title order={3} ta="center" style={{ textDecoration: 'underline' }}>
@@ -460,6 +689,7 @@ const FichaTecnicaPrint = () => {
                                 {data.adjuntosUrls.map((url, i) => (
                                     <img
                                         key={`adj-${url}-${i}`}
+                                        className="ficha-adjunto-img"
                                         src={absoluteUploadUrl(url)}
                                         alt={`Adjunto ${i + 1}`}
                                         style={{
@@ -480,4 +710,13 @@ const FichaTecnicaPrint = () => {
     );
 };
 
-export default FichaTecnicaPrint;
+function FichaTecnicaPrintRoute() {
+    const location = useLocation();
+    const sessionUser = getCurrentUser();
+    if (!canAccessRoute(location.pathname, sessionUser)) {
+        return <Navigate to={getFirstAllowedPath(sessionUser)} replace />;
+    }
+    return <FichaTecnicaPrint />;
+}
+
+export default FichaTecnicaPrintRoute;

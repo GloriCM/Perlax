@@ -12,98 +12,166 @@ import {
     ScrollArea,
     ActionIcon,
     Badge,
-    Tooltip,
     Modal,
     Divider,
     Checkbox,
     Grid,
     Image,
     Paper,
-    rem
+    FileInput,
+    Loader,
+    Menu,
+    Select
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
     IconSearch,
-    IconEye,
     IconX,
     IconPrinter,
     IconDeviceFloppy,
-    IconCircleCheck,
-    IconCircleX,
-    IconExternalLink,
-    IconInfoCircle
+    IconDotsVertical,
+    IconUpload
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api } from '../../utils/api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api, getApiOrigin } from '../../utils/api';
 import { notifications } from '@mantine/notifications';
 
-// More extensive mock data for Design Plans
-const MOCK_DATA = [
-    {
-        id: '2559 / 1',
-        ejecutivo: 'Claude Levy',
-        cliente: 'LINK SYSTEMS LLC',
-        producto: 'WHITE CREPE HOLDER',
-        prioridad: 'Alta',
-        disenador: 'Juan Prada',
-        recepcion: '12/01/2026',
-        boceto: 'OK',
-        artes: 'OK',
-        ficha: 'No',
-        muestra: 'Sí',
-        aprobacion: 'Pendiente',
-        plancha: 'No',
-        fotomecanica: '-',
-        op: 'OP-4500'
-    },
-    {
-        id: '2556 / 12026 / 1',
-        ejecutivo: 'Claude Levy',
-        cliente: 'LINK SYSTEMS LLC',
-        producto: 'Plegadizas Ref: tequenos x 20 unds DELICIA',
-        prioridad: 'Normal',
-        disenador: 'Jaime Patiño',
-        recepcion: '22/12/2025',
-        boceto: 'OK',
-        artes: 'OK',
-        ficha: 'OK',
-        muestra: 'Sí',
-        aprobacion: 'Aprobado',
-        plancha: 'OK',
-        fotomecanica: 'Enviado',
-        op: 'OP-4498'
-    },
-    {
-        id: '2555 / 122025 / 1',
-        ejecutivo: 'Claude Levy',
-        cliente: 'LINK SYSTEMS LLC',
-        producto: 'Plegadizas Ref: Tequenos 40 unds DELICIAS',
-        prioridad: 'Urgente',
-        disenador: 'Juan Prada',
-        recepcion: '22/12/2025',
-        boceto: 'Pendiente',
-        artes: 'No',
-        ficha: 'No',
-        muestra: 'No',
-        aprobacion: 'Pendiente',
-        plancha: 'No',
-        fotomecanica: '-',
-        op: 'OP-4495'
+function absoluteUploadUrl(publicPath) {
+    if (!publicPath || typeof publicPath !== 'string') return '';
+    const trimmed = publicPath.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    const origin = getApiOrigin();
+    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${origin}${path}`;
+}
+
+function mergeOrderPartDetail(order, part) {
+    return {
+        ...part,
+        otNumber: order.otNumber ?? order.OTNumber,
+        cliente: order.cliente ?? order.Cliente,
+        ejecutivo: order.ejecutivoCuenta ?? order.EjecutivoCuenta,
+        productName: order.productName ?? order.ProductName,
+        createdAt: order.createdAt ?? order.CreatedAt
+    };
+}
+
+/** Devuelve URLs públicas por categoría desde AdjuntosJson de la pieza. */
+function parseAttachmentsByCategory(adjuntosJson) {
+    if (!adjuntosJson) return { ampliaciones: [], adjuntos: [] };
+    try {
+        const list = JSON.parse(adjuntosJson);
+        if (!Array.isArray(list)) return { ampliaciones: [], adjuntos: [] };
+        const ampliaciones = [];
+        const adjuntos = [];
+        for (const item of list) {
+            const cat = String(item.category ?? item.Category ?? '').toLowerCase();
+            const kind = String(item.kind ?? item.Kind ?? '').toLowerCase();
+            const url = item.publicUrl ?? item.PublicUrl;
+            if (!url) continue;
+            if (cat === 'ampliaciones' || kind === 'ampliacion') ampliaciones.push(url);
+            else if (cat === 'adjuntos' || kind === 'adjunto') adjuntos.push(url);
+        }
+        return { ampliaciones, adjuntos };
+    } catch {
+        return { ampliaciones: [], adjuntos: [] };
     }
-];
+}
+
+const INK_LETTER = {
+    c: '#0097a7',
+    m: '#c2185b',
+    y: '#f9a825',
+    k: '#1a1a1a'
+};
+
+function PlanDisenoTintInkMark({ letter, inkKey, checked }) {
+    const color = INK_LETTER[inkKey] ?? '#111';
+    const markColor = inkKey === 'k' ? '#111' : inkKey === 'y' ? '#6d4c00' : color;
+    return (
+        <Group gap={4} align="center" wrap="nowrap">
+            <Text size="xs" fw={800} style={{ color, minWidth: 11 }}>
+                {letter}
+            </Text>
+            <Box
+                w={14}
+                h={14}
+                style={{
+                    border: '1px solid rgba(255,255,255,0.35)',
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#fff',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    color: checked ? markColor : 'transparent'
+                }}
+            >
+                {checked ? '\u2715' : ''}
+            </Box>
+        </Group>
+    );
+}
+
+function parseFabricationProcesses(jsonStr) {
+    if (!jsonStr) return [];
+    try {
+        const arr = JSON.parse(jsonStr);
+        return Array.isArray(arr) ? arr : [];
+    } catch {
+        return [];
+    }
+}
+
+function getAttachmentStatusByCategory(adjuntosJson) {
+    const parsed = parseAttachmentsByCategory(adjuntosJson);
+    return {
+        ampliacionesOk: parsed.ampliaciones.length > 0,
+        adjuntosOk: parsed.adjuntos.length > 0
+    };
+}
+
+function normalizeSearchText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
 
 export default function PlanesDiseno() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [search, setSearch] = useState('');
     const [opened, { open, close }] = useDisclosure(false);
+    const [previewOpened, { open: openPreview, close: closePreview }] = useDisclosure(false);
+    const [previewUrl, setPreviewUrl] = useState('');
     const [selectedOT, setSelectedOT] = useState(null);
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [editorOpened, { open: openEditor, close: closeEditor }] = useDisclosure(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const [editSaving, setEditSaving] = useState(false);
+    const [editPrioridad, setEditPrioridad] = useState('Normal');
+    const [editDesignerOption, setEditDesignerOption] = useState('');
+    const [editDesignerCustom, setEditDesignerCustom] = useState('');
+    const [pendingOtToOpen, setPendingOtToOpen] = useState(null);
 
     useEffect(() => {
         fetchOrders();
     }, []);
+
+    useEffect(() => {
+        const ot = searchParams.get('ot');
+        if (!ot) return;
+        setSearch(ot);
+        setPendingOtToOpen(ot.trim());
+    }, [searchParams]);
 
     const fetchOrders = async () => {
         try {
@@ -134,6 +202,163 @@ export default function PlanesDiseno() {
         }
     };
 
+    useEffect(() => {
+        if (!opened || !selectedOT?.productionOrderId || !selectedOT?.id) return undefined;
+        const orderId = selectedOT.productionOrderId;
+        const partId = selectedOT.id;
+        let cancelled = false;
+
+        const loadDetail = async () => {
+            try {
+                setDetailLoading(true);
+                const order = await api.get(`/production/orders/${orderId}`);
+                if (cancelled) return;
+                const part = (order.parts || []).find((p) => p.id === partId);
+                if (part) {
+                    setSelectedOT(mergeOrderPartDetail(order, part));
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    console.error(error);
+                    notifications.show({
+                        title: 'Error',
+                        message: 'No se pudo actualizar el detalle de la OT.',
+                        color: 'red'
+                    });
+                }
+            } finally {
+                if (!cancelled) setDetailLoading(false);
+            }
+        };
+
+        loadDetail();
+        return () => {
+            cancelled = true;
+        };
+    }, [opened, selectedOT?.id, selectedOT?.productionOrderId]);
+
+    const handleUploadAttachment = async (file, category) => {
+        if (!file || !selectedOT?.productionOrderId || !selectedOT?.id) return;
+        const orderId = selectedOT.productionOrderId;
+        const partId = selectedOT.id;
+        try {
+            setUploading(true);
+            const fd = new FormData();
+            fd.append('category', category);
+            fd.append('partId', partId);
+            fd.append('files', file, file.name);
+            await api.postFormData(`/production/orders/${orderId}/attachments`, fd);
+            notifications.show({
+                title: 'Archivo guardado',
+                message: 'El adjunto se subió correctamente.',
+                color: 'green'
+            });
+            const order = await api.get(`/production/orders/${orderId}`);
+            const part = (order.parts || []).find((p) => p.id === partId);
+            if (part) setSelectedOT(mergeOrderPartDetail(order, part));
+            fetchOrders();
+        } catch (error) {
+            console.error(error);
+            notifications.show({
+                title: 'Error al subir',
+                message: error?.message || 'No se pudo guardar el archivo.',
+                color: 'red'
+            });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const openImagePreview = (publicUrl) => {
+        const full = absoluteUploadUrl(publicUrl);
+        if (!full) return;
+        setPreviewUrl(full);
+        openPreview();
+    };
+
+    const handlePrintFicha = () => {
+        if (!selectedOT?.id) {
+            notifications.show({
+                title: 'Sin pieza',
+                message: 'No hay identificador de pieza para imprimir.',
+                color: 'yellow'
+            });
+            return;
+        }
+        window.open(`/fichas/imprimir/${selectedOT.id}`, '_blank', 'noopener,noreferrer');
+    };
+
+    const openQuickEditor = (item) => {
+        const rawDesigner = (item.disenador || '').trim();
+        const isPreset = rawDesigner === 'Juan' || rawDesigner === 'Karen' || rawDesigner === '';
+        setEditingItem(item);
+        setEditPrioridad(item.prioridad || 'Normal');
+        if (!rawDesigner) {
+            setEditDesignerOption('');
+            setEditDesignerCustom('');
+        } else if (isPreset) {
+            setEditDesignerOption(rawDesigner);
+            setEditDesignerCustom('');
+        } else {
+            setEditDesignerOption('Otro');
+            setEditDesignerCustom(rawDesigner);
+        }
+        openEditor();
+    };
+
+    const handleSaveQuickEditor = async () => {
+        if (!editingItem?.productionOrderId || !editingItem?.id) return;
+        const designer = editDesignerOption === 'Otro'
+            ? editDesignerCustom.trim()
+            : editDesignerOption.trim();
+        if (editDesignerOption === 'Otro' && !designer) {
+            notifications.show({
+                title: 'Diseñador requerido',
+                message: 'Escribe un nombre para el diseñador personalizado.',
+                color: 'yellow'
+            });
+            return;
+        }
+        try {
+            setEditSaving(true);
+            await api.put(`/production/orders/${editingItem.productionOrderId}/parts/${editingItem.id}/design-plan`, {
+                prioridad: editPrioridad,
+                disenador: designer || null
+            });
+            notifications.show({
+                title: 'Actualizado',
+                message: 'Prioridad y diseñador guardados correctamente.',
+                color: 'green'
+            });
+            closeEditor();
+            await fetchOrders();
+            if (opened && selectedOT?.id === editingItem.id) {
+                const order = await api.get(`/production/orders/${editingItem.productionOrderId}`);
+                const part = (order.parts || []).find((p) => p.id === editingItem.id);
+                if (part) setSelectedOT(mergeOrderPartDetail(order, part));
+            }
+        } catch (error) {
+            console.error(error);
+            const isMissingEndpoint = String(error?.message || '').includes('404');
+            notifications.show({
+                title: 'No se pudo guardar',
+                message: isMissingEndpoint
+                    ? 'El backend activo no tiene el endpoint nuevo. Reinicia el backend y vuelve a intentar.'
+                    : (error?.message || 'Error actualizando la pieza.'),
+                color: 'red'
+            });
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const adjuntosParsed = selectedOT
+        ? parseAttachmentsByCategory(selectedOT.adjuntosJson)
+        : { ampliaciones: [], adjuntos: [] };
+    const urlArte1 = adjuntosParsed.ampliaciones[0];
+    const urlArte2 = adjuntosParsed.adjuntos[0];
+    const procesosFab = selectedOT ? parseFabricationProcesses(selectedOT.fabricationProcessesJson) : [];
+
     const glassStyles = {
         root: {
             background: 'rgba(20, 30, 50, 0.7)',
@@ -150,12 +375,32 @@ export default function PlanesDiseno() {
         open();
     };
 
-    const rows = orders.filter(item =>
-        [item.otNumber, item.cliente, item.productName, item.partName].some(val =>
-            String(val || '').toLowerCase().includes(search.toLowerCase())
-        )
-    ).map((item) => (
+    const searchTerms = normalizeSearchText(search).split(/\s+/).filter(Boolean);
+
+    const rows = orders.filter((item) => {
+        if (searchTerms.length === 0) return true;
+        const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
+        const searchable = normalizeSearchText([
+            item.otNumber,
+            item.partName,
+            item.cliente,
+            item.productName,
+            item.ejecutivo,
+            item.prioridad,
+            item.disenador,
+            item.estadoFicha,
+            item.estadoMuestra,
+            item.estadoAprobacion,
+            attachmentStatus.ampliacionesOk ? 'ampliaciones ok' : 'ampliaciones pendiente',
+            attachmentStatus.adjuntosOk ? 'adjuntos ok' : 'adjuntos pendiente'
+        ].join(' '));
+        return searchTerms.every((term) => searchable.includes(term));
+    }).map((item) => (
         <Table.Tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => handleViewDetail(item)}>
+            {(() => {
+                const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
+                return (
+                    <>
             <Table.Td><Text size="xs" fw={700} c="indigo.3">{item.otNumber} / {item.partName}</Text></Table.Td>
             <Table.Td><Text size="xs" truncate>{item.ejecutivo}</Text></Table.Td>
             <Table.Td><Text size="xs" fw={500} truncate>{item.cliente}</Text></Table.Td>
@@ -167,8 +412,16 @@ export default function PlanesDiseno() {
             </Table.Td>
             <Table.Td><Text size="xs">{item.disenador || 'No asignado'}</Text></Table.Td>
             <Table.Td><Text size="xs">{new Date(item.createdAt).toLocaleDateString()}</Text></Table.Td>
-            <Table.Td><Badge size="xs" variant="light" color={item.estadoBoceto === 'OK' ? 'green' : 'gray'}>{item.estadoBoceto}</Badge></Table.Td>
-            <Table.Td><Badge size="xs" variant="light" color={item.estadoArtes === 'OK' ? 'green' : 'gray'}>{item.estadoArtes}</Badge></Table.Td>
+            <Table.Td>
+                <Badge size="xs" variant="light" color={attachmentStatus.ampliacionesOk ? 'green' : 'gray'}>
+                    {attachmentStatus.ampliacionesOk ? 'OK' : 'Pendiente'}
+                </Badge>
+            </Table.Td>
+            <Table.Td>
+                <Badge size="xs" variant="light" color={attachmentStatus.adjuntosOk ? 'green' : 'gray'}>
+                    {attachmentStatus.adjuntosOk ? 'OK' : 'Pendiente'}
+                </Badge>
+            </Table.Td>
             <Table.Td><Text size="xs">{item.estadoFicha}</Text></Table.Td>
             <Table.Td><Text size="xs">{item.estadoMuestra}</Text></Table.Td>
             <Table.Td>
@@ -178,12 +431,42 @@ export default function PlanesDiseno() {
             </Table.Td>
             <Table.Td><Text size="xs">{item.otNumber}</Text></Table.Td>
             <Table.Td>
-                <ActionIcon variant="subtle" color="gray" size="sm">
-                    <IconExternalLink size={14} />
-                </ActionIcon>
+                <Menu withinPortal position="bottom-end">
+                    <Menu.Target>
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            <IconDotsVertical size={16} />
+                        </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
+                        <Menu.Item onClick={() => openQuickEditor(item)}>
+                            Editar prioridad / diseñador
+                        </Menu.Item>
+                    </Menu.Dropdown>
+                </Menu>
             </Table.Td>
+                    </>
+                );
+            })()}
         </Table.Tr>
     ));
+
+    useEffect(() => {
+        if (!pendingOtToOpen || orders.length === 0 || opened) return;
+        const target = pendingOtToOpen.toLowerCase();
+        const firstMatch = orders.find((o) => String(o.otNumber || '').toLowerCase() === target);
+        if (firstMatch) {
+            setSelectedOT(firstMatch);
+            open();
+        }
+        setPendingOtToOpen(null);
+    }, [pendingOtToOpen, orders, opened, open]);
 
     return (
         <Stack gap="lg" p="md">
@@ -231,8 +514,8 @@ export default function PlanesDiseno() {
                                 <Table.Th>Prioridad</Table.Th>
                                 <Table.Th>Diseñador</Table.Th>
                                 <Table.Th>Recepción</Table.Th>
-                                <Table.Th>Boceto</Table.Th>
-                                <Table.Th>Artes</Table.Th>
+                                <Table.Th>Ampliaciones</Table.Th>
+                                <Table.Th>Adjuntos</Table.Th>
                                 <Table.Th>Ficha</Table.Th>
                                 <Table.Th>Muestra</Table.Th>
                                 <Table.Th>Aprobación</Table.Th>
@@ -248,7 +531,10 @@ export default function PlanesDiseno() {
             {/* DETAILED OT MODAL (Replica of Expertis View) */}
             <Modal
                 opened={opened}
-                onClose={close}
+                onClose={() => {
+                    closePreview();
+                    close();
+                }}
                 size="95%"
                 padding={0}
                 withCloseButton={false}
@@ -269,14 +555,53 @@ export default function PlanesDiseno() {
                             </Stack>
                         </Group>
                         <Group>
-                            <Button variant="white" color="dark" size="xs" leftSection={<IconPrinter size={16} />}>Imprimir</Button>
-                            <Button variant="filled" color="red" size="xs" leftSection={<IconDeviceFloppy size={16} />} onClick={close}>Guardar y Salir</Button>
+                            <Button
+                                variant="white"
+                                color="dark"
+                                size="xs"
+                                leftSection={<IconPrinter size={16} />}
+                                onClick={handlePrintFicha}
+                                disabled={!selectedOT?.id || detailLoading}
+                            >
+                                Imprimir
+                            </Button>
+                            <Button
+                                variant="filled"
+                                color="red"
+                                size="xs"
+                                leftSection={<IconDeviceFloppy size={16} />}
+                                onClick={() => {
+                                    closePreview();
+                                    close();
+                                }}
+                            >
+                                Guardar y Salir
+                            </Button>
                         </Group>
                     </Group>
                 </Box>
 
                 <ScrollArea.Autosize mah="calc(100vh - 180px)" type="auto">
-                    <Box p="lg">
+                    <Box p="lg" pos="relative">
+                        {detailLoading && (
+                            <Box
+                                pos="absolute"
+                                top={0}
+                                left={0}
+                                right={0}
+                                bottom={0}
+                                style={{
+                                    zIndex: 10,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'rgba(15, 23, 42, 0.55)',
+                                    borderRadius: 8
+                                }}
+                            >
+                                <Loader color="indigo" />
+                            </Box>
+                        )}
                         <Grid gutter="xl">
                             {/* Section 1: Descripción del Diseño */}
                             <Grid.Col span={8}>
@@ -318,8 +643,86 @@ export default function PlanesDiseno() {
                                         <Text size="xs" fw={800} c="blue.3">Ampliaciones / Adjuntos</Text>
                                     </Group>
                                     <SimpleGrid cols={2}>
-                                        <Image src="https://placehold.co/150x150/0f172a/white?text=Arte+1" radius="md" withPlaceholder />
-                                        <Image src="https://placehold.co/150x150/0f172a/white?text=Arte+2" radius="md" withPlaceholder />
+                                        <Stack gap="xs" align="stretch">
+                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">
+                                                Arte 1 (ampliación)
+                                            </Text>
+                                            {urlArte1 ? (
+                                                <Box
+                                                    onClick={() => openImagePreview(urlArte1)}
+                                                    style={{
+                                                        cursor: 'zoom-in',
+                                                        borderRadius: 8,
+                                                        overflow: 'hidden',
+                                                        border: '1px solid rgba(255,255,255,0.12)',
+                                                        background: 'rgba(0,0,0,0.2)'
+                                                    }}
+                                                >
+                                                    <Image
+                                                        src={absoluteUploadUrl(urlArte1)}
+                                                        alt="Ampliación"
+                                                        mah={200}
+                                                        maw="100%"
+                                                        mx="auto"
+                                                        fit="contain"
+                                                        fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen"
+                                                    />
+                                                </Box>
+                                            ) : (
+                                                <FileInput
+                                                    placeholder="Subir ampliación"
+                                                    accept="image/*"
+                                                    leftSection={<IconUpload size={14} />}
+                                                    disabled={uploading || detailLoading}
+                                                    size="xs"
+                                                    clearable
+                                                    styles={{
+                                                        input: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }
+                                                    }}
+                                                    onChange={(file) => file && handleUploadAttachment(file, 'ampliaciones')}
+                                                />
+                                            )}
+                                        </Stack>
+                                        <Stack gap="xs" align="stretch">
+                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">
+                                                Arte 2 (adjunto)
+                                            </Text>
+                                            {urlArte2 ? (
+                                                <Box
+                                                    onClick={() => openImagePreview(urlArte2)}
+                                                    style={{
+                                                        cursor: 'zoom-in',
+                                                        borderRadius: 8,
+                                                        overflow: 'hidden',
+                                                        border: '1px solid rgba(255,255,255,0.12)',
+                                                        background: 'rgba(0,0,0,0.2)'
+                                                    }}
+                                                >
+                                                    <Image
+                                                        src={absoluteUploadUrl(urlArte2)}
+                                                        alt="Adjunto"
+                                                        mah={200}
+                                                        maw="100%"
+                                                        mx="auto"
+                                                        fit="contain"
+                                                        fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen"
+                                                    />
+                                                </Box>
+                                            ) : (
+                                                <FileInput
+                                                    placeholder="Subir adjunto"
+                                                    accept="image/*"
+                                                    leftSection={<IconUpload size={14} />}
+                                                    disabled={uploading || detailLoading}
+                                                    size="xs"
+                                                    clearable
+                                                    styles={{
+                                                        input: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }
+                                                    }}
+                                                    onChange={(file) => file && handleUploadAttachment(file, 'adjuntos')}
+                                                />
+                                            )}
+                                        </Stack>
                                     </SimpleGrid>
                                 </Paper>
                             </Grid.Col>
@@ -348,12 +751,14 @@ export default function PlanesDiseno() {
                             <Grid.Col span={4}>
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Tintas" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
-                                    <Group gap="xs">
-                                        {selectedOT?.tintaC && <Badge color="cyan" radius="sm">C</Badge>}
-                                        {selectedOT?.tintaM && <Badge color="magenta" radius="sm">M</Badge>}
-                                        {selectedOT?.tintaY && <Badge color="yellow" radius="sm">Y</Badge>}
-                                        {selectedOT?.tintaK && <Badge color="dark" radius="sm">K</Badge>}
-                                        <Text size="xs" fw={700}>Especial: {selectedOT?.tintasEspeciales || 0}</Text>
+                                    <Group gap="md" align="center">
+                                        <PlanDisenoTintInkMark letter="C" inkKey="c" checked={!!selectedOT?.tintaC} />
+                                        <PlanDisenoTintInkMark letter="M" inkKey="m" checked={!!selectedOT?.tintaM} />
+                                        <PlanDisenoTintInkMark letter="Y" inkKey="y" checked={!!selectedOT?.tintaY} />
+                                        <PlanDisenoTintInkMark letter="K" inkKey="k" checked={!!selectedOT?.tintaK} />
+                                        <Text size="xs" fw={700}>
+                                            Especial: {selectedOT?.tintasEspeciales || '0'}
+                                        </Text>
                                     </Group>
                                 </Paper>
                             </Grid.Col>
@@ -372,7 +777,7 @@ export default function PlanesDiseno() {
                                             </Table.Tr>
                                         </Table.Thead>
                                         <Table.Tbody>
-                                            {selectedOT?.fabricationProcessesJson ? JSON.parse(selectedOT.fabricationProcessesJson).map((proc, idx) => (
+                                            {procesosFab.length > 0 ? procesosFab.map((proc, idx) => (
                                                 <Table.Tr key={idx}>
                                                     <Table.Td>{proc.machine}</Table.Td>
                                                     <Table.Td>{proc.process}</Table.Td>
@@ -409,6 +814,71 @@ export default function PlanesDiseno() {
                         <Button variant="outline" color="indigo" size="xs">Nueva Pieza</Button>
                     </Group>
                 </Box>
+            </Modal>
+
+            <Modal
+                opened={previewOpened}
+                onClose={closePreview}
+                title="Vista ampliada"
+                centered
+                size="xl"
+                overlayProps={{ backgroundOpacity: 0.65, blur: 4 }}
+                styles={{ content: { background: '#0f172a', color: '#fff' } }}
+            >
+                {previewUrl ? (
+                    <Box style={{ textAlign: 'center' }}>
+                        <img
+                            src={previewUrl}
+                            alt="Vista previa"
+                            style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 8 }}
+                        />
+                    </Box>
+                ) : null}
+            </Modal>
+
+            <Modal
+                opened={editorOpened}
+                onClose={closeEditor}
+                title="Editar prioridad y diseñador"
+                centered
+                size="sm"
+            >
+                <Stack gap="sm">
+                    <Select
+                        label="Prioridad"
+                        data={['Baja', 'Normal', 'Alta', 'Urgente']}
+                        value={editPrioridad}
+                        onChange={(value) => setEditPrioridad(value || 'Normal')}
+                    />
+                    <Select
+                        label="Diseñador"
+                        placeholder="Selecciona diseñador"
+                        data={[
+                            { value: 'Juan', label: 'Juan' },
+                            { value: 'Karen', label: 'Karen' },
+                            { value: 'Otro', label: 'Otro (personalizado)' }
+                        ]}
+                        value={editDesignerOption}
+                        onChange={(value) => setEditDesignerOption(value || '')}
+                        clearable
+                    />
+                    {editDesignerOption === 'Otro' && (
+                        <TextInput
+                            label="Nuevo diseñador"
+                            placeholder="Escribe el nombre"
+                            value={editDesignerCustom}
+                            onChange={(e) => setEditDesignerCustom(e.currentTarget.value)}
+                        />
+                    )}
+                    <Group justify="flex-end" mt="xs">
+                        <Button variant="default" onClick={closeEditor} disabled={editSaving}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleSaveQuickEditor} loading={editSaving}>
+                            Guardar cambios
+                        </Button>
+                    </Group>
+                </Stack>
             </Modal>
         </Stack>
     );
