@@ -41,6 +41,8 @@ public class OrderPart
     public bool IsTechnicalSheetApproved { get; set; }
     public DateTime? TechnicalSheetApprovedAt { get; set; }
     public string? TechnicalSheetApprovedBy { get; set; }
+    /// <summary>Motivo registrado al desaprobar la ficha técnica desde el listado.</summary>
+    public string? TechnicalSheetRejectionReason { get; set; }
     
     // Extras
     public bool TroquelNuevo { get; set; }

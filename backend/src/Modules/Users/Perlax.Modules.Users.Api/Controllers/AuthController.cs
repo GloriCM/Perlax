@@ -74,13 +74,17 @@ public class AuthController : ControllerBase
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
         var token = GenerateJwtToken(user);
+        var allowedRoutes = AllowedRoutesPolicy.DeserializeForResponse(user.Role, user.AllowedRoutesJson);
 
         return Ok(new
         {
             user.Id,
             user.Username,
             user.Email,
+            user.FirstName,
+            user.LastName,
             user.Role,
+            AllowedRoutes = allowedRoutes,
             Token = token
         });
     }
@@ -95,7 +99,9 @@ public class AuthController : ControllerBase
         var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+            new Claim(ClaimTypes.Name, user.Username),
             new Claim(ClaimTypes.Role, user.Role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };

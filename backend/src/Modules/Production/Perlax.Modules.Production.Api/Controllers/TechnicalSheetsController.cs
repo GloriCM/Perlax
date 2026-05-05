@@ -54,7 +54,8 @@ public class TechnicalSheetsController : ControllerBase
                 productCode = p.Order.ProductCode,
                 approved = p.IsTechnicalSheetApproved,
                 approvedAt = p.TechnicalSheetApprovedAt,
-                approvedBy = p.TechnicalSheetApprovedBy
+                approvedBy = p.TechnicalSheetApprovedBy,
+                rejectionReason = p.TechnicalSheetRejectionReason
             })
             .ToListAsync();
 
@@ -149,19 +150,50 @@ public class TechnicalSheetsController : ControllerBase
             return NotFound();
         }
 
-        part.IsTechnicalSheetApproved = request.Approved;
-        part.EstadoAprobacion = request.Approved ? "Aprobado" : "Pendiente";
-        part.EstadoFicha = request.Approved ? "OK" : "Pendiente";
-        part.TechnicalSheetApprovedAt = request.Approved ? DateTime.UtcNow : null;
-        part.TechnicalSheetApprovedBy = request.Approved ? (User.Identity?.Name ?? "Sistema") : null;
+        if (request.Approved)
+        {
+            part.IsTechnicalSheetApproved = true;
+            part.EstadoAprobacion = "Aprobado";
+            part.EstadoFicha = "OK";
+            part.TechnicalSheetApprovedAt = DateTime.UtcNow;
+            part.TechnicalSheetApprovedBy = User.Identity?.Name ?? "Sistema";
+            part.TechnicalSheetRejectionReason = null;
+        }
+        else
+        {
+            var motivo = (request.RejectionReason ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(motivo))
+                return BadRequest(new { message = "Debe indicar el motivo para desaprobar la ficha técnica." });
+            if (motivo.Length > 2000)
+                return BadRequest(new { message = "El motivo no puede superar 2000 caracteres." });
+
+            part.IsTechnicalSheetApproved = false;
+            part.EstadoAprobacion = "Rechazado";
+            part.EstadoFicha = "Pendiente";
+            part.TechnicalSheetApprovedAt = null;
+            part.TechnicalSheetApprovedBy = null;
+            part.TechnicalSheetRejectionReason = motivo;
+        }
 
         await _context.SaveChangesAsync();
+
+        string auditDetail;
+        if (request.Approved)
+        {
+            auditDetail = "aprobada";
+        }
+        else
+        {
+            var reason = part.TechnicalSheetRejectionReason ?? string.Empty;
+            var reasonShort = reason.Length > 500 ? reason[..500] + "…" : reason;
+            auditDetail = $"desaprobada. Motivo: {reasonShort}";
+        }
 
         await _auditService.LogAsync(
             User.Identity?.Name,
             User.Identity?.Name,
             request.Approved ? "APPROVE_TECHNICAL_SHEET" : "UNAPPROVE_TECHNICAL_SHEET",
-            $"Ficha técnica OT {part.Order.OTNumber} ({part.PartName}) {(request.Approved ? "aprobada" : "desaprobada")}",
+            $"Ficha técnica OT {part.Order.OTNumber} ({part.PartName}) {auditDetail}",
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
         );
 
@@ -170,13 +202,15 @@ public class TechnicalSheetsController : ControllerBase
             id = part.Id,
             approved = part.IsTechnicalSheetApproved,
             approvedAt = part.TechnicalSheetApprovedAt,
-            approvedBy = part.TechnicalSheetApprovedBy
+            approvedBy = part.TechnicalSheetApprovedBy,
+            rejectionReason = part.TechnicalSheetRejectionReason
         });
     }
 
     public sealed class SetTechnicalSheetApprovalRequest
     {
         public bool Approved { get; set; }
+        public string? RejectionReason { get; set; }
     }
 
     /// <summary>Filtra URLs públicas de adjuntos por categoría o kind guardados en AdjuntosJson.</summary>
