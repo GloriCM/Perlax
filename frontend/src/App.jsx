@@ -12,6 +12,7 @@ import NuevaOT from './pages/ordenes/NuevaOT';
 import ListaOT from './pages/ordenes/ListaOT';
 import PlanesDiseno from './pages/ordenes/PlanesDiseno';
 import Auditoria from './pages/admin/Auditoria';
+import UsuariosConfig from './pages/configuracion/Usuarios';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
 import CotizacionesDesdeOT from './pages/cotizaciones/CotizacionesDesdeOT';
@@ -204,6 +205,7 @@ function App() {
             <Route path="/calidad/consolidado-nc" element={<ConsolidadoNC />} />
             <Route path="/calidad/planes-accion" element={<PlanesAccion />} />
             <Route path="/admin/auditoria" element={<Auditoria />} />
+            <Route path="/configuracion/usuarios" element={<UsuariosConfig />} />
 
             {/* SST */}
             <Route path="/sst/gastos/captura" element={<GastosSST />} />

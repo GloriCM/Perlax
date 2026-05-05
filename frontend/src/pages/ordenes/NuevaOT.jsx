@@ -51,8 +51,8 @@ import {
     IconPhoto
 } from '@tabler/icons-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api } from '../../utils/api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api, getApiOrigin } from '../../utils/api';
 
 /** Lista alineada con Xpertis — ejecutivo de cuenta */
 const EJECUTIVOS_CUENTA_BASE = [
@@ -74,9 +74,44 @@ const EJECUTIVOS_CUENTA_BASE = [
 const NUEVO_EJECUTIVO_VALUE = '__nuevo_ejecutivo__';
 const NUEVA_LINEA_PT_VALUE = '__nueva_linea_pt__';
 
+function parsePartAttachments(adjuntosJson) {
+    if (!adjuntosJson) return { ampliaciones: [], adjuntos: [] };
+    try {
+        const list = JSON.parse(adjuntosJson);
+        if (!Array.isArray(list)) return { ampliaciones: [], adjuntos: [] };
+        const result = { ampliaciones: [], adjuntos: [] };
+        for (const item of list) {
+            const cat = String(item.category ?? item.Category ?? '').toLowerCase();
+            const kind = String(item.kind ?? item.Kind ?? '').toLowerCase();
+            const normalized = {
+                publicUrl: item.publicUrl ?? item.PublicUrl,
+                originalFileName: item.originalFileName ?? item.OriginalFileName ?? 'archivo',
+            };
+            if (!normalized.publicUrl) continue;
+            if (cat === 'ampliaciones' || kind === 'ampliacion') result.ampliaciones.push(normalized);
+            if (cat === 'adjuntos' || kind === 'adjunto') result.adjuntos.push(normalized);
+        }
+        return result;
+    } catch {
+        return { ampliaciones: [], adjuntos: [] };
+    }
+}
+
+function absoluteUploadUrl(publicPath) {
+    if (!publicPath || typeof publicPath !== 'string') return '';
+    const trimmed = publicPath.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    const origin = getApiOrigin();
+    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${origin}${path}`;
+}
+
 export default function NuevaOT() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [activeStep, setActiveStep] = useState(0);
+    const [editingOrderId, setEditingOrderId] = useState(null);
+    const [deletingAttachmentUrl, setDeletingAttachmentUrl] = useState('');
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -157,6 +192,7 @@ export default function NuevaOT() {
 
     useEffect(() => {
         const fetchNextNumber = async () => {
+            if (editingOrderId) return;
             try {
                 const nextNo = await api.get('/production/orders/next-number');
                 if (nextNo) {
@@ -167,7 +203,36 @@ export default function NuevaOT() {
             }
         };
         fetchNextNumber();
-    }, []);
+    }, [editingOrderId]);
+
+    useEffect(() => {
+        const orderId = searchParams.get('orderId');
+        if (!orderId) return;
+
+        const loadOrder = async () => {
+            try {
+                setLoading(true);
+                const order = await api.get(`/production/orders/${orderId}`);
+                if (!order) return;
+                setEditingOrderId(orderId);
+                setFormData((prev) => ({
+                    ...prev,
+                    ...order,
+                    fechaSolicitud: order.fechaSolicitud ? new Date(order.fechaSolicitud) : new Date(),
+                    parts: Array.isArray(order.parts) && order.parts.length > 0 ? order.parts : prev.parts
+                }));
+                setCurrentPartIndex(0);
+                setActiveStep(1);
+            } catch (err) {
+                console.error('Error loading OT for edit', err);
+                alert('No se pudo cargar la OT para edición.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadOrder();
+    }, [searchParams]);
 
     // Check duplicate by Number
     useEffect(() => {
@@ -177,6 +242,7 @@ export default function NuevaOT() {
     }, [formData.otNumber]);
 
     useEffect(() => {
+        if (editingOrderId) return;
         if (formData.cliente.length > 3 && formData.productName.length > 3) {
             const checkDuplicate = async () => {
                 try {
@@ -194,7 +260,7 @@ export default function NuevaOT() {
             const timer = setTimeout(checkDuplicate, 800);
             return () => clearTimeout(timer);
         }
-    }, [formData.cliente, formData.productName]);
+    }, [formData.cliente, formData.productName, editingOrderId]);
 
     useEffect(() => {
         const term = (formData.cliente || '').trim();
@@ -256,13 +322,16 @@ export default function NuevaOT() {
     const handleSave = async () => {
         try {
             setLoading(true);
-            const result = await api.post('/production/orders', formData);
+            const isEditing = Boolean(editingOrderId);
+            const result = isEditing
+                ? await api.put(`/production/orders/${editingOrderId}`, formData)
+                : await api.post('/production/orders', formData);
 
             if (!result) {
                 return;
             }
 
-            const orderId = result.id ?? result.Id;
+            const orderId = editingOrderId || result.id || result.Id;
             const partsResp = result.parts ?? result.Parts ?? [];
             const uploadErrors = [];
 
@@ -270,7 +339,7 @@ export default function NuevaOT() {
                 for (let pi = 0; pi < formData.parts.length; pi++) {
                     const st = stagedAttachments[pi];
                     if (!st?.ampliaciones?.length && !st?.adjuntos?.length) continue;
-                    const partId = partsResp[pi]?.id ?? partsResp[pi]?.Id;
+                    const partId = partsResp[pi]?.id ?? partsResp[pi]?.Id ?? formData.parts[pi]?.id ?? formData.parts[pi]?.Id;
                     if (!partId) {
                         uploadErrors.push(`Pieza ${pi + 1}: no se recibió el id de la pieza para adjuntos.`);
                         continue;
@@ -303,7 +372,7 @@ export default function NuevaOT() {
             if (uploadErrors.length) {
                 alert('La orden se guardó. Revise los adjuntos:\n\n' + uploadErrors.join('\n'));
             } else {
-                alert('¡Orden de Trabajo guardada con éxito!');
+                alert(isEditing ? '¡Orden de Trabajo actualizada con éxito!' : '¡Orden de Trabajo guardada con éxito!');
             }
             navigate('/ordenes/lista');
         } catch (error) {
@@ -776,6 +845,7 @@ export default function NuevaOT() {
     const renderStep2 = () => {
         const currentPart = formData.parts[currentPartIndex] || {};
         const fabricationProcesses = JSON.parse(currentPart.fabricationProcessesJson || '[]');
+        const existingAttachments = parsePartAttachments(currentPart.adjuntosJson);
 
         const cabidaForInput = (() => {
             if (currentPart.cabida === '' || currentPart.cabida == null) return undefined;
@@ -883,7 +953,7 @@ export default function NuevaOT() {
                                             onChange={(e) => updatePartField('notas', e.currentTarget.value)}
                                         />
                                         <Text size="xs" c="dimmed" mb={4}>
-                                            Solo imágenes. Se suben al guardar la OT.
+                                            Solo imágenes. Puedes agregar nuevas o eliminar existentes.
                                         </Text>
                                         <FileInput
                                             label="Ampliaciones"
@@ -909,6 +979,107 @@ export default function NuevaOT() {
                                             leftSection={<IconPhoto size={18} />}
                                             variant="filled"
                                         />
+                                        {(existingAttachments.ampliaciones.length > 0 || existingAttachments.adjuntos.length > 0) && (
+                                            <Stack gap="xs" mt={4}>
+                                                <Text size="xs" fw={700} c="indigo.3">Archivos ya cargados</Text>
+                                                {existingAttachments.ampliaciones.map((file, idx) => (
+                                                    <Group key={`amp-${idx}-${file.publicUrl}`} justify="space-between" wrap="nowrap">
+                                                        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                                                            <img
+                                                                src={absoluteUploadUrl(file.publicUrl)}
+                                                                alt={file.originalFileName}
+                                                                style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)' }}
+                                                            />
+                                                            <Text size="xs" truncate title={file.originalFileName}>
+                                                                Ampliación: {file.originalFileName}
+                                                            </Text>
+                                                        </Group>
+                                                        <ActionIcon
+                                                            variant="light"
+                                                            color="red"
+                                                            size="sm"
+                                                            loading={deletingAttachmentUrl === file.publicUrl}
+                                                            onClick={async () => {
+                                                                if (!editingOrderId || !currentPart?.id) return;
+                                                                try {
+                                                                    setDeletingAttachmentUrl(file.publicUrl);
+                                                                    await api.request(`/production/orders/${editingOrderId}/attachments`, {
+                                                                        method: 'DELETE',
+                                                                        body: JSON.stringify({
+                                                                            partId: currentPart.id,
+                                                                            publicUrl: file.publicUrl
+                                                                        })
+                                                                    });
+                                                                    const updatedParts = [...formData.parts];
+                                                                    const fresh = JSON.parse(updatedParts[currentPartIndex].adjuntosJson || '[]')
+                                                                        .filter((a) => (a.publicUrl ?? a.PublicUrl) !== file.publicUrl);
+                                                                    updatedParts[currentPartIndex] = {
+                                                                        ...updatedParts[currentPartIndex],
+                                                                        adjuntosJson: JSON.stringify(fresh)
+                                                                    };
+                                                                    setFormData((prev) => ({ ...prev, parts: updatedParts }));
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert('No se pudo eliminar el archivo.');
+                                                                } finally {
+                                                                    setDeletingAttachmentUrl('');
+                                                                }
+                                                            }}
+                                                        >
+                                                            <IconTrash size={14} />
+                                                        </ActionIcon>
+                                                    </Group>
+                                                ))}
+                                                {existingAttachments.adjuntos.map((file, idx) => (
+                                                    <Group key={`adj-${idx}-${file.publicUrl}`} justify="space-between" wrap="nowrap">
+                                                        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                                                            <img
+                                                                src={absoluteUploadUrl(file.publicUrl)}
+                                                                alt={file.originalFileName}
+                                                                style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)' }}
+                                                            />
+                                                            <Text size="xs" truncate title={file.originalFileName}>
+                                                                Adjunto: {file.originalFileName}
+                                                            </Text>
+                                                        </Group>
+                                                        <ActionIcon
+                                                            variant="light"
+                                                            color="red"
+                                                            size="sm"
+                                                            loading={deletingAttachmentUrl === file.publicUrl}
+                                                            onClick={async () => {
+                                                                if (!editingOrderId || !currentPart?.id) return;
+                                                                try {
+                                                                    setDeletingAttachmentUrl(file.publicUrl);
+                                                                    await api.request(`/production/orders/${editingOrderId}/attachments`, {
+                                                                        method: 'DELETE',
+                                                                        body: JSON.stringify({
+                                                                            partId: currentPart.id,
+                                                                            publicUrl: file.publicUrl
+                                                                        })
+                                                                    });
+                                                                    const updatedParts = [...formData.parts];
+                                                                    const fresh = JSON.parse(updatedParts[currentPartIndex].adjuntosJson || '[]')
+                                                                        .filter((a) => (a.publicUrl ?? a.PublicUrl) !== file.publicUrl);
+                                                                    updatedParts[currentPartIndex] = {
+                                                                        ...updatedParts[currentPartIndex],
+                                                                        adjuntosJson: JSON.stringify(fresh)
+                                                                    };
+                                                                    setFormData((prev) => ({ ...prev, parts: updatedParts }));
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert('No se pudo eliminar el archivo.');
+                                                                } finally {
+                                                                    setDeletingAttachmentUrl('');
+                                                                }
+                                                            }}
+                                                        >
+                                                            <IconTrash size={14} />
+                                                        </ActionIcon>
+                                                    </Group>
+                                                ))}
+                                            </Stack>
+                                        )}
                                     </Stack>
                                 </SimpleGrid>
                             </Card>

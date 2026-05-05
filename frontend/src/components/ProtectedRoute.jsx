@@ -13,13 +13,14 @@ export default function ProtectedRoute({ children }) {
 
     try {
         const user = JSON.parse(userStr);
-        if (!user || !user.token) {
+        if (!user || (!user.token && !user.Token)) {
             localStorage.removeItem('user');
             return <Navigate to="/login" replace />;
         }
 
         // Decodificamos el payload del JWT para validar la fecha de expiración
-        const payloadBase64 = user.token.split('.')[1];
+        const jwt = user.token || user.Token;
+        const payloadBase64 = jwt.split('.')[1];
         if (payloadBase64) {
             const decodedPayload = JSON.parse(atob(payloadBase64));
             const currentTime = Math.floor(Date.now() / 1000);
