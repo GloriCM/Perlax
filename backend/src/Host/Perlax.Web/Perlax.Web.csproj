@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>perlax-web-7c2a4f9e-1b3d-4e8a-9c0f-6d5e4a3b2c1d</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

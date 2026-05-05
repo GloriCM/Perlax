@@ -6,17 +6,31 @@ import {
     IconFileDollar,
     IconBuildingFactory2,
     IconUsers,
-    IconCategory
+    IconCategory,
+    IconBrush
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const getTabs = (pathPrefix) => [
-    { id: 'captura', label: 'Captura de Gastos', icon: IconCash, path: `${pathPrefix}/captura` },
-    { id: 'graficas', label: 'Gráficas', icon: IconChartBar, path: `${pathPrefix}/graficas` },
-    { id: 'rubros', label: 'Rubros', icon: IconTags, path: `${pathPrefix}/rubros` },
-    { id: 'cotizaciones', label: 'Cotizaciones', icon: IconFileDollar, path: `${pathPrefix}/cotizaciones` },
-    { id: 'proveedores', label: 'Proveedores', icon: IconBuildingFactory2, path: `${pathPrefix}/proveedores` },
-];
+const getTabs = (pathPrefix) => {
+    const tabs = [
+        { id: 'captura', label: 'Captura de Gastos', icon: IconCash, path: `${pathPrefix}/captura` },
+        { id: 'cotizaciones', label: 'Cotizaciones', icon: IconFileDollar, path: `${pathPrefix}/cotizaciones` },
+        { id: 'graficas', label: 'Gráficas', icon: IconChartBar, path: `${pathPrefix}/graficas` },
+        { id: 'rubros', label: 'Rubros', icon: IconTags, path: `${pathPrefix}/rubros` },
+    ];
+
+    if (pathPrefix.includes('/sst')) {
+        tabs.push({ id: 'servicios', label: 'Tipos de Servicio', icon: IconCategory, path: `${pathPrefix}/servicios` });
+    }
+
+    tabs.push({ id: 'proveedores', label: 'Proveedores', icon: IconBuildingFactory2, path: `${pathPrefix}/proveedores` });
+
+    if (pathPrefix.includes('/sst')) {
+        tabs.push({ id: 'orden-aseo', label: 'Orden y Aseo', icon: IconBrush, path: `/sst/orden-aseo` });
+    }
+
+    return tabs;
+};
 
 export default function GastosTabs({ pathPrefix = '/planeacion/gastos' }) {
     const navigate = useNavigate();

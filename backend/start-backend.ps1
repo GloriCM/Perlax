@@ -8,6 +8,25 @@ Write-Host "Para detenerlo manualmente presione Ctrl+C." -ForegroundColor Yellow
 Write-Host ""
 
 $restartCount = 0
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+if ($env:KESTREL_PFX_PASSWORD) {
+    $env:Kestrel__Endpoints__Https__Certificate__Password = $env:KESTREL_PFX_PASSWORD
+}
+
+function Stop-PerlaxWebHostProcesses {
+    Get-Process -Name 'dotnet' -ErrorAction SilentlyContinue | ForEach-Object {
+        $procId = $_.Id
+        try {
+            $cmdLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue).CommandLine
+            if ($cmdLine -and $cmdLine -like '*Perlax.Web*') {
+                Write-Host "  Cerrando proceso previo que bloquea la compilacion (dotnet PID $procId)..." -ForegroundColor DarkYellow
+                Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            }
+        }
+        catch { }
+    }
+    Start-Sleep -Milliseconds 1200
+}
 
 while ($true) {
     $restartCount++
@@ -24,6 +43,7 @@ while ($true) {
     }
     
     try {
+        Stop-PerlaxWebHostProcesses
         dotnet run --project src/Host/Perlax.Web/Perlax.Web.csproj --no-launch-profile
     }
     catch {

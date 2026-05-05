@@ -18,8 +18,10 @@ import {
     Textarea,
     Table,
     ScrollArea,
-    Badge,
-    rem as mantineRem
+    rem as mantineRem,
+    Autocomplete,
+    Loader,
+    FileInput
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import {
@@ -31,7 +33,6 @@ import {
     IconCalendar,
     IconCheck,
     IconAlertCircle,
-    IconBrush,
     IconBarcode,
     IconPrinter,
     IconDeviceFloppy,
@@ -46,11 +47,32 @@ import {
     IconMaximize,
     IconChevronLeft,
     IconChevronRight,
-    IconTrash
+    IconTrash,
+    IconPhoto
 } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
+
+/** Lista alineada con Xpertis — ejecutivo de cuenta */
+const EJECUTIVOS_CUENTA_BASE = [
+    'Claude Levy',
+    'Facturación',
+    'Diseño',
+    'Producción',
+    'Nohora Ortiz',
+    'Contabilidad',
+    'Juan Prada',
+    'Almacén',
+    'Digitación',
+    'Jose Camilo Velasco',
+    'Gestion',
+    'Jaime Patiño',
+    'Eithan Levy',
+];
+
+const NUEVO_EJECUTIVO_VALUE = '__nuevo_ejecutivo__';
+const NUEVA_LINEA_PT_VALUE = '__nueva_linea_pt__';
 
 export default function NuevaOT() {
     const navigate = useNavigate();
@@ -99,7 +121,39 @@ export default function NuevaOT() {
     const [errors, setErrors] = useState({});
     const [isDuplicate, setIsDuplicate] = useState(false);
     const [loading, setLoading] = useState(false);
+    /** Archivos pendientes por índice de pieza; se envían tras crear la OT */
+    const [stagedAttachments, setStagedAttachments] = useState({});
     const [lineaOptions, setLineaOptions] = useState(['Bolsa', 'Caja o plegadiza', 'Empaque Flexible', 'Otro']);
+
+    const [ejecutivosExtra, setEjecutivosExtra] = useState([]);
+    const [pendingNuevoEjecutivo, setPendingNuevoEjecutivo] = useState(false);
+    const [nuevoEjecutivoDraft, setNuevoEjecutivoDraft] = useState('');
+
+    const [clienteSuggestions, setClienteSuggestions] = useState([]);
+    const [clienteSuggestLoading, setClienteSuggestLoading] = useState(false);
+
+    const [pendingNuevaLineaPT, setPendingNuevaLineaPT] = useState(false);
+    const [nuevaLineaDraft, setNuevaLineaDraft] = useState('');
+    const lineaPTBackupRef = useRef(null);
+
+    const ejecutivoSelectData = useMemo(() => {
+        const seen = new Set();
+        const items = [];
+        for (const label of [...EJECUTIVOS_CUENTA_BASE, ...ejecutivosExtra]) {
+            if (label && !seen.has(label)) {
+                seen.add(label);
+                items.push({ value: label, label });
+            }
+        }
+        items.push({ value: NUEVO_EJECUTIVO_VALUE, label: '➕ Nuevo ejecutivo…' });
+        return items;
+    }, [ejecutivosExtra]);
+
+    const lineaSelectData = useMemo(() => {
+        const items = lineaOptions.map((l) => ({ value: l, label: l }));
+        items.push({ value: NUEVA_LINEA_PT_VALUE, label: '➕ Nuevo elemento…' });
+        return items;
+    }, [lineaOptions]);
 
     useEffect(() => {
         const fetchNextNumber = async () => {
@@ -142,6 +196,29 @@ export default function NuevaOT() {
         }
     }, [formData.cliente, formData.productName]);
 
+    useEffect(() => {
+        const term = (formData.cliente || '').trim();
+        if (term.length < 1) {
+            setClienteSuggestions([]);
+            return;
+        }
+        const handle = setTimeout(async () => {
+            setClienteSuggestLoading(true);
+            try {
+                const rows = await api.get(
+                    `/production/orders/clients-suggestions?q=${encodeURIComponent(term)}&limit=30`
+                );
+                setClienteSuggestions(Array.isArray(rows) ? rows : []);
+            } catch (err) {
+                console.error('Error sugerencias cliente', err);
+                setClienteSuggestions([]);
+            } finally {
+                setClienteSuggestLoading(false);
+            }
+        }, 320);
+        return () => clearTimeout(handle);
+    }, [formData.cliente]);
+
     const validateStep1 = () => {
         const newErrors = {};
         if (!formData.otNumber) newErrors.otNumber = 'El número de OT es obligatorio';
@@ -165,15 +242,70 @@ export default function NuevaOT() {
         setActiveStep(0);
     };
 
+    const updateStagedAttachments = (partIdx, field, files) => {
+        const list = files == null ? [] : Array.isArray(files) ? files : [files];
+        setStagedAttachments((prev) => {
+            const cur = prev[partIdx] || { ampliaciones: [], adjuntos: [] };
+            return {
+                ...prev,
+                [partIdx]: { ...cur, [field]: list },
+            };
+        });
+    };
+
     const handleSave = async () => {
         try {
             setLoading(true);
             const result = await api.post('/production/orders', formData);
 
-            if (result) {
-                alert('¡Orden de Trabajo guardada con éxito!');
-                navigate('/ordenes/lista');
+            if (!result) {
+                return;
             }
+
+            const orderId = result.id ?? result.Id;
+            const partsResp = result.parts ?? result.Parts ?? [];
+            const uploadErrors = [];
+
+            if (orderId) {
+                for (let pi = 0; pi < formData.parts.length; pi++) {
+                    const st = stagedAttachments[pi];
+                    if (!st?.ampliaciones?.length && !st?.adjuntos?.length) continue;
+                    const partId = partsResp[pi]?.id ?? partsResp[pi]?.Id;
+                    if (!partId) {
+                        uploadErrors.push(`Pieza ${pi + 1}: no se recibió el id de la pieza para adjuntos.`);
+                        continue;
+                    }
+
+                    const uploadBatch = async (category, files) => {
+                        if (!files?.length) return;
+                        const fd = new FormData();
+                        fd.append('category', category);
+                        fd.append('partId', partId);
+                        for (const f of files) {
+                            fd.append('files', f, f.name);
+                        }
+                        await api.postFormData(`/production/orders/${orderId}/attachments`, fd);
+                    };
+
+                    try {
+                        await uploadBatch('ampliaciones', st.ampliaciones);
+                    } catch (e) {
+                        uploadErrors.push(`Ampliaciones (pieza ${pi + 1}): ${e.message || e}`);
+                    }
+                    try {
+                        await uploadBatch('adjuntos', st.adjuntos);
+                    } catch (e) {
+                        uploadErrors.push(`Adjuntos (pieza ${pi + 1}): ${e.message || e}`);
+                    }
+                }
+            }
+
+            if (uploadErrors.length) {
+                alert('La orden se guardó. Revise los adjuntos:\n\n' + uploadErrors.join('\n'));
+            } else {
+                alert('¡Orden de Trabajo guardada con éxito!');
+            }
+            navigate('/ordenes/lista');
         } catch (error) {
             console.error("Error saving OT", error);
             alert('Error al guardar: ' + (error.message || 'Error desconocido'));
@@ -261,18 +393,12 @@ export default function NuevaOT() {
                 }}
             >
                 <Group justify="space-between" align="center" p="xl">
-                    <Group gap="lg">
-                        <ThemeIcon size={64} radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
-                            <IconBrush size={34} />
-                        </ThemeIcon>
-                        <Stack gap={0}>
-                            <Group gap="xs">
-                                <Text size="xs" c="indigo.2" fw={700} tt="uppercase" lts={1}>Orden de Trabajo</Text>
-                                <Badge variant="filled" color="indigo" size="sm">Creando OT #{formData.otNumber || '...'}</Badge>
-                            </Group>
-                            <Title order={2} c="white">Clase y Línea de Diseño</Title>
-                        </Stack>
-                    </Group>
+                    <Stack gap={4}>
+                        <Title order={2} c="white">
+                            Orden de trabajo {formData.otNumber || '…'}
+                        </Title>
+                        <Text size="sm" c="dimmed">Clase y Línea de Diseño</Text>
+                    </Stack>
                     <Group gap="md">
                         <Button
                             variant="subtle"
@@ -322,15 +448,22 @@ export default function NuevaOT() {
                             styles={{ input: { color: '#6366f1', fontWeight: 800, background: 'rgba(99, 102, 241, 0.05)' } }}
                             leftSection={<IconBarcode size={16} />}
                         />
-                        <TextInput
+                        <Autocomplete
                             label="Razon Social del Cliente"
-                            placeholder="Nombre del cliente..."
+                            placeholder="Escriba para buscar clientes guardados…"
                             size="md"
                             value={formData.cliente}
-                            onChange={(e) => setFormData({ ...formData, cliente: e.currentTarget.value })}
+                            onChange={(val) => setFormData((prev) => ({ ...prev, cliente: val }))}
+                            data={clienteSuggestions}
+                            limit={30}
+                            filter={({ options }) => options}
+                            maxDropdownHeight={280}
                             error={errors.cliente}
                             required
                             leftSection={<IconBuildingStore size={16} />}
+                            rightSection={clienteSuggestLoading ? <Loader size={16} /> : null}
+                            comboboxProps={{ withinPortal: true, position: 'bottom-start' }}
+                            variant="filled"
                         />
                         {isDuplicate && (
                             <Alert icon={<IconAlertCircle size={16} />} title="Duplicado Detectado" color="red" mt="md" variant="light">
@@ -341,16 +474,54 @@ export default function NuevaOT() {
 
                     <Card className="glass-card" p="xl">
                         <Stack gap="sm">
-                            <TextInput
+                            <Select
                                 label="Ejecutivo de cuenta"
-                                placeholder="Nombre del ejecutivo..."
+                                placeholder="Seleccione ejecutivo..."
                                 leftSection={<IconUser size={16} />}
-                                value={formData.ejecutivoCuenta}
-                                onChange={(e) => setFormData({ ...formData, ejecutivoCuenta: e.currentTarget.value })}
+                                data={ejecutivoSelectData}
+                                searchable
+                                clearable
+                                nothingFoundMessage="Sin coincidencias"
+                                value={
+                                    pendingNuevoEjecutivo
+                                        ? NUEVO_EJECUTIVO_VALUE
+                                        : (formData.ejecutivoCuenta || null)
+                                }
+                                onChange={handleEjecutivoSelectChange}
                                 error={errors.ejecutivoCuenta}
                                 required
                                 variant="filled"
+                                comboboxProps={{ withinPortal: true, position: 'bottom-start' }}
+                                maxDropdownHeight={280}
                             />
+                            {pendingNuevoEjecutivo && (
+                                <Stack gap="xs" p="sm" style={{ borderRadius: 8, background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                                    <Text size="xs" fw={600} c="indigo.3">
+                                        Ingrese el nombre del nuevo ejecutivo
+                                    </Text>
+                                    <TextInput
+                                        placeholder="Ej. María López — Comercial"
+                                        value={nuevoEjecutivoDraft}
+                                        onChange={(e) => setNuevoEjecutivoDraft(e.currentTarget.value)}
+                                        variant="filled"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                confirmarNuevoEjecutivo();
+                                            }
+                                        }}
+                                        autoFocus
+                                    />
+                                    <Group gap="xs" justify="flex-end">
+                                        <Button variant="subtle" color="gray" size="compact-sm" onClick={cancelarNuevoEjecutivo}>
+                                            Cancelar
+                                        </Button>
+                                        <Button variant="filled" color="indigo" size="compact-sm" onClick={confirmarNuevoEjecutivo}>
+                                            Usar este nombre
+                                        </Button>
+                                    </Group>
+                                </Stack>
+                            )}
 
                             <DateInput
                                 label="Fecha de solicitud"
@@ -391,25 +562,53 @@ export default function NuevaOT() {
 
                     <Stack gap="xl">
                         <Group align="flex-end" grow>
-                            <Select
-                                label="Linea de PT"
-                                placeholder="Seleccione línea..."
-                                data={[...lineaOptions, 'Nuevo elemento...']}
-                                value={formData.lineaPT}
-                                onChange={(val) => {
-                                    if (val === 'Nuevo elemento...') {
-                                        const newVal = prompt('Ingrese nueva línea de PT:');
-                                        if (newVal) {
-                                            setLineaOptions(prev => [...prev, newVal]);
-                                            setFormData({ ...formData, lineaPT: newVal });
-                                        }
-                                    } else {
-                                        setFormData({ ...formData, lineaPT: val });
+                            <Stack gap="sm" style={{ flex: 1 }}>
+                                <Select
+                                    label="Linea de PT"
+                                    placeholder="Seleccione línea..."
+                                    data={lineaSelectData}
+                                    value={
+                                        pendingNuevaLineaPT
+                                            ? NUEVA_LINEA_PT_VALUE
+                                            : (formData.lineaPT || null)
                                     }
-                                }}
-                                variant="filled"
-                                size="md"
-                            />
+                                    onChange={handleLineaPTSelectChange}
+                                    variant="filled"
+                                    size="md"
+                                    searchable
+                                    nothingFoundMessage="Sin coincidencias"
+                                    comboboxProps={{ withinPortal: true, position: 'bottom-start' }}
+                                    maxDropdownHeight={280}
+                                />
+                                {pendingNuevaLineaPT && (
+                                    <Stack gap="xs" p="sm" style={{ borderRadius: 8, background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                                        <Text size="xs" fw={600} c="indigo.3">
+                                            Ingrese el nombre de la nueva línea de PT
+                                        </Text>
+                                        <TextInput
+                                            placeholder="Ej. Etiqueta, Flow pack…"
+                                            value={nuevaLineaDraft}
+                                            onChange={(e) => setNuevaLineaDraft(e.currentTarget.value)}
+                                            variant="filled"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    confirmarNuevaLineaPT();
+                                                }
+                                            }}
+                                            autoFocus
+                                        />
+                                        <Group gap="xs" justify="flex-end">
+                                            <Button variant="subtle" color="gray" size="compact-sm" onClick={cancelarNuevaLineaPT}>
+                                                Cancelar
+                                            </Button>
+                                            <Button variant="filled" color="indigo" size="compact-sm" onClick={confirmarNuevaLineaPT}>
+                                                Agregar línea
+                                            </Button>
+                                        </Group>
+                                    </Stack>
+                                )}
+                            </Stack>
                         </Group>
 
                         <SimpleGrid cols={2}>
@@ -474,6 +673,73 @@ export default function NuevaOT() {
         setFormData({ ...formData, parts: newParts });
     };
 
+    const handleEjecutivoSelectChange = (val) => {
+        if (val === null || val === '') {
+            setPendingNuevoEjecutivo(false);
+            setNuevoEjecutivoDraft('');
+            setFormData((prev) => ({ ...prev, ejecutivoCuenta: '' }));
+            return;
+        }
+        if (val === NUEVO_EJECUTIVO_VALUE) {
+            setPendingNuevoEjecutivo(true);
+            setNuevoEjecutivoDraft('');
+            setFormData((prev) => ({ ...prev, ejecutivoCuenta: '' }));
+            return;
+        }
+        setPendingNuevoEjecutivo(false);
+        setNuevoEjecutivoDraft('');
+        setFormData((prev) => ({ ...prev, ejecutivoCuenta: val }));
+    };
+
+    const confirmarNuevoEjecutivo = () => {
+        const nombre = nuevoEjecutivoDraft.trim();
+        if (!nombre) return;
+        setEjecutivosExtra((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]));
+        setFormData((prev) => ({ ...prev, ejecutivoCuenta: nombre }));
+        setPendingNuevoEjecutivo(false);
+        setNuevoEjecutivoDraft('');
+    };
+
+    const cancelarNuevoEjecutivo = () => {
+        setPendingNuevoEjecutivo(false);
+        setNuevoEjecutivoDraft('');
+        setFormData((prev) => ({ ...prev, ejecutivoCuenta: '' }));
+    };
+
+    const handleLineaPTSelectChange = (val) => {
+        if (val === null || val === '') {
+            setPendingNuevaLineaPT(false);
+            setNuevaLineaDraft('');
+            setFormData((prev) => ({ ...prev, lineaPT: '' }));
+            return;
+        }
+        if (val === NUEVA_LINEA_PT_VALUE) {
+            lineaPTBackupRef.current = formData.lineaPT || 'Bolsa';
+            setPendingNuevaLineaPT(true);
+            setNuevaLineaDraft('');
+            return;
+        }
+        setPendingNuevaLineaPT(false);
+        setNuevaLineaDraft('');
+        setFormData((prev) => ({ ...prev, lineaPT: val || prev.lineaPT }));
+    };
+
+    const confirmarNuevaLineaPT = () => {
+        const name = nuevaLineaDraft.trim();
+        if (!name) return;
+        setLineaOptions((prev) => (prev.includes(name) ? prev : [...prev, name]));
+        setFormData((prev) => ({ ...prev, lineaPT: name }));
+        setPendingNuevaLineaPT(false);
+        setNuevaLineaDraft('');
+    };
+
+    const cancelarNuevaLineaPT = () => {
+        setPendingNuevaLineaPT(false);
+        setNuevaLineaDraft('');
+        const prev = lineaPTBackupRef.current;
+        setFormData((fd) => ({ ...fd, lineaPT: prev && prev !== NUEVA_LINEA_PT_VALUE ? prev : 'Bolsa' }));
+    };
+
     const addPart = () => {
         setFormData({
             ...formData,
@@ -511,23 +777,26 @@ export default function NuevaOT() {
         const currentPart = formData.parts[currentPartIndex] || {};
         const fabricationProcesses = JSON.parse(currentPart.fabricationProcessesJson || '[]');
 
+        const cabidaForInput = (() => {
+            if (currentPart.cabida === '' || currentPart.cabida == null) return undefined;
+            const n = Number(String(currentPart.cabida).replace(',', '.'));
+            return Number.isFinite(n) ? n : undefined;
+        })();
+
+        const staged = stagedAttachments[currentPartIndex] || { ampliaciones: [], adjuntos: [] };
+
         return (
             <Stack gap="xl">
                 {/* Step 2 Header */}
                 <Card p={0} style={{ background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 100%)', border: 'none', borderRadius: '16px' }}>
                     <Group justify="space-between" align="center" p="xl">
-                        <Group gap="lg">
-                            <ThemeIcon size={64} radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
-                                <IconBrush size={34} />
-                            </ThemeIcon>
-                            <Stack gap={0}>
-                                <Group align="baseline" gap="xs">
-                                    <Title order={2} c="white">ORDEN DE TRABAJO</Title>
-                                    <Text c="indigo.2" fw={700} size="xl">{formData.productName || 'Sin título'}</Text>
-                                </Group>
-                                <Text size="sm" c="dimmed">Editando: {currentPart.partName || 'Pieza'} ({currentPartIndex + 1} de {formData.parts.length})</Text>
-                            </Stack>
-                        </Group>
+                        <Stack gap={6}>
+                            <Title order={2} c="white">
+                                Orden de trabajo {formData.otNumber || '…'}
+                            </Title>
+                            <Text size="sm" c="indigo.2" fw={600}>{formData.productName || 'Sin nombre de producto'}</Text>
+                            <Text size="sm" c="dimmed">Editando: {currentPart.partName || 'Pieza'} ({currentPartIndex + 1} de {formData.parts.length})</Text>
+                        </Stack>
                         <Group gap="md">
                             <Button variant="filled" color="indigo" leftSection={<IconDeviceFloppy size={18} />} radius="md" onClick={handleSave} loading={loading}>Guardar OT</Button>
                             <ActionIcon variant="light" color="gray" size="lg" onClick={handleBack}><IconArrowLeft size={20} /></ActionIcon>
@@ -541,9 +810,14 @@ export default function NuevaOT() {
                         <Stack gap="xl">
                             {/* Descripción del diseño */}
                             <Card className="glass-card" p="xl">
-                                <Divider label="Descripción del Diseño y Medidas" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }} />
+                                <Divider
+                                    label={`Orden de trabajo ${formData.otNumber || '…'}`}
+                                    labelPosition="left"
+                                    mb="md"
+                                    styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }}
+                                />
                                 <SimpleGrid cols={2} spacing="lg">
-                                    <Stack gap="xs">
+                                    <Stack gap="md">
                                         <TextInput
                                             label="Nombre de esta Pieza"
                                             value={currentPart.partName}
@@ -551,31 +825,89 @@ export default function NuevaOT() {
                                             variant="filled"
                                             required
                                         />
-                                        <Group grow align="flex-end">
-                                            <TextInput label="Cabida" variant="filled" value={currentPart.cabida} onChange={(e) => updatePartField('cabida', e.currentTarget.value)} />
-                                            <NumberInput label="Fuelle" variant="filled" value={currentPart.fuelle} onChange={(val) => updatePartField('fuelle', val)} />
+                                        <Group grow align="flex-end" gap="sm" wrap="nowrap">
+                                            <NumberInput
+                                                label="Fuelle"
+                                                variant="filled"
+                                                value={currentPart.fuelle}
+                                                onChange={(val) => updatePartField('fuelle', val)}
+                                                min={0}
+                                                decimalScale={4}
+                                            />
+                                            <NumberInput
+                                                label="Alto Pliego (mm)"
+                                                variant="filled"
+                                                value={currentPart.altoPliego}
+                                                onChange={(val) => updatePartField('altoPliego', val)}
+                                                min={0}
+                                                decimalScale={4}
+                                            />
+                                            <NumberInput
+                                                label="Ancho Pliego (mm)"
+                                                variant="filled"
+                                                value={currentPart.anchoPliego}
+                                                onChange={(val) => updatePartField('anchoPliego', val)}
+                                                min={0}
+                                                decimalScale={4}
+                                            />
                                         </Group>
+                                        <NumberInput
+                                            label="Cabida"
+                                            variant="filled"
+                                            value={cabidaForInput}
+                                            onChange={(val) =>
+                                                updatePartField(
+                                                    'cabida',
+                                                    val === undefined || val === '' ? '' : String(val)
+                                                )
+                                            }
+                                            min={0}
+                                            decimalScale={4}
+                                        />
                                         <Stack gap={0}>
                                             <Text size="sm" fw={500} mb={4}>Dimensiones (mm): Alto x Ancho x Largo</Text>
                                             <Group grow align="flex-start" gap="xs">
-                                                <NumberInput placeholder="Alto" variant="filled" value={currentPart.alto} onChange={(val) => updatePartField('alto', val)} />
-                                                <NumberInput placeholder="Ancho" variant="filled" value={currentPart.ancho} onChange={(val) => updatePartField('ancho', val)} />
-                                                <NumberInput placeholder="Largo" variant="filled" value={currentPart.largo} onChange={(val) => updatePartField('largo', val)} />
+                                                <NumberInput placeholder="Alto" variant="filled" value={currentPart.alto} onChange={(val) => updatePartField('alto', val)} min={0} decimalScale={4} />
+                                                <NumberInput placeholder="Ancho" variant="filled" value={currentPart.ancho} onChange={(val) => updatePartField('ancho', val)} min={0} decimalScale={4} />
+                                                <NumberInput placeholder="Largo" variant="filled" value={currentPart.largo} onChange={(val) => updatePartField('largo', val)} min={0} decimalScale={4} />
                                             </Group>
                                         </Stack>
                                     </Stack>
-                                    <Stack gap="xs">
-                                        <Group grow>
-                                            <NumberInput label="Alto Pliego (mm)" variant="filled" value={currentPart.altoPliego} onChange={(val) => updatePartField('altoPliego', val)} />
-                                            <NumberInput label="Ancho Pliego (mm)" variant="filled" value={currentPart.anchoPliego} onChange={(val) => updatePartField('anchoPliego', val)} />
-                                        </Group>
+                                    <Stack gap="md">
                                         <Textarea
                                             label="Pie de imprenta / Notas"
                                             placeholder="Observaciones..."
-                                            minRows={4}
+                                            minRows={10}
                                             variant="filled"
                                             value={currentPart.notas}
                                             onChange={(e) => updatePartField('notas', e.currentTarget.value)}
+                                        />
+                                        <Text size="xs" c="dimmed" mb={4}>
+                                            Solo imágenes. Se suben al guardar la OT.
+                                        </Text>
+                                        <FileInput
+                                            label="Ampliaciones"
+                                            description="Imágenes de ampliación (JPG, PNG, WebP…)"
+                                            placeholder="Seleccionar imágenes"
+                                            multiple
+                                            clearable
+                                            accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff"
+                                            value={staged.ampliaciones}
+                                            onChange={(files) => updateStagedAttachments(currentPartIndex, 'ampliaciones', files)}
+                                            leftSection={<IconPhoto size={18} />}
+                                            variant="filled"
+                                        />
+                                        <FileInput
+                                            label="Adjuntos"
+                                            description="Imágenes adjuntas (JPG, PNG, WebP…)"
+                                            placeholder="Seleccionar imágenes"
+                                            multiple
+                                            clearable
+                                            accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff"
+                                            value={staged.adjuntos}
+                                            onChange={(files) => updateStagedAttachments(currentPartIndex, 'adjuntos', files)}
+                                            leftSection={<IconPhoto size={18} />}
+                                            variant="filled"
                                         />
                                     </Stack>
                                 </SimpleGrid>
