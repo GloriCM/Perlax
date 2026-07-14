@@ -48,7 +48,7 @@ export default function PanelMantenimiento() {
 
                 <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
                     <Paper p="xl" radius="md" withBorder
-                        onClick={() => navigate('/mantenimiento/equipos')}
+                        onClick={() => navigate('/mantenimiento-equipos/equipos')}
                         style={{
                             background: 'rgba(255,255,255,0.03)',
                             cursor: 'pointer',

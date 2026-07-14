@@ -19,7 +19,8 @@ export function getCurrentUser() {
 export function isAdmin(user) {
     if (!user) return false;
     const r = user.role ?? user.Role ?? '';
-    return String(r).toLowerCase() === 'admin';
+    const normalized = String(r).toLowerCase();
+    return normalized === 'admin' || normalized === 'administrador';
 }
 
 /** Rutas permitidas: undefined (sesión antigua) o null = acceso completo; [] = solo inicio `/`. */
@@ -52,13 +53,18 @@ export function canAccessRoute(pathname, user) {
     const token = user.token ?? user.Token;
     if (!token) return false;
 
+    const path = normPath(pathname);
+
+    // Chat interno: acceso por icono superior, no depende de matriz de módulos.
+    if (path === '/chat' || path.startsWith('/chat/')) {
+        return true;
+    }
+
     if (isAdmin(user)) return true;
 
     const routes = getAllowedRoutes(user);
     if (routes === undefined) return true;
     if (routes === null) return true;
-
-    const path = normPath(pathname);
     const normalizedList = routes.map(normPath);
 
     if (normalizedList.length === 0) {

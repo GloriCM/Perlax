@@ -63,6 +63,14 @@ export default function TalleresPresupuesto() {
         return total;
     };
 
+    const calculateMonthlyTotal = (month) => {
+        return RUBROS.reduce((sum, rubro) => sum + (data[rubro]?.[month] || 0), 0);
+    };
+
+    const calculateAnnualByRubro = (rubro) => {
+        return MONTHS.reduce((sum, month) => sum + (data[rubro]?.[month] || 0), 0);
+    };
+
     return (
         <div className="talleres-presupuesto-container fade-in">
             {/* Custom Header */}
@@ -115,12 +123,13 @@ export default function TalleresPresupuesto() {
                         <tr>
                             <th>Rubro</th>
                             {MONTHS.map(m => <th key={m}>{m}</th>)}
+                            <th className="total-col-header">Total anual</th>
                         </tr>
                     </thead>
                     <tbody>
                         {RUBROS.map(rubro => (
                             <tr key={rubro}>
-                                <td className="rubro-cell">{rubro}</td>
+                                <td className="rubro-cell">{rubro.toLowerCase()}</td>
                                 {MONTHS.map(month => (
                                     <td key={month}>
                                         <input
@@ -130,8 +139,16 @@ export default function TalleresPresupuesto() {
                                         />
                                     </td>
                                 ))}
+                                <td className="total-col-cell">{formatCurrency(calculateAnnualByRubro(rubro))}</td>
                             </tr>
                         ))}
+                        <tr className="total-row">
+                            <td className="rubro-cell total-row-label">total mensual</td>
+                            {MONTHS.map(month => (
+                                <td key={`total-${month}`} className="total-row-cell">{formatCurrency(calculateMonthlyTotal(month))}</td>
+                            ))}
+                            <td className="total-col-cell total-row-cell">{formatCurrency(calculateTotalAnnual())}</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

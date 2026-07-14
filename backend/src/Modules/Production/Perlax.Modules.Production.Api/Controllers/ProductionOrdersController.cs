@@ -335,7 +335,7 @@ public class ProductionOrdersController : ControllerBase
         if (part == null)
             return BadRequest(new { message = "La pieza no pertenece a esta OT." });
 
-        var uploadsRoot = Path.Combine(_environment.ContentRootPath, "uploads", "OTS", subDir);
+        var uploadsRoot = Path.Combine(GetUploadsRoot(), "OTS", subDir);
         Directory.CreateDirectory(uploadsRoot);
 
         var stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
@@ -434,7 +434,7 @@ public class ProductionOrdersController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(removed.RelativePath))
         {
-            var physicalPath = Path.Combine(_environment.ContentRootPath, "uploads", removed.RelativePath);
+            var physicalPath = Path.Combine(GetUploadsRoot(), removed.RelativePath.Replace('/', Path.DirectorySeparatorChar));
             if (System.IO.File.Exists(physicalPath))
             {
                 try
@@ -518,6 +518,14 @@ public class ProductionOrdersController : ControllerBase
         });
     }
 
+    private string GetUploadsRoot()
+    {
+        var webRoot = string.IsNullOrWhiteSpace(_environment.WebRootPath)
+            ? Path.Combine(_environment.ContentRootPath, "wwwroot")
+            : _environment.WebRootPath;
+        return Path.Combine(webRoot, "uploads");
+    }
+
     private static string SanitizeFileBaseName(string fileName)
     {
         var baseName = Path.GetFileNameWithoutExtension(fileName);
@@ -525,6 +533,7 @@ public class ProductionOrdersController : ControllerBase
             baseName = "archivo";
         foreach (var c in Path.GetInvalidFileNameChars())
             baseName = baseName.Replace(c, '_');
+        baseName = baseName.Replace(' ', '_');
         if (baseName.Length > 80)
             baseName = baseName[..80];
         return baseName;

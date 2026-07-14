@@ -11,10 +11,22 @@ namespace Perlax.Modules.Users.Api.Controllers;
 
 [ApiController]
 [Route("api/users")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Administrador")]
 public class UsersController : ControllerBase
 {
     private const int MaxDetailsLength = 8000;
+    private static readonly HashSet<string> AllowedAreas = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "calidad",
+        "produccion",
+        "talleres",
+        "planeaccion",
+        "diseño",
+        "ti",
+        "mantenimiento",
+        "sst",
+        "gestion humana"
+    };
 
     private readonly UsersDbContext _context;
     private readonly IAuditService _auditService;
@@ -67,11 +79,15 @@ public class UsersController : ControllerBase
             FirstName = NullIfWhite(request.FirstName),
             LastName = NullIfWhite(request.LastName),
             Role = NormalizeRole(request.Role),
+            Area = NormalizeArea(request.Area),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             IsSystemUser = false,
             CreatedAt = DateTime.UtcNow,
             AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(request.Role, request.AllowedRoutes)
         };
+
+        var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
+        if (areaValidation is not null) return BadRequest(areaValidation);
 
         _context.Users.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
@@ -100,6 +116,7 @@ public class UsersController : ControllerBase
         var oldLastName = entity.LastName;
         var oldEmail = entity.Email;
         var oldRole = entity.Role;
+        var oldArea = entity.Area;
         var oldRoutesJson = entity.AllowedRoutesJson;
         var passwordWillChange = !string.IsNullOrWhiteSpace(request.Password);
 
@@ -107,8 +124,12 @@ public class UsersController : ControllerBase
         entity.LastName = NullIfWhite(request.LastName);
         entity.Email = email;
         entity.Role = NormalizeRole(request.Role);
+        entity.Area = NormalizeArea(request.Area);
         var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(request.Role, request.AllowedRoutes);
         entity.AllowedRoutesJson = newRoutesJson;
+
+        var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
+        if (areaValidation is not null) return BadRequest(areaValidation);
 
         if (passwordWillChange)
             entity.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password!);
@@ -133,6 +154,7 @@ public class UsersController : ControllerBase
                 oldLastName,
                 oldEmail,
                 oldRole,
+                oldArea,
                 entity,
                 passwordWillChange);
             await LogUserAuditAsync("USER_UPDATE", details);
@@ -174,16 +196,44 @@ public class UsersController : ControllerBase
         u.Email,
         u.FirstName,
         u.LastName,
+        u.Area,
         u.Role,
         u.IsSystemUser,
         AllowedRoutesPolicy.DeserializeForResponse(u.Role, u.AllowedRoutesJson));
 
-    private static bool IsValidRole(string role) =>
-        string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+    private static bool IsAdminRole(string role) =>
+        string.Equals(role, "Administrador", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAdministrativeRole(string role) =>
+        string.Equals(role, "Administrativo", StringComparison.OrdinalIgnoreCase)
         || string.Equals(role, "User", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsValidRole(string role) =>
+        IsAdminRole(role) || IsAdministrativeRole(role);
+
     private static string NormalizeRole(string role) =>
-        string.Equals(role.Trim(), "Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "User";
+        IsAdminRole(role.Trim()) ? "Administrador" : "Administrativo";
+
+    private static string? NormalizeArea(string? area)
+    {
+        if (string.IsNullOrWhiteSpace(area)) return null;
+        return area.Trim();
+    }
+
+    private static string? ValidateAreaForRole(string role, string? area)
+    {
+        if (IsAdminRole(role))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(area))
+            return "El área es obligatoria para rol Administrativo.";
+
+        if (!AllowedAreas.Contains(area))
+            return "El área seleccionada no es válida.";
+
+        return null;
+    }
 
     private static string? NullIfWhite(string? s)
     {
@@ -218,7 +268,7 @@ public class UsersController : ControllerBase
 
     private static string DescribeUserPermissions(User u)
     {
-        if (string.Equals(u.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+        if (IsAdminRole(u.Role))
             return "Permisos: administrador (acceso completo).";
 
         var routes = AllowedRoutesPolicy.DeserializeForResponse(u.Role, u.AllowedRoutesJson);
@@ -247,7 +297,7 @@ public class UsersController : ControllerBase
 
     private static string DescribeRoutesSnapshot(string role, string? routesJson)
     {
-        if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+        if (IsAdminRole(role))
             return "admin (completo)";
         var routes = AllowedRoutesPolicy.DeserializeForResponse(role, routesJson);
         if (routes == null) return "sin lista (completo)";
@@ -261,6 +311,7 @@ public class UsersController : ControllerBase
         string? oldLastName,
         string oldEmail,
         string oldRole,
+        string? oldArea,
         User updated,
         bool passwordChanged)
     {
@@ -280,6 +331,9 @@ public class UsersController : ControllerBase
         if (!string.Equals(oldRole, updated.Role, StringComparison.OrdinalIgnoreCase))
             parts.Add($"Rol: {oldRole} → {updated.Role}.");
 
+        if (!string.Equals(oldArea ?? "", updated.Area ?? "", StringComparison.OrdinalIgnoreCase))
+            parts.Add($"Área: {oldArea ?? "—"} → {updated.Area ?? "—"}.");
+
         if (passwordChanged)
             parts.Add("Contraseña: actualizada.");
 
@@ -296,6 +350,7 @@ public record UserResponseDto(
     string Email,
     string? FirstName,
     string? LastName,
+    string? Area,
     string Role,
     bool IsSystemUser,
     string[]? AllowedRoutes);
@@ -303,6 +358,7 @@ public record UserResponseDto(
 public record CreateUserRequest(
     string? FirstName,
     string? LastName,
+    string? Area,
     string Username,
     string Email,
     string Password,
@@ -312,6 +368,7 @@ public record CreateUserRequest(
 public record UpdateUserRequest(
     string? FirstName,
     string? LastName,
+    string? Area,
     string Email,
     string? Password,
     string Role,

@@ -37,7 +37,7 @@ export default function ProveedoresSST() {
                         <IconBuildingStore size={20} color="#94a3b8" />
                         <Title order={5} c="white">Proveedores</Title>
                     </Group>
-                    <Button variant="filled" color="blue" size="sm" leftSection={<IconPlus size={18} />}>+ Agregar</Button>
+                    <Button variant="filled" color="blue" size="sm" leftSection={<IconPlus size={18} />}>Agregar</Button>
                 </Group>
                 <Group mt="md">
                     <Text size="sm" c="dimmed">Rubro:</Text>

@@ -129,7 +129,7 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                         radius="md"
                         onClick={handleAdd}
                     >
-                        + Agregar
+                        Agregar
                     </Button>
                 </Group>
             </Paper>

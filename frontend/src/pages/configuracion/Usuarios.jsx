@@ -33,12 +33,25 @@ import {
 const emptyForm = {
     firstName: '',
     lastName: '',
+    area: '',
     username: '',
     email: '',
     password: '',
-    role: 'User',
+    role: 'Administrativo',
     allowedRoutes: [],
 };
+
+const AREA_OPTIONS = [
+    { value: 'calidad', label: 'Calidad' },
+    { value: 'produccion', label: 'Producción' },
+    { value: 'talleres', label: 'Talleres' },
+    { value: 'planeaccion', label: 'Planeacción' },
+    { value: 'diseño', label: 'Diseño' },
+    { value: 'ti', label: 'TI' },
+    { value: 'mantenimiento', label: 'Mantenimiento' },
+    { value: 'sst', label: 'SST' },
+    { value: 'gestion humana', label: 'Gestión humana' },
+];
 
 function PermissionCell({ path, selected, onToggle }) {
     const p = normPath(path);
@@ -112,9 +125,12 @@ export default function UsuariosConfig() {
     };
 
     const openEdit = (u) => {
-        const role = (u.role || 'User').toLowerCase() === 'admin' ? 'Admin' : 'User';
+        const rawRole = (u.role || 'Administrativo').toLowerCase();
+        const role = rawRole === 'admin' || rawRole === 'administrador'
+            ? 'Administrador'
+            : 'Administrativo';
         let routes = [];
-        if (role === 'User') {
+        if (role === 'Administrativo') {
             if (Array.isArray(u.allowedRoutes)) routes = [...u.allowedRoutes];
             else if (u.allowedRoutes === null || u.allowedRoutes === undefined) routes = [...allLeafPaths];
         }
@@ -122,6 +138,7 @@ export default function UsuariosConfig() {
         setForm({
             firstName: u.firstName || '',
             lastName: u.lastName || '',
+            area: u.area || '',
             username: u.username || '',
             email: u.email || '',
             password: '',
@@ -152,11 +169,19 @@ export default function UsuariosConfig() {
     };
 
     const handleSubmit = async () => {
-        const isAdminRole = form.role === 'Admin';
+        const isAdminRole = form.role === 'Administrador';
         if (!editingId && !form.password?.trim()) {
             notifications.show({
                 title: 'Contraseña',
                 message: 'La contraseña es obligatoria al crear un usuario',
+                color: 'yellow',
+            });
+            return;
+        }
+        if (!isAdminRole && !form.area) {
+            notifications.show({
+                title: 'Área requerida',
+                message: 'Seleccione el área para rol Administrativo.',
                 color: 'yellow',
             });
             return;
@@ -167,6 +192,7 @@ export default function UsuariosConfig() {
                 const putPayload = {
                     firstName: form.firstName?.trim() || null,
                     lastName: form.lastName?.trim() || null,
+                    area: isAdminRole ? null : form.area,
                     email: form.email.trim(),
                     role: form.role,
                     allowedRoutes: isAdminRole ? null : form.allowedRoutes,
@@ -177,6 +203,7 @@ export default function UsuariosConfig() {
                 await api.post('/users', {
                     firstName: form.firstName?.trim() || null,
                     lastName: form.lastName?.trim() || null,
+                    area: isAdminRole ? null : form.area,
                     username: form.username.trim(),
                     email: form.email.trim(),
                     password: form.password,
@@ -225,7 +252,7 @@ export default function UsuariosConfig() {
         return `${u.allowedRoutes.length} vista(s)`;
     };
 
-    const selectedCount = form.role === 'User' ? form.allowedRoutes.length : 0;
+    const selectedCount = form.role === 'Administrativo' ? form.allowedRoutes.length : 0;
 
     return (
         <Stack p="md" gap="md">
@@ -261,6 +288,7 @@ export default function UsuariosConfig() {
                                 <Table.Th>Login</Table.Th>
                                 <Table.Th>Correo</Table.Th>
                                 <Table.Th>Rol</Table.Th>
+                                <Table.Th>Área</Table.Th>
                                 <Table.Th>Permisos</Table.Th>
                                 <Table.Th w={120} />
                             </Table.Tr>
@@ -283,6 +311,9 @@ export default function UsuariosConfig() {
                                     </Table.Td>
                                     <Table.Td>
                                         <Badge variant="light">{u.role}</Badge>
+                                    </Table.Td>
+                                    <Table.Td>
+                                        <Text size="xs" c="dimmed">{u.area || '—'}</Text>
                                     </Table.Td>
                                     <Table.Td>
                                         <Text size="xs" c="dimmed">
@@ -354,20 +385,29 @@ export default function UsuariosConfig() {
                     <Select
                         label="Rol"
                         data={[
-                            { value: 'User', label: 'Usuario' },
-                            { value: 'Admin', label: 'Administrador' },
+                            { value: 'Administrativo', label: 'Administrativo' },
+                            { value: 'Administrador', label: 'Administrador' },
                         ]}
                         value={form.role}
                         onChange={(v) =>
                             setForm({
                                 ...form,
-                                role: v || 'User',
-                                allowedRoutes: v === 'Admin' ? [] : form.allowedRoutes,
+                                role: v || 'Administrativo',
+                                area: v === 'Administrador' ? '' : form.area,
+                                allowedRoutes: v === 'Administrador' ? [] : form.allowedRoutes,
                             })
                         }
                     />
-                    {form.role === 'User' && (
+                    {form.role === 'Administrativo' && (
                         <Stack gap="xs">
+                            <Select
+                                label="Área"
+                                data={AREA_OPTIONS}
+                                value={form.area}
+                                onChange={(v) => setForm({ ...form, area: v || '' })}
+                                searchable
+                                required
+                            />
                             <Text size="sm" fw={500}>
                                 Vistas permitidas
                             </Text>

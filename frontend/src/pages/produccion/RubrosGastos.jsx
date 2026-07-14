@@ -124,7 +124,7 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                         radius="md"
                         onClick={handleAdd}
                     >
-                        + Agregar
+                        Agregar
                     </Button>
                 </Group>
             </Paper>

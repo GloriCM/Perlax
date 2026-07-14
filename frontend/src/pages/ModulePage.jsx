@@ -71,8 +71,17 @@ export default function ModulePage() {
                 ];
             case 'cotizaciones':
                 return [
-                    { title: 'Desde una OT', desc: 'Lista de OTs para abrir cotización.', path: '/cotizaciones/desde-ot', icon: <IconList size={22} /> },
-                    { title: 'Manual', desc: 'Cotizador directo para cliente prospecto.', path: '/cotizaciones/manual', icon: <IconPlus size={22} /> },
+                    { title: 'Nueva cotizacion', desc: 'Wizard de cotizacion caja o bolsa.', path: '/cotizador/nueva', icon: <IconPlus size={22} /> },
+                    { title: 'Guardadas', desc: 'Historial de cotizaciones.', path: '/cotizador/guardadas', icon: <IconList size={22} /> },
+                ];
+            case 'ajustes':
+                return [
+                    {
+                        title: 'Catálogos del cotizador',
+                        desc: 'Configure campos y registros para máquinas, materiales, factores, micro flauta y planchas.',
+                        path: '/ajustes/cotizador-catalogos',
+                        icon: <IconSettings2 size={22} />,
+                    },
                 ];
             default:
                 return [

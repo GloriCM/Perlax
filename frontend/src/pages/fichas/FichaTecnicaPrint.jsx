@@ -14,17 +14,9 @@ import {
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { getCurrentUser, canAccessRoute, getFirstAllowedPath } from '../../utils/permissions';
 import { IconPrinter, IconArrowLeft } from '@tabler/icons-react';
-import { api, getApiOrigin } from '../../utils/api';
+import { api } from '../../utils/api';
+import { resolveUploadUrl } from '../../utils/uploadUrl';
 import { notifications } from '@mantine/notifications';
-
-function absoluteUploadUrl(publicPath) {
-    if (!publicPath || typeof publicPath !== 'string') return '';
-    const trimmed = publicPath.trim();
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    const origin = getApiOrigin();
-    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${origin}${path}`;
-}
 
 /** Casilla impresión: fondo blanco y ✓ si aplica (p. ej. troquel nuevo). */
 function FichaCheckBox({ checked, boxSize = 16, border = '2px solid black' }) {
@@ -289,10 +281,6 @@ const FichaTecnicaPrint = () => {
                     }
                     .ficha-empresa-logo { max-height: 11mm !important; }
                     .ficha-print-hoja1 { padding: 4px 6px !important; }
-                    .ficha-dimensiones-compact {
-                        padding: 2px 4px !important;
-                        border-color: #adb5bd !important;
-                    }
                     .ficha-print-hoja1 .ficha-dimension-valor {
                         min-height: 10px !important;
                         font-size: 8.5pt !important;
@@ -324,11 +312,6 @@ const FichaTecnicaPrint = () => {
                 }
                 .label { font-weight: bold; font-size: 11px; text-transform: uppercase; color: #495057; }
                 .value { font-size: 13px; border-bottom: 1px solid #ced4da; min-height: 20px; display: block; margin-top: 2px; }
-                .ficha-dimension-valor {
-                    font-size: 12px;
-                    min-height: 16px;
-                    margin-top: 0;
-                }
                 `}
             </style>
 
@@ -460,44 +443,20 @@ const FichaTecnicaPrint = () => {
                                     </Grid.Col>
                                 </Grid>
 
-                                <Divider label="DIMENSIONES (cm)" labelPosition="center" my="xs" />
-                                <Grid
-                                    gutter={4}
-                                    className="ficha-dimensiones-compact"
-                                    style={{
-                                        border: '1px solid #ced4da',
-                                        borderRadius: '4px',
-                                        padding: '6px 8px',
-                                        background: '#fff',
-                                    }}
-                                >
-                                    <Grid.Col span={3}>
-                                        <Text className="label">Alto:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.alto}</Text>
-                                    </Grid.Col>
-                                    <Grid.Col span={3}>
-                                        <Text className="label">Largo:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.largo}</Text>
-                                    </Grid.Col>
-                                    <Grid.Col span={3}>
-                                        <Text className="label">Ancho:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.ancho}</Text>
-                                    </Grid.Col>
+                                <Grid gutter="xs" mt={4}>
                                     <Grid.Col span={3}>
                                         <Text className="label">Fuelle:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.fuelle}</Text>
+                                        <Text className="value">{data.medidas.fuelle ?? '-'}</Text>
                                     </Grid.Col>
-                                </Grid>
-                                <Grid gutter="xs" mt={4}>
-                                    <Grid.Col span={4}>
+                                    <Grid.Col span={3}>
                                         <Text className="label">Cabida:</Text>
                                         <Text className="value">{data.cabida != null && data.cabida !== '' ? data.cabida : '-'}</Text>
                                     </Grid.Col>
-                                    <Grid.Col span={4}>
+                                    <Grid.Col span={3}>
                                         <Text className="label">Alto pliego (cm):</Text>
                                         <Text className="value">{data.altoPliego ?? '-'}</Text>
                                     </Grid.Col>
-                                    <Grid.Col span={4}>
+                                    <Grid.Col span={3}>
                                         <Text className="label">Ancho pliego (cm):</Text>
                                         <Text className="value">{data.anchoPliego ?? '-'}</Text>
                                     </Grid.Col>
@@ -561,7 +520,7 @@ const FichaTecnicaPrint = () => {
                                             <img
                                                 key={`${url}-${i}`}
                                                 className="ficha-ampliacion-img"
-                                                src={absoluteUploadUrl(url)}
+                                                src={resolveUploadUrl(url)}
                                                 alt={`Ampliación ${i + 1}`}
                                                 style={{
                                                     width: '100%',
@@ -690,7 +649,7 @@ const FichaTecnicaPrint = () => {
                                     <img
                                         key={`adj-${url}-${i}`}
                                         className="ficha-adjunto-img"
-                                        src={absoluteUploadUrl(url)}
+                                        src={resolveUploadUrl(url)}
                                         alt={`Adjunto ${i + 1}`}
                                         style={{
                                             maxWidth: '100%',

@@ -83,6 +83,7 @@ public class AuthController : ControllerBase
             user.Email,
             user.FirstName,
             user.LastName,
+            user.Area,
             user.Role,
             AllowedRoutes = allowedRoutes,
             Token = token

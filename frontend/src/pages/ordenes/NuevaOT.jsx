@@ -52,7 +52,8 @@ import {
 } from '@tabler/icons-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, getApiOrigin } from '../../utils/api';
+import { api } from '../../utils/api';
+import { resolveUploadUrl } from '../../utils/uploadUrl';
 
 /** Lista alineada con Xpertis — ejecutivo de cuenta */
 const EJECUTIVOS_CUENTA_BASE = [
@@ -73,6 +74,26 @@ const EJECUTIVOS_CUENTA_BASE = [
 
 const NUEVO_EJECUTIVO_VALUE = '__nuevo_ejecutivo__';
 const NUEVA_LINEA_PT_VALUE = '__nueva_linea_pt__';
+const TERMINADOS_OPTIONS = [
+    'Ninguno',
+    'Barniz Litográfico',
+    'Barniz Brillante',
+    'Barniz UV',
+    'UV Parcial',
+    'UV Total',
+    'Plastificado',
+    'Laminado Metalizado',
+    'Laminado Mate'
+];
+const PIE_IMPRENTA_OPTIONS = ['Ninguno', 'USA', 'Panamá', 'Colombia'];
+const MANIJA_TIPO_OPTIONS = [
+    'Ninguno',
+    'Cordón Normal',
+    'Cinta Satinada',
+    'Cinta Falla 2,5',
+    'Entorchado',
+    'Troquelado'
+];
 
 function parsePartAttachments(adjuntosJson) {
     if (!adjuntosJson) return { ampliaciones: [], adjuntos: [] };
@@ -97,13 +118,51 @@ function parsePartAttachments(adjuntosJson) {
     }
 }
 
-function absoluteUploadUrl(publicPath) {
-    if (!publicPath || typeof publicPath !== 'string') return '';
-    const trimmed = publicPath.trim();
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    const origin = getApiOrigin();
-    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${origin}${path}`;
+function normalizeText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+const DEFAULT_FABRICATION_PROCESSES_JSON = JSON.stringify([
+    { machine: '01a Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
+    { machine: '01b Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
+    { machine: '02a Guillotina A', process: 'Corte', capacity: 40000, equiv: 1 },
+    { machine: '03 Sordz 72', process: 'Impresión', capacity: 20000, equiv: 2000 }
+]);
+
+function createDefaultPart(disenador = '') {
+    return {
+        partName: '',
+        sustratoSup: '', sustratoMed: '', sustratoInf: '',
+        direccionFibra: 'Vertical', tipoFlauta: 'Ninguna', direccionFlauta: '',
+        alto: 0, largo: 0, ancho: 0, fuelle: 0,
+        cabida: '', altoPliego: 0, anchoPliego: 0,
+        manijaTipo: '', manijaRef: '', manijaLargo: 0,
+        disenador,
+        troquelNuevo: true, codigoTroquel: '',
+        tintaC: false, tintaM: false, tintaY: false, tintaK: false,
+        tintasEspeciales: '', terminado1: '', terminado2: '',
+        estampado: false, estampadoDetalle: '', pieImprenta: '', notas: '',
+        condicionRemision: false, condicionCertificado: false,
+        condicionFactura: false, condicionOrdenCompra: false,
+        fabricationProcessesJson: DEFAULT_FABRICATION_PROCESSES_JSON,
+        adjuntosJson: '[]'
+    };
+}
+
+function syncPartsToNumeroPartes(currentParts, numeroPartes, designAssignee) {
+    const n = Math.max(1, Number(numeroPartes) || 1);
+    const parts = [...currentParts];
+    while (parts.length < n) {
+        parts.push(createDefaultPart(designAssignee || ''));
+    }
+    while (parts.length > n) {
+        parts.pop();
+    }
+    return parts;
 }
 
 export default function NuevaOT() {
@@ -123,34 +182,13 @@ export default function NuevaOT() {
         ejecutivoCuenta: '',
         fechaSolicitud: new Date(),
         asignacion: 'Otro',
+        designAssignee: '',
         lineaPT: 'Bolsa',
         numeroPartes: 1,
         productCode: '',
         productName: '',
         status: 'Borrador',
-        parts: [
-            {
-                partName: 'Pieza Unica',
-                sustratoSup: '', sustratoMed: '', sustratoInf: '',
-                direccionFibra: 'Vertical', tipoFlauta: 'Ninguna', direccionFlauta: '',
-                alto: 0, largo: 0, ancho: 0, fuelle: 0,
-                cabida: '', altoPliego: 0, anchoPliego: 0,
-                manijaTipo: '', manijaRef: '', manijaLargo: 0,
-                troquelNuevo: true, codigoTroquel: '',
-                tintaC: false, tintaM: false, tintaY: false, tintaK: false,
-                tintasEspeciales: '', terminado1: '', terminado2: '',
-                estampado: false, pieImprenta: '', notas: '',
-                condicionRemision: true, condicionCertificado: false,
-                condicionFactura: true, condicionOrdenCompra: false,
-                fabricationProcessesJson: JSON.stringify([
-                    { machine: '01a Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
-                    { machine: '01b Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
-                    { machine: '02a Guillotina A', process: 'Corte', capacity: 40000, equiv: 1 },
-                    { machine: '03 Sordz 72', process: 'Impresión', capacity: 20000, equiv: 2000 }
-                ]),
-                adjuntosJson: '[]'
-            }
-        ]
+        parts: [createDefaultPart()]
     });
 
     const [errors, setErrors] = useState({});
@@ -166,6 +204,7 @@ export default function NuevaOT() {
 
     const [clienteSuggestions, setClienteSuggestions] = useState([]);
     const [clienteSuggestLoading, setClienteSuggestLoading] = useState(false);
+    const [designUserOptions, setDesignUserOptions] = useState([]);
 
     const [pendingNuevaLineaPT, setPendingNuevaLineaPT] = useState(false);
     const [nuevaLineaDraft, setNuevaLineaDraft] = useState('');
@@ -218,6 +257,7 @@ export default function NuevaOT() {
                 setFormData((prev) => ({
                     ...prev,
                     ...order,
+                    designAssignee: order?.parts?.[0]?.disenador || '',
                     fechaSolicitud: order.fechaSolicitud ? new Date(order.fechaSolicitud) : new Date(),
                     parts: Array.isArray(order.parts) && order.parts.length > 0 ? order.parts : prev.parts
                 }));
@@ -233,6 +273,26 @@ export default function NuevaOT() {
 
         loadOrder();
     }, [searchParams]);
+
+    useEffect(() => {
+        const fetchDesignUsers = async () => {
+            try {
+                const users = await api.get('/users/designers');
+                const options = (users || [])
+                    .map((u) => {
+                        const label = u.displayName || u.username || 'Usuario';
+                        const value = u.displayName || u.username || '';
+                        return { value, label };
+                    })
+                    .filter((x) => Boolean(x.value));
+                setDesignUserOptions(options);
+            } catch (err) {
+                console.error('Error cargando usuarios de Diseño', err);
+                setDesignUserOptions([]);
+            }
+        };
+        fetchDesignUsers();
+    }, []);
 
     // Check duplicate by Number
     useEffect(() => {
@@ -297,10 +357,31 @@ export default function NuevaOT() {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleNext = () => {
-        if (validateStep1()) {
-            setActiveStep(1);
+    const validateStep2 = () => {
+        const newErrors = {};
+        formData.parts.forEach((part, idx) => {
+            if (!String(part.partName || '').trim()) {
+                newErrors[`partName_${idx}`] = 'El nombre de la pieza es obligatorio';
+            }
+        });
+        setErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) {
+            const firstMissing = formData.parts.findIndex((part) => !String(part.partName || '').trim());
+            if (firstMissing >= 0) setCurrentPartIndex(firstMissing);
         }
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleNext = () => {
+        if (!validateStep1()) return;
+        const numeroPartes = Math.max(1, Number(formData.numeroPartes) || 1);
+        setFormData((prev) => ({
+            ...prev,
+            numeroPartes,
+            parts: syncPartsToNumeroPartes(prev.parts, numeroPartes, prev.designAssignee)
+        }));
+        setCurrentPartIndex(0);
+        setActiveStep(1);
     };
 
     const handleBack = () => {
@@ -320,12 +401,22 @@ export default function NuevaOT() {
     };
 
     const handleSave = async () => {
+        if (!validateStep2()) return;
         try {
             setLoading(true);
             const isEditing = Boolean(editingOrderId);
+            const payload = {
+                ...formData,
+                parts: formData.parts.map((p) => ({
+                    ...p,
+                    disenador: formData.asignacion === 'Diseño'
+                        ? (formData.designAssignee || p.disenador || '')
+                        : (p.disenador || '')
+                }))
+            };
             const result = isEditing
-                ? await api.put(`/production/orders/${editingOrderId}`, formData)
-                : await api.post('/production/orders', formData);
+                ? await api.put(`/production/orders/${editingOrderId}`, payload)
+                : await api.post('/production/orders', payload);
 
             if (!result) {
                 return;
@@ -613,9 +704,31 @@ export default function NuevaOT() {
                                 placeholder="Tipo de asignación"
                                 data={['Diseño', 'Repetición', 'Otro']}
                                 value={formData.asignacion}
-                                onChange={(val) => setFormData({ ...formData, asignacion: val })}
+                                onChange={(val) => {
+                                    const nextAsignacion = val || 'Otro';
+                                    setFormData((prev) => ({ ...prev, asignacion: nextAsignacion }));
+                                }}
                                 variant="filled"
                             />
+                            {formData.asignacion === 'Diseño' && (
+                                <Select
+                                    label="Asignar a (Área Diseño)"
+                                    placeholder="Seleccione diseñador..."
+                                    data={designUserOptions}
+                                    value={formData.designAssignee || null}
+                                    onChange={(val) => {
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            designAssignee: val || '',
+                                            parts: prev.parts.map((part) => ({ ...part, disenador: val || '' }))
+                                        }));
+                                    }}
+                                    searchable
+                                    nothingFoundMessage="No hay usuarios con área Diseño"
+                                    variant="filled"
+                                    required
+                                />
+                            )}
                         </Stack>
                     </Card>
                 </Stack>
@@ -740,6 +853,13 @@ export default function NuevaOT() {
         const newParts = [...formData.parts];
         newParts[currentPartIndex] = { ...newParts[currentPartIndex], [field]: value };
         setFormData({ ...formData, parts: newParts });
+        if (field === 'partName' && String(value || '').trim()) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[`partName_${currentPartIndex}`];
+                return next;
+            });
+        }
     };
 
     const handleEjecutivoSelectChange = (val) => {
@@ -814,27 +934,7 @@ export default function NuevaOT() {
             ...formData,
             parts: [
                 ...formData.parts,
-                {
-                    partName: `Pieza ${formData.parts.length + 1}`,
-                    sustratoSup: '', sustratoMed: '', sustratoInf: '',
-                    direccionFibra: 'Vertical', tipoFlauta: 'Ninguna', direccionFlauta: '',
-                    alto: 0, largo: 0, ancho: 0, fuelle: 0,
-                    cabida: '', altoPliego: 0, anchoPliego: 0,
-                    manijaTipo: '', manijaRef: '', manijaLargo: 0,
-                    troquelNuevo: true, codigoTroquel: '',
-                    tintaC: false, tintaM: false, tintaY: false, tintaK: false,
-                    tintasEspeciales: '', terminado1: '', terminado2: '',
-                    estampado: false, pieImprenta: '', notas: '',
-                    condicionRemision: true, condicionCertificado: false,
-                    condicionFactura: true, condicionOrdenCompra: false,
-                    fabricationProcessesJson: JSON.stringify([
-                        { machine: '01a Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
-                        { machine: '01b Convertidora', process: 'Corte', capacity: 20000, equiv: 2000 },
-                        { machine: '02a Guillotina A', process: 'Corte', capacity: 40000, equiv: 1 },
-                        { machine: '03 Sordz 72', process: 'Impresión', capacity: 20000, equiv: 2000 }
-                    ]),
-                    adjuntosJson: '[]'
-                }
+                createDefaultPart(formData.designAssignee || '')
             ],
             numeroPartes: formData.parts.length + 1
         });
@@ -846,7 +946,6 @@ export default function NuevaOT() {
         const currentPart = formData.parts[currentPartIndex] || {};
         const fabricationProcesses = JSON.parse(currentPart.fabricationProcessesJson || '[]');
         const existingAttachments = parsePartAttachments(currentPart.adjuntosJson);
-
         const cabidaForInput = (() => {
             if (currentPart.cabida === '' || currentPart.cabida == null) return undefined;
             const n = Number(String(currentPart.cabida).replace(',', '.'));
@@ -865,7 +964,7 @@ export default function NuevaOT() {
                                 Orden de trabajo {formData.otNumber || '…'}
                             </Title>
                             <Text size="sm" c="indigo.2" fw={600}>{formData.productName || 'Sin nombre de producto'}</Text>
-                            <Text size="sm" c="dimmed">Editando: {currentPart.partName || 'Pieza'} ({currentPartIndex + 1} de {formData.parts.length})</Text>
+                            <Text size="sm" c="dimmed">Editando: {currentPart.partName?.trim() || 'Sin nombre'} ({currentPartIndex + 1} de {formData.parts.length})</Text>
                         </Stack>
                         <Group gap="md">
                             <Button variant="filled" color="indigo" leftSection={<IconDeviceFloppy size={18} />} radius="md" onClick={handleSave} loading={loading}>Guardar OT</Button>
@@ -886,12 +985,14 @@ export default function NuevaOT() {
                                     mb="md"
                                     styles={{ label: { color: '#6366f1', fontWeight: 800, fontSize: 16 } }}
                                 />
-                                <SimpleGrid cols={2} spacing="lg">
+                                <Stack gap="md">
                                     <Stack gap="md">
                                         <TextInput
                                             label="Nombre de esta Pieza"
+                                            placeholder="Ingrese el nombre de la pieza..."
                                             value={currentPart.partName}
                                             onChange={(e) => updatePartField('partName', e.currentTarget.value)}
+                                            error={errors[`partName_${currentPartIndex}`]}
                                             variant="filled"
                                             required
                                         />
@@ -934,20 +1035,19 @@ export default function NuevaOT() {
                                             min={0}
                                             decimalScale={4}
                                         />
-                                        <Stack gap={0}>
-                                            <Text size="sm" fw={500} mb={4}>Dimensiones (mm): Alto x Ancho x Largo</Text>
-                                            <Group grow align="flex-start" gap="xs">
-                                                <NumberInput placeholder="Alto" variant="filled" value={currentPart.alto} onChange={(val) => updatePartField('alto', val)} min={0} decimalScale={4} />
-                                                <NumberInput placeholder="Ancho" variant="filled" value={currentPart.ancho} onChange={(val) => updatePartField('ancho', val)} min={0} decimalScale={4} />
-                                                <NumberInput placeholder="Largo" variant="filled" value={currentPart.largo} onChange={(val) => updatePartField('largo', val)} min={0} decimalScale={4} />
-                                            </Group>
-                                        </Stack>
                                     </Stack>
                                     <Stack gap="md">
+                                        <Select
+                                            label="Pie de imprenta"
+                                            variant="filled"
+                                            data={PIE_IMPRENTA_OPTIONS}
+                                            value={currentPart.pieImprenta || 'Ninguno'}
+                                            onChange={(val) => updatePartField('pieImprenta', val || 'Ninguno')}
+                                        />
                                         <Textarea
-                                            label="Pie de imprenta / Notas"
+                                            label="Notas"
                                             placeholder="Observaciones..."
-                                            minRows={10}
+                                            minRows={8}
                                             variant="filled"
                                             value={currentPart.notas}
                                             onChange={(e) => updatePartField('notas', e.currentTarget.value)}
@@ -986,7 +1086,7 @@ export default function NuevaOT() {
                                                     <Group key={`amp-${idx}-${file.publicUrl}`} justify="space-between" wrap="nowrap">
                                                         <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                                                             <img
-                                                                src={absoluteUploadUrl(file.publicUrl)}
+                                                                src={resolveUploadUrl(file.publicUrl)}
                                                                 alt={file.originalFileName}
                                                                 style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)' }}
                                                             />
@@ -1034,7 +1134,7 @@ export default function NuevaOT() {
                                                     <Group key={`adj-${idx}-${file.publicUrl}`} justify="space-between" wrap="nowrap">
                                                         <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                                                             <img
-                                                                src={absoluteUploadUrl(file.publicUrl)}
+                                                                src={resolveUploadUrl(file.publicUrl)}
                                                                 alt={file.originalFileName}
                                                                 style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)' }}
                                                             />
@@ -1081,7 +1181,7 @@ export default function NuevaOT() {
                                             </Stack>
                                         )}
                                     </Stack>
-                                </SimpleGrid>
+                                </Stack>
                             </Card>
 
                             {/* Materiales y Flauta */}
@@ -1127,7 +1227,13 @@ export default function NuevaOT() {
                                 <Card className="glass-card" p="md">
                                     <Divider label="Manija (Bolsas)" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 700 } }} />
                                     <Stack gap="xs">
-                                        <TextInput label="Tipo" variant="filled" value={currentPart.manijaTipo} onChange={(e) => updatePartField('manijaTipo', e.currentTarget.value)} />
+                                        <Select
+                                            label="Tipo"
+                                            variant="filled"
+                                            data={MANIJA_TIPO_OPTIONS}
+                                            value={currentPart.manijaTipo || 'Ninguno'}
+                                            onChange={(val) => updatePartField('manijaTipo', val || 'Ninguno')}
+                                        />
                                         <TextInput label="Ref" variant="filled" value={currentPart.manijaRef} onChange={(e) => updatePartField('manijaRef', e.currentTarget.value)} />
                                         <NumberInput label="Largo (cm)" variant="filled" value={currentPart.manijaLargo} onChange={(val) => updatePartField('manijaLargo', val)} />
                                     </Stack>
@@ -1185,7 +1291,7 @@ export default function NuevaOT() {
                                             justify="flex-start"
                                             leftSection={<Text fw={900}>{idx + 1}</Text>}
                                         >
-                                            <Box style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{part.partName || `Pieza ${idx + 1}`}</Box>
+                                            <Box style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{part.partName?.trim() || `Pieza ${idx + 1} (sin nombre)`}</Box>
                                         </Button>
                                     ))}
                                     <Button variant="outline" color="indigo" leftSection={<IconLayoutGrid size={18} />} onClick={addPart} fullWidth mt="md">Añadir Pieza</Button>
@@ -1214,9 +1320,30 @@ export default function NuevaOT() {
                             <Card className="glass-card" p="xl">
                                 <Divider label="Terminados" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
                                 <Stack gap="xs">
-                                    <TextInput label="Terminado 1" variant="filled" value={currentPart.terminado1} onChange={(e) => updatePartField('terminado1', e.currentTarget.value)} />
-                                    <TextInput label="Terminado 2" variant="filled" value={currentPart.terminado2} onChange={(e) => updatePartField('terminado2', e.currentTarget.value)} />
+                                    <Select
+                                        label="Terminado 1"
+                                        variant="filled"
+                                        data={TERMINADOS_OPTIONS}
+                                        value={currentPart.terminado1 || 'Ninguno'}
+                                        onChange={(val) => updatePartField('terminado1', val || 'Ninguno')}
+                                    />
+                                    <Select
+                                        label="Terminado 2"
+                                        variant="filled"
+                                        data={TERMINADOS_OPTIONS}
+                                        value={currentPart.terminado2 || 'Ninguno'}
+                                        onChange={(val) => updatePartField('terminado2', val || 'Ninguno')}
+                                    />
                                     <Checkbox label="Lleva Estampado" checked={currentPart.estampado} onChange={(e) => updatePartField('estampado', e.currentTarget.checked)} mt="xs" />
+                                    {currentPart.estampado && (
+                                        <TextInput
+                                            label="Detalle de estampado"
+                                            variant="filled"
+                                            placeholder="Especifique estampado..."
+                                            value={currentPart.estampadoDetalle || ''}
+                                            onChange={(e) => updatePartField('estampadoDetalle', e.currentTarget.value)}
+                                        />
+                                    )}
                                 </Stack>
                             </Card>
 

@@ -111,7 +111,7 @@ const Salarios = ({ titulo = 'Salarios de Operarios', subtitulo = 'Control de Pe
                     }
                 }}
             >
-                + Agregar Nuevo Operario
+                Agregar Nuevo Operario
             </Button>
 
             {/* Operarios List */}

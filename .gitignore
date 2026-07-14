@@ -10,11 +10,24 @@ frontend/dist-ssr
 frontend/*.local
 frontend/.eslintcache
 
-# --- Uploads (adjuntos generados en servidor, no versionar) ---
+# --- Certificados y secretos locales ---
+certs/
+*.pfx
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# --- Uploads y datos generados en servidor ---
 backend/src/Host/Perlax.Web/uploads/
+backend/src/Host/Perlax.Web/wwwroot/uploads/**
+!backend/src/Host/Perlax.Web/wwwroot/uploads/.gitkeep
 
 # --- Backend (.NET) ---
 **/appsettings.Development.local.json
+**/appsettings.*.local.json
 **/bin/
 **/obj/
 **/App_Data/
@@ -28,13 +41,20 @@ backend/src/Host/Perlax.Web/uploads/
 .idea/
 .vscode/
 *.suo
-*.user
-*.userosscache
-*.sln.docstates
+
+# --- Archivos temporales / logs / datos sueltos ---
+*.log
+build_log.txt
+my_errors.txt
+*.xlsx
+*.xls
+*.csv
+
+# --- Cursor / assets locales ---
+assets/
 
 # --- Global ---
 .DS_Store
 Thumbs.db
-*.log
 global.json
 !backend/global.json

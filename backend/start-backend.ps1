@@ -9,6 +9,10 @@ Write-Host ""
 
 $restartCount = 0
 $env:ASPNETCORE_ENVIRONMENT = "Development"
+$localSettings = Join-Path $PSScriptRoot "src/Host/Perlax.Web/appsettings.Development.local.json"
+if (-not (Test-Path $localSettings)) {
+    Write-Host "AVISO: Cree appsettings.Development.local.json desde appsettings.Development.example.json" -ForegroundColor Yellow
+}
 if ($env:KESTREL_PFX_PASSWORD) {
     $env:Kestrel__Endpoints__Https__Certificate__Password = $env:KESTREL_PFX_PASSWORD
 }

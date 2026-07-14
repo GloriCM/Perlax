@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Perlax.Modules.Production.Infrastructure.Cotizador;
 using Perlax.Modules.Production.Infrastructure.Persistence;
 
 namespace Perlax.Modules.Production.Api;
@@ -13,6 +14,8 @@ public static class ProductionModuleExtensions
 
         services.AddDbContext<ProductionDbContext>(options =>
             options.UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(ProductionDbContext).Assembly.FullName)));
+
+        services.AddScoped<CotizadorCalculator>();
 
         return services;
     }

@@ -14,7 +14,11 @@ import {
     Box,
     SimpleGrid,
     Tooltip,
-    ScrollArea
+    ScrollArea,
+    Modal,
+    TextInput,
+    Textarea,
+    NumberInput
 } from '@mantine/core';
 import {
     IconArrowLeft,
@@ -48,6 +52,8 @@ const mockExpenses = [
             { icon: 'clock', text: 'Nuevo' },
         ],
         op: 'OP: OP_12460_7481',
+        baseAmount: 0,
+        ivaAmount: 0,
         amount: 0,
         status: 'pendiente',
         borderColor: '#f59e0b',
@@ -64,6 +70,8 @@ const mockExpenses = [
             { icon: 'calendar', text: '13/3/2026' },
             { icon: 'clock', text: 'Nuevo' },
         ],
+        baseAmount: 0,
+        ivaAmount: 0,
         amount: 0,
         status: 'pendiente',
         borderColor: '#f59e0b',
@@ -79,10 +87,22 @@ const MONTHS = [
 
 const YEARS = ['2024', '2025', '2026', '2027'];
 
-const RUBROS = [
+const DEFAULT_RUBROS = [
     'Todos los Rubros', 'Horas Extras', 'Repuesto', 'Materia Prima',
     'Servicios', 'Transporte', 'Papeleria', 'Otros'
 ];
+
+const emptyExpenseForm = {
+    category: '',
+    type: '',
+    registeredBy: '',
+    invoice: '',
+    op: '',
+    description: '',
+    baseAmount: 0,
+    ivaAmount: 0,
+    status: 'pendiente',
+};
 
 // ── Format currency ────────────────────────────────────────
 const formatCurrency = (value) => {
@@ -92,6 +112,51 @@ const formatCurrency = (value) => {
         minimumFractionDigits: value % 1 !== 0 ? 2 : 0,
         maximumFractionDigits: 2
     }).format(value);
+};
+
+const getExpenseAmounts = (expense) => {
+    const explicitTotal = expense?.amount ?? expense?.totalAmount ?? expense?.precioTotal;
+    const fallbackTotal = Number(explicitTotal ?? 0);
+    const base = Number(expense?.baseAmount ?? expense?.precioBase ?? expense?.subtotal ?? fallbackTotal);
+    const iva = Number(expense?.ivaAmount ?? expense?.iva ?? Math.max(fallbackTotal - base, 0));
+    const total = explicitTotal !== undefined && explicitTotal !== null
+        ? Number(explicitTotal)
+        : base + iva;
+    return { base, iva, total: Number.isFinite(total) ? total : base + iva };
+};
+
+const buildStorageKey = (title) => `perlax-gastos-${String(title || 'general')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')}`;
+
+const buildExpenseFromForm = (form, existingExpense) => {
+    const baseAmount = Number(form.baseAmount || 0);
+    const ivaAmount = Number(form.ivaAmount || 0);
+    const amount = baseAmount + ivaAmount;
+    const invoiceText = form.invoice?.trim();
+
+    return {
+        ...(existingExpense || {}),
+        id: existingExpense?.id || Date.now(),
+        category: form.category || 'Otros',
+        type: form.type?.trim() || 'Sin proveedor',
+        registeredBy: form.registeredBy?.trim() || 'Sistema',
+        details: [
+            invoiceText ? { icon: 'file', text: `Factura: ${invoiceText}` } : null,
+            { icon: 'calendar', text: new Date().toLocaleDateString('es-CO') },
+            { icon: 'clock', text: existingExpense ? 'Editado' : 'Nuevo' },
+        ].filter(Boolean),
+        op: form.op?.trim(),
+        description: form.description?.trim(),
+        baseAmount,
+        ivaAmount,
+        amount,
+        status: form.status || 'pendiente',
+        borderColor: form.status === 'gastado' ? '#10b981' : '#f59e0b',
+        bgColor: form.status === 'gastado' ? 'rgba(16, 185, 129, 0.03)' : 'rgba(245, 158, 11, 0.03)',
+    };
 };
 
 // ── Detail icon resolver ───────────────────────────────────
@@ -109,8 +174,9 @@ const DetailIcon = ({ type }) => {
 };
 
 // ── Expense Card ───────────────────────────────────────────
-const ExpenseCard = ({ expense, index }) => {
+const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
     const isPending = expense.status === 'pendiente';
+    const amounts = getExpenseAmounts(expense);
 
     return (
         <motion.div
@@ -145,14 +211,18 @@ const ExpenseCard = ({ expense, index }) => {
                             </Badge>
                         )}
                     </Group>
-                    <Text
-                        fw={700}
-                        size="lg"
-                        c={isPending ? '#ef4444' : '#10b981'}
-                        style={{ fontFamily: 'monospace' }}
-                    >
-                        {formatCurrency(expense.amount)}
-                    </Text>
+                    <Stack gap={2} align="flex-end">
+                        <Text size="xs" c="dimmed">Base: {formatCurrency(amounts.base)}</Text>
+                        <Text size="xs" c="dimmed">IVA: {formatCurrency(amounts.iva)}</Text>
+                        <Text
+                            fw={700}
+                            size="lg"
+                            c={isPending ? '#ef4444' : '#10b981'}
+                            style={{ fontFamily: 'monospace' }}
+                        >
+                            Total: {formatCurrency(amounts.total)}
+                        </Text>
+                    </Stack>
                 </Group>
 
                 {/* Deadline warning */}
@@ -208,6 +278,7 @@ const ExpenseCard = ({ expense, index }) => {
                         color="blue"
                         size="xs"
                         leftSection={<IconPencil size={14} />}
+                        onClick={() => onEdit(expense)}
                     >
                         Editar
                     </Button>
@@ -224,6 +295,7 @@ const ExpenseCard = ({ expense, index }) => {
                         color="red"
                         size="xs"
                         leftSection={<IconTrash size={14} />}
+                        onClick={() => onDelete(expense.id)}
                     >
                         Eliminar
                     </Button>
@@ -234,22 +306,89 @@ const ExpenseCard = ({ expense, index }) => {
 };
 
 // ── Main Component ─────────────────────────────────────────
-const GastosProduccion = ({ titulo = 'Gastos de Producción', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
+const GastosProduccion = ({
+    titulo = 'Gastos de Producción',
+    showTabs = false,
+    pathPrefix = '/planeacion/gastos',
+    rubros = DEFAULT_RUBROS,
+    initialExpenses = mockExpenses,
+    presupuestoInicial = 2100000,
+}) => {
     const navigate = useNavigate();
     const [year, setYear] = useState('2026');
     const [month, setMonth] = useState('Marzo');
     const [rubro, setRubro] = useState('Todos los Rubros');
     const [pendientesOnly, setPendientesOnly] = useState(false);
     const [expenses, setExpenses] = useState([]);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [editingExpense, setEditingExpense] = useState(null);
+    const [form, setForm] = useState(emptyExpenseForm);
+    const storageKey = buildStorageKey(titulo);
 
-    const presupuesto = 2100000;
-    const gastado = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const presupuesto = presupuestoInicial;
+    const gastado = expenses.reduce((sum, e) => sum + getExpenseAmounts(e).total, 0);
     const restante = presupuesto - gastado;
 
     useEffect(() => {
-        // In real app: fetch from API
-        setExpenses(mockExpenses);
-    }, [year, month]);
+        const stored = localStorage.getItem(storageKey);
+        if (!stored) {
+            setExpenses(initialExpenses);
+            return;
+        }
+
+        try {
+            setExpenses(JSON.parse(stored));
+        } catch {
+            setExpenses(initialExpenses);
+        }
+    }, [storageKey, initialExpenses]);
+
+    const persistExpenses = (nextExpenses) => {
+        setExpenses(nextExpenses);
+        localStorage.setItem(storageKey, JSON.stringify(nextExpenses));
+    };
+
+    const openAddModal = () => {
+        const firstRubro = rubros.find((item) => item !== 'Todos los Rubros') || 'Otros';
+        setEditingExpense(null);
+        setForm({ ...emptyExpenseForm, category: rubro !== 'Todos los Rubros' ? rubro : firstRubro });
+        setModalOpen(true);
+    };
+
+    const openEditModal = (expense) => {
+        const amounts = getExpenseAmounts(expense);
+        const invoiceDetail = expense.details?.find((detail) => detail.text?.toLowerCase().startsWith('factura:'));
+
+        setEditingExpense(expense);
+        setForm({
+            category: expense.category || '',
+            type: expense.type || '',
+            registeredBy: expense.registeredBy || '',
+            invoice: invoiceDetail?.text?.replace(/^Factura:\s*/i, '') || '',
+            op: expense.op || '',
+            description: expense.description || '',
+            baseAmount: amounts.base,
+            ivaAmount: amounts.iva,
+            status: expense.status || 'pendiente',
+        });
+        setModalOpen(true);
+    };
+
+    const handleSaveExpense = () => {
+        const nextExpense = buildExpenseFromForm(form, editingExpense);
+        const nextExpenses = editingExpense
+            ? expenses.map((expense) => expense.id === editingExpense.id ? nextExpense : expense)
+            : [nextExpense, ...expenses];
+
+        persistExpenses(nextExpenses);
+        setModalOpen(false);
+        setEditingExpense(null);
+        setForm(emptyExpenseForm);
+    };
+
+    const handleDeleteExpense = (expenseId) => {
+        persistExpenses(expenses.filter((expense) => expense.id !== expenseId));
+    };
 
     const filteredExpenses = expenses.filter(e => {
         if (pendientesOnly && e.status !== 'pendiente') return false;
@@ -345,7 +484,7 @@ const GastosProduccion = ({ titulo = 'Gastos de Producción', showTabs = false, 
                     </Group>
                     <Group gap="sm">
                         <Select
-                            data={RUBROS}
+                            data={rubros}
                             value={rubro}
                             onChange={setRubro}
                             w={180}
@@ -412,6 +551,7 @@ const GastosProduccion = ({ titulo = 'Gastos de Producción', showTabs = false, 
                 mb="lg"
                 color="teal"
                 leftSection={<IconPlus size={20} />}
+                onClick={openAddModal}
                 styles={{
                     root: {
                         background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
@@ -425,14 +565,20 @@ const GastosProduccion = ({ titulo = 'Gastos de Producción', showTabs = false, 
                     }
                 }}
             >
-                + Agregar Gasto
+                Agregar Gasto
             </Button>
 
             {/* Expense Cards */}
             <Stack gap="md">
                 <AnimatePresence>
                     {filteredExpenses.map((expense, index) => (
-                        <ExpenseCard key={expense.id} expense={expense} index={index} />
+                        <ExpenseCard
+                            key={expense.id}
+                            expense={expense}
+                            index={index}
+                            onEdit={openEditModal}
+                            onDelete={handleDeleteExpense}
+                        />
                     ))}
                 </AnimatePresence>
 
@@ -450,6 +596,86 @@ const GastosProduccion = ({ titulo = 'Gastos de Producción', showTabs = false, 
                     </Paper>
                 )}
             </Stack>
+
+            <Modal
+                opened={modalOpen}
+                onClose={() => setModalOpen(false)}
+                title={editingExpense ? 'Editar gasto' : 'Registrar gasto'}
+                size="lg"
+                centered
+            >
+                <Stack>
+                    <Select
+                        label="Rubro"
+                        data={rubros.filter((item) => item !== 'Todos los Rubros')}
+                        value={form.category}
+                        onChange={(value) => setForm((prev) => ({ ...prev, category: value || '' }))}
+                        required
+                    />
+                    <TextInput
+                        label="Proveedor / Tipo"
+                        value={form.type}
+                        onChange={(event) => setForm((prev) => ({ ...prev, type: event.currentTarget.value }))}
+                    />
+                    <TextInput
+                        label="Registrado por"
+                        value={form.registeredBy}
+                        onChange={(event) => setForm((prev) => ({ ...prev, registeredBy: event.currentTarget.value }))}
+                    />
+                    <TextInput
+                        label="Factura"
+                        value={form.invoice}
+                        onChange={(event) => setForm((prev) => ({ ...prev, invoice: event.currentTarget.value }))}
+                    />
+                    <TextInput
+                        label="OP / Referencia"
+                        value={form.op}
+                        onChange={(event) => setForm((prev) => ({ ...prev, op: event.currentTarget.value }))}
+                    />
+                    <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                        <NumberInput
+                            label="Base"
+                            value={form.baseAmount}
+                            onChange={(value) => setForm((prev) => ({ ...prev, baseAmount: Number(value || 0) }))}
+                            min={0}
+                        />
+                        <NumberInput
+                            label="IVA"
+                            value={form.ivaAmount}
+                            onChange={(value) => setForm((prev) => ({ ...prev, ivaAmount: Number(value || 0) }))}
+                            min={0}
+                        />
+                        <NumberInput
+                            label="Total"
+                            value={Number(form.baseAmount || 0) + Number(form.ivaAmount || 0)}
+                            readOnly
+                        />
+                    </SimpleGrid>
+                    <Select
+                        label="Estado"
+                        data={[
+                            { value: 'pendiente', label: 'Pendiente' },
+                            { value: 'gastado', label: 'Gastado' },
+                        ]}
+                        value={form.status}
+                        onChange={(value) => setForm((prev) => ({ ...prev, status: value || 'pendiente' }))}
+                    />
+                    <Textarea
+                        label="Descripción"
+                        value={form.description}
+                        onChange={(event) => setForm((prev) => ({ ...prev, description: event.currentTarget.value }))}
+                        minRows={3}
+                    />
+                    <Group justify="flex-end">
+                        <Button variant="subtle" color="gray" onClick={() => setModalOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleSaveExpense}>
+                            Guardar
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
         </Container>
     );
 };

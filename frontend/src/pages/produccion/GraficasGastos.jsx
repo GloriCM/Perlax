@@ -115,7 +115,7 @@ const RubroBar = ({ rubro, index }) => {
 };
 
 // ── Main Component ─────────────────────────────────────────
-const GraficasGastos = ({ titulo = 'Gastos de Producción', subtitulo = 'Control de Gastos', showTabs = false }) => {
+const GraficasGastos = ({ titulo = 'Gastos de Producción', subtitulo = 'Control de Gastos', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
     const navigate = useNavigate();
     const [year, setYear] = useState('2026');
     const [periodo, setPeriodo] = useState('Todo el Año');
@@ -235,7 +235,7 @@ const GraficasGastos = ({ titulo = 'Gastos de Producción', subtitulo = 'Control
                 </Group>
             </Paper>
 
-            {showTabs && <GastosTabs />}
+            {showTabs && <GastosTabs pathPrefix={pathPrefix} />}
 
             {/* Summary Cards */}
             <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" mb="lg">

@@ -65,6 +65,15 @@ export const navSections = [
         items: [
             { label: 'Dashboard', icon: IconChartPie, path: '/' },
             {
+                label: 'Cotizaciones',
+                icon: IconFileText,
+                path: '/cotizador',
+                children: [
+                    { label: 'Nueva cotizacion', icon: IconPencil, path: '/cotizador/nueva' },
+                    { label: 'Guardadas', icon: IconClipboardPlus, path: '/cotizador/guardadas' },
+                ],
+            },
+            {
                 label: 'Ordenes de Trabajo',
                 icon: IconClipboardList,
                 path: '/ordenes',
@@ -79,15 +88,6 @@ export const navSections = [
                 icon: IconReportAnalytics,
                 path: '/fichas',
                 children: [{ label: 'Listado', icon: IconList, path: '/fichas/lista' }],
-            },
-            {
-                label: 'Cotizaciones',
-                icon: IconFileText,
-                path: '/cotizaciones',
-                children: [
-                    { label: 'Desde OT', icon: IconClipboardPlus, path: '/cotizaciones/desde-ot' },
-                    { label: 'Manual', icon: IconPencil, path: '/cotizaciones/manual' },
-                ],
             },
             {
                 label: 'Pedidos',
@@ -214,6 +214,11 @@ export const navSections = [
                             { label: 'Proveedores', icon: IconBuildingFactory2, path: '/diseno/gastos/proveedores' },
                         ],
                     },
+                    {
+                        label: 'Planeador de Diseño',
+                        icon: IconArtboard,
+                        path: '/diseno/planeador'
+                    },
                 ],
             },
             {
@@ -291,12 +296,44 @@ export const navSections = [
                 ],
             },
             {
-                label: 'Mantenimiento de Equipos',
+                label: 'Mantenimiento Maquinaria',
                 icon: IconTools,
                 path: '/mantenimiento',
                 children: [
-                    { label: 'Panel de Control', icon: IconLayoutDashboard, path: '/mantenimiento/panel' },
-                    { label: 'Equipos', icon: IconEngine, path: '/mantenimiento/equipos' },
+                    {
+                        label: 'Hojas de Vida Maquinaria',
+                        icon: IconListDetails,
+                        path: '/mantenimiento/hojas-vida-maquinaria',
+                        children: [
+                            { label: 'Hojas de Vida', icon: IconListDetails, path: '/mantenimiento/hojas-vida-maquinaria/hojas-de-vida' },
+                            { label: 'Cronogramas', icon: IconCalendarMonth, path: '/mantenimiento/hojas-vida-maquinaria/cronogramas' },
+                            { label: 'Tickets de Daño', icon: IconFileAnalytics, path: '/mantenimiento/hojas-vida-maquinaria/tickets-dano' },
+                            { label: 'Mantenimientos', icon: IconTools, path: '/mantenimiento/hojas-vida-maquinaria/mantenimientos' },
+                        ],
+                    },
+                    {
+                        label: 'Gastos de Mantenimiento',
+                        icon: IconCash,
+                        path: '/mantenimiento/gastos',
+                        children: [
+                            { label: 'Captura de Gastos', icon: IconCash, path: '/mantenimiento/gastos/captura' },
+                            { label: 'Gráficas', icon: IconChartBar, path: '/mantenimiento/gastos/graficas' },
+                            { label: 'Rubros', icon: IconTags, path: '/mantenimiento/gastos/rubros' },
+                            { label: 'Productos', icon: IconPackage, path: '/mantenimiento/gastos/productos' },
+                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/mantenimiento/gastos/cotizaciones' },
+                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/mantenimiento/gastos/proveedores' },
+                        ],
+                    },
+                    { label: 'Inventario Mantenimiento', icon: IconArchive, path: '/mantenimiento/inventario' },
+                ],
+            },
+            {
+                label: 'Mantenimiento Equipos',
+                icon: IconEngine,
+                path: '/mantenimiento-equipos',
+                children: [
+                    { label: 'Panel de Mantenimiento', icon: IconLayoutDashboard, path: '/mantenimiento-equipos/panel' },
+                    { label: 'Mantenimiento de Equipos', icon: IconEngine, path: '/mantenimiento-equipos/equipos' },
                 ],
             },
             {
@@ -360,7 +397,15 @@ export const navSections = [
         items: [
             { label: 'Auditoría', icon: IconHistory, path: '/admin/auditoria' },
             { label: 'Usuarios', icon: IconUserCog, path: '/configuracion/usuarios' },
-            { label: 'Ajustes', icon: IconSettings, path: '/ajustes' },
+            {
+                label: 'Ajustes',
+                icon: IconSettings,
+                path: '/ajustes',
+                children: [
+                    { label: 'Panel de ajustes', icon: IconSettings, path: '/ajustes' },
+                    { label: 'Catálogos cotizador', icon: IconSettings, path: '/ajustes/cotizador-catalogos' },
+                ],
+            },
         ],
     },
 ];

@@ -20,7 +20,7 @@ function isChildActive(item, currentPath) {
 /**
  * Recursive function to render NavLinks with premium styling
  */
-function renderNavLink(item, location, navigate, level = 0) {
+function renderNavLink(item, location, navigate, onNavigate, level = 0) {
     const hasChildren = item.children && item.children.length > 0;
     const isDirectActive = location.pathname === item.path;
     const isParentActive = isChildActive(item, location.pathname);
@@ -33,7 +33,12 @@ function renderNavLink(item, location, navigate, level = 0) {
             label={item.label}
             leftSection={<item.icon size={isDeep ? 18 : 20} stroke={1.5} />}
             active={isActive}
-            onClick={() => !hasChildren && navigate(item.path)}
+            onClick={() => {
+                if (!hasChildren) {
+                    navigate(item.path);
+                    onNavigate?.();
+                }
+            }}
             defaultOpened={isActive}
             childrenOffset={isDeep ? 16 : 28}
             variant={level === 0 ? "filled" : "subtle"}
@@ -64,12 +69,12 @@ function renderNavLink(item, location, navigate, level = 0) {
                 }
             }}
         >
-            {hasChildren && item.children.map((child) => renderNavLink(child, location, navigate, level + 1))}
+            {hasChildren && item.children.map((child) => renderNavLink(child, location, navigate, onNavigate, level + 1))}
         </NavLink>
     );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ className = '', onNavigate }) {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -88,12 +93,15 @@ export default function Sidebar() {
             console.error('Error logging out:', err);
         } finally {
             localStorage.removeItem('user');
+            onNavigate?.();
             navigate('/login');
         }
     };
 
+    const wrapperClass = ['sidebar-wrapper', className].filter(Boolean).join(' ');
+
     return (
-        <div className="sidebar-wrapper">
+        <div className={wrapperClass}>
             <div className="sidebar-header">
                 <div className="sidebar-logo">
                     <img src="/Nuevo-perla-Sinfondo.png" alt="Perla" className="sidebar-logo-img" />
@@ -119,7 +127,7 @@ export default function Sidebar() {
                         >
                             {section.title}
                         </Text>
-                        {section.items.map((item) => renderNavLink(item, location, navigate))}
+                        {section.items.map((item) => renderNavLink(item, location, navigate, onNavigate))}
                     </Box>
                 ))}
             </Box>

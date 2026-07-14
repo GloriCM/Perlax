@@ -15,9 +15,9 @@ import Auditoria from './pages/admin/Auditoria';
 import UsuariosConfig from './pages/configuracion/Usuarios';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
-import CotizacionesDesdeOT from './pages/cotizaciones/CotizacionesDesdeOT';
-import CotizacionDesdeOTForm from './pages/cotizaciones/CotizacionDesdeOTForm';
-import CotizacionManual from './pages/cotizaciones/CotizacionManual';
+import CotizadorHome from './pages/cotizador/CotizadorHome';
+import CotizadorWizard from './pages/cotizador/CotizadorWizard';
+import CotizadorGuardadas from './pages/cotizador/CotizadorGuardadas';
 import NuevoPedido from './pages/pedidos/NuevoPedido';
 import InformePedidos from './pages/pedidos/InformePedidos';
 import GastosProduccion from './pages/produccion/GastosProduccion';
@@ -68,7 +68,19 @@ import GraficasDiseno from './pages/diseno/gastos/GraficasDiseno';
 import RubrosDiseno from './pages/diseno/gastos/RubrosDiseno';
 import CotizacionesDiseno from './pages/diseno/gastos/CotizacionesDiseno';
 import ProveedoresDiseno from './pages/diseno/gastos/ProveedoresDiseno';
+import PlaneadorDiseno from './pages/diseno/programador-diseno/PlaneadorDiseno';
 import PanelMantenimiento from './pages/mantenimiento_equipos/PanelMantenimiento';
+import GastosMantenimiento from './pages/mantenimiento/GastosMantenimiento';
+import InventarioMantenimiento from './pages/mantenimiento/InventarioMantenimiento';
+import HojasDeVidaMaquinariaView from './pages/mantenimiento/hojas-vida-maquinaria/HojasDeVidaMaquinariaView';
+import CronogramasMaquinariaView from './pages/mantenimiento/hojas-vida-maquinaria/CronogramasMaquinariaView';
+import TicketsDanoMaquinariaView from './pages/mantenimiento/hojas-vida-maquinaria/TicketsDanoMaquinariaView';
+import MantenimientosMaquinariaView from './pages/mantenimiento/hojas-vida-maquinaria/MantenimientosMaquinariaView';
+import RubrosMantenimiento from './pages/mantenimiento/gastos/RubrosMantenimiento';
+import ProductosMantenimiento from './pages/mantenimiento/gastos/ProductosMantenimiento';
+import CotizacionesMantenimiento from './pages/mantenimiento/gastos/CotizacionesMantenimiento';
+import ProveedoresMantenimiento from './pages/mantenimiento/gastos/ProveedoresMantenimiento';
+import GraficasMantenimiento from './pages/mantenimiento/gastos/GraficasMantenimiento';
 import GastosSST from './pages/sst/gastos/GastosSST';
 import CotizacionesSST from './pages/sst/gastos/CotizacionesSST';
 import GraficasSST from './pages/sst/gastos/GraficasSST';
@@ -85,6 +97,9 @@ import OperariosMaster from './pages/cuadro-master/OperariosMaster';
 import CartasMaster from './pages/cuadro-master/CartasMaster';
 import '@mantine/core/styles.css';
 import './App.css';
+import AppErrorBoundary from './components/AppErrorBoundary';
+import ChatCenter from './pages/chat/ChatCenter';
+import CotizadorCatalogos from './pages/ajustes/CotizadorCatalogos.jsx';
 
 function App() {
   // --- SESSION SECURITY: Inactivity Timeout ---
@@ -122,8 +137,9 @@ function App() {
 
   return (
     <MantineProvider theme={theme} defaultColorScheme="dark">
-      <BrowserRouter>
-        <Routes>
+      <AppErrorBoundary>
+        <BrowserRouter>
+          <Routes>
           <Route path="/login" element={<LoginPage />} />
 
           {/* Internal Routes protected by login */}
@@ -140,12 +156,16 @@ function App() {
             <Route path="/ordenes/lista" element={<ListaOT />} />
             <Route path="/ordenes/planes-diseno" element={<PlanesDiseno />} />
             <Route path="/fichas/lista" element={<FichasTecnicas />} />
-            <Route path="/cotizaciones/desde-ot" element={<CotizacionesDesdeOT />} />
-            <Route path="/cotizaciones/desde-ot/:otId" element={<CotizacionDesdeOTForm />} />
-            <Route path="/cotizaciones/manual" element={<CotizacionManual />} />
+            <Route path="/cotizador" element={<CotizadorHome />} />
+            <Route path="/cotizador/nueva" element={<CotizadorWizard />} />
+            <Route path="/cotizador/nueva/ot/:orderId" element={<CotizadorWizard />} />
+            <Route path="/cotizador/guardadas" element={<CotizadorGuardadas />} />
+            <Route path="/cotizador/:id" element={<CotizadorWizard />} />
+            <Route path="/cotizaciones/*" element={<Navigate to="/cotizador" replace />} />
             <Route path="/pedidos/nuevo" element={<NuevoPedido />} />
             <Route path="/pedidos/nuevo/:id" element={<NuevoPedido />} />
             <Route path="/pedidos/informe" element={<InformePedidos />} />
+            <Route path="/chat" element={<ChatCenter />} />
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
             <Route path="/gastos/control/rubros" element={<RubrosGastos />} />
@@ -185,6 +205,7 @@ function App() {
             <Route path="/diseno/gastos/rubros" element={<RubrosDiseno />} />
             <Route path="/diseno/gastos/cotizaciones" element={<CotizacionesDiseno />} />
             <Route path="/diseno/gastos/proveedores" element={<ProveedoresDiseno />} />
+            <Route path="/diseno/planeador" element={<PlaneadorDiseno />} />
 
             {/* Presupuestos */}
             <Route path="/presupuestos/talleres" element={<TalleresPresupuesto />} />
@@ -195,9 +216,24 @@ function App() {
             <Route path="/presupuestos/diseno" element={<DisenoPresupuesto />} />
 
             {/* Mantenimiento */}
-            <Route path="/mantenimiento/panel" element={<PanelMantenimiento />} />
-            <Route path="/mantenimiento/equipos" element={<EquiposMantenimiento />} />
-            <Route path="/mantenimiento" element={<Navigate to="/mantenimiento/panel" replace />} />
+            <Route path="/mantenimiento/hojas-vida-maquinaria/hojas-de-vida" element={<HojasDeVidaMaquinariaView />} />
+            <Route path="/mantenimiento/hojas-vida-maquinaria/cronogramas" element={<CronogramasMaquinariaView />} />
+            <Route path="/mantenimiento/hojas-vida-maquinaria/tickets-dano" element={<TicketsDanoMaquinariaView />} />
+            <Route path="/mantenimiento/hojas-vida-maquinaria/mantenimientos" element={<MantenimientosMaquinariaView />} />
+            <Route path="/mantenimiento/gastos" element={<Navigate to="/mantenimiento/gastos/captura" replace />} />
+            <Route path="/mantenimiento/gastos/captura" element={<GastosMantenimiento />} />
+            <Route path="/mantenimiento/gastos/graficas" element={<GraficasMantenimiento />} />
+            <Route path="/mantenimiento/gastos/rubros" element={<RubrosMantenimiento />} />
+            <Route path="/mantenimiento/gastos/productos" element={<ProductosMantenimiento />} />
+            <Route path="/mantenimiento/gastos/cotizaciones" element={<CotizacionesMantenimiento />} />
+            <Route path="/mantenimiento/gastos/proveedores" element={<ProveedoresMantenimiento />} />
+            <Route path="/mantenimiento/inventario" element={<InventarioMantenimiento />} />
+            <Route path="/mantenimiento-equipos/equipos" element={<EquiposMantenimiento />} />
+            <Route path="/mantenimiento-equipos/panel" element={<PanelMantenimiento />} />
+            <Route path="/mantenimiento-equipos" element={<Navigate to="/mantenimiento-equipos/panel" replace />} />
+            {/* Compatibilidad temporal con ruta padre */}
+            <Route path="/mantenimiento/hojas-vida-maquinaria" element={<Navigate to="/mantenimiento/hojas-vida-maquinaria/hojas-de-vida" replace />} />
+            <Route path="/mantenimiento" element={<Navigate to="/mantenimiento/hojas-vida-maquinaria/hojas-de-vida" replace />} />
 
             {/* Calidad */}
             <Route path="/calidad/encuestas-calidad" element={<EncuestasCalidad />} />
@@ -206,6 +242,7 @@ function App() {
             <Route path="/calidad/planes-accion" element={<PlanesAccion />} />
             <Route path="/admin/auditoria" element={<Auditoria />} />
             <Route path="/configuracion/usuarios" element={<UsuariosConfig />} />
+            <Route path="/ajustes/cotizador-catalogos" element={<CotizadorCatalogos />} />
 
             {/* SST */}
             <Route path="/sst/gastos/captura" element={<GastosSST />} />
@@ -240,8 +277,9 @@ function App() {
 
           {/* Catch-all redirect to dashboard (which will redirect to login if not authorized) */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes >
-      </BrowserRouter >
+          </Routes >
+        </BrowserRouter >
+      </AppErrorBoundary>
     </MantineProvider >
   );
 }

@@ -39,7 +39,10 @@ export default function LoginPage() {
             if (data) {
                 localStorage.setItem('user', JSON.stringify(data));
                 navigate(getDefaultPostLoginPath(data));
+                return;
             }
+
+            setError('No se pudo iniciar sesión. Verifique usuario y contraseña.');
         } catch (err) {
             setError(err.message || 'Error de conexión con el servidor');
         } finally {

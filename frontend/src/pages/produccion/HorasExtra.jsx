@@ -132,7 +132,7 @@ const HorasExtra = () => {
                             radius="md"
                             onClick={handleAdd}
                         >
-                            + Agregar
+                            Agregar
                         </Button>
                     </Group>
                 </Group>

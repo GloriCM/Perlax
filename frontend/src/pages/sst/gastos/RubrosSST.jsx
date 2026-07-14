@@ -60,7 +60,7 @@ export default function RubrosSST() {
                         <IconTags size={20} color="#94a3b8" />
                         <Title order={5} c="white">Rubros</Title>
                     </Group>
-                    <Button variant="filled" color="blue" size="sm" leftSection={<IconPlus size={18} />}>+ Agregar</Button>
+                    <Button variant="filled" color="blue" size="sm" leftSection={<IconPlus size={18} />}>Agregar</Button>
                 </Group>
             </Paper>
 

@@ -32,19 +32,12 @@ import {
     IconDotsVertical,
     IconUpload
 } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, getApiOrigin } from '../../utils/api';
+import { api } from '../../utils/api';
+import { fetchAuthenticatedUploadBlob } from '../../utils/authenticatedUpload';
+import AuthenticatedImage from '../../components/AuthenticatedImage';
 import { notifications } from '@mantine/notifications';
-
-function absoluteUploadUrl(publicPath) {
-    if (!publicPath || typeof publicPath !== 'string') return '';
-    const trimmed = publicPath.trim();
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    const origin = getApiOrigin();
-    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${origin}${path}`;
-}
 
 function mergeOrderPartDetail(order, part) {
     return {
@@ -145,7 +138,17 @@ function normalizeSearchText(value) {
 export default function PlanesDiseno() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const currentUser = useMemo(() => {
+        try {
+            return JSON.parse(localStorage.getItem('user') || '{}');
+        } catch {
+            return {};
+        }
+    }, []);
     const [search, setSearch] = useState('');
+    const [filterAssignment, setFilterAssignment] = useState('all');
+    const [filterApproval, setFilterApproval] = useState('all');
+    const [filterPriority, setFilterPriority] = useState('all');
     const [opened, { open, close }] = useDisclosure(false);
     const [previewOpened, { open: openPreview, close: closePreview }] = useDisclosure(false);
     const [previewUrl, setPreviewUrl] = useState('');
@@ -269,11 +272,23 @@ export default function PlanesDiseno() {
         }
     };
 
-    const openImagePreview = (publicUrl) => {
-        const full = absoluteUploadUrl(publicUrl);
-        if (!full) return;
-        setPreviewUrl(full);
-        openPreview();
+    const openImagePreview = async (publicUrl) => {
+        if (!publicUrl) return;
+        try {
+            const blobUrl = await fetchAuthenticatedUploadBlob(publicUrl);
+            setPreviewUrl((prev) => {
+                if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                return blobUrl;
+            });
+            openPreview();
+        } catch (error) {
+            console.error(error);
+            notifications.show({
+                title: 'No se pudo abrir la imagen',
+                message: 'Verifique su sesión o vuelva a subir el archivo.',
+                color: 'red'
+            });
+        }
     };
 
     const handlePrintFicha = () => {
@@ -353,7 +368,7 @@ export default function PlanesDiseno() {
     };
 
     const adjuntosParsed = selectedOT
-        ? parseAttachmentsByCategory(selectedOT.adjuntosJson)
+        ? parseAttachmentsByCategory(selectedOT.adjuntosJson ?? selectedOT.AdjuntosJson)
         : { ampliaciones: [], adjuntos: [] };
     const urlArte1 = adjuntosParsed.ampliaciones[0];
     const urlArte2 = adjuntosParsed.adjuntos[0];
@@ -375,10 +390,43 @@ export default function PlanesDiseno() {
         open();
     };
 
-    const searchTerms = normalizeSearchText(search).split(/\s+/).filter(Boolean);
+    const handleOpenInternalChat = async (item) => {
+        const creatorName = [currentUser?.firstName, currentUser?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || currentUser?.username || 'Usuario';
 
-    const rows = orders.filter((item) => {
-        if (searchTerms.length === 0) return true;
+        try {
+            const conversation = await api.post('/production/internal-chat/from-ot', {
+                otNumber: String(item?.otNumber || '').trim(),
+                createdByDisplayName: creatorName
+            });
+
+            if (!conversation?.id) {
+                notifications.show({
+                    title: 'No se pudo abrir el chat',
+                    message: 'No se recibió el identificador de conversación.',
+                    color: 'red'
+                });
+                return;
+            }
+
+            navigate(`/chat?conversationId=${conversation.id}`);
+        } catch (error) {
+            notifications.show({
+                title: 'Error abriendo chat',
+                message: error?.message || 'No fue posible abrir el chat interno.',
+                color: 'red'
+            });
+        }
+    };
+
+    const searchTerms = normalizeSearchText(search).split(/\s+/).filter(Boolean);
+    const currentUserName = normalizeSearchText(
+        [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim() || currentUser?.username || ''
+    );
+
+    const filteredOrders = useMemo(() => orders.filter((item) => {
         const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
         const searchable = normalizeSearchText([
             item.otNumber,
@@ -394,11 +442,35 @@ export default function PlanesDiseno() {
             attachmentStatus.ampliacionesOk ? 'ampliaciones ok' : 'ampliaciones pendiente',
             attachmentStatus.adjuntosOk ? 'adjuntos ok' : 'adjuntos pendiente'
         ].join(' '));
-        return searchTerms.every((term) => searchable.includes(term));
-    }).map((item) => (
+        const matchSearch = searchTerms.length === 0
+            ? true
+            : searchTerms.every((term) => searchable.includes(term));
+        if (!matchSearch) return false;
+
+        const designerRaw = (item.disenador || '').trim();
+        const designerNormalized = normalizeSearchText(designerRaw);
+        const isAssigned = designerNormalized.length > 0;
+        const approvalNormalized = normalizeSearchText(item.estadoAprobacion || 'pendiente');
+        const priorityNormalized = normalizeSearchText(item.prioridad || 'normal');
+
+        if (filterAssignment === 'mine' && (!isAssigned || designerNormalized !== currentUserName)) return false;
+        if (filterAssignment === 'assigned' && !isAssigned) return false;
+        if (filterAssignment === 'unassigned' && isAssigned) return false;
+
+        if (filterApproval === 'pending' && approvalNormalized !== 'pendiente') return false;
+        if (filterApproval === 'approved' && approvalNormalized !== 'aprobado') return false;
+        if (filterApproval === 'rejected' && approvalNormalized !== 'rechazado') return false;
+
+        if (filterPriority !== 'all' && priorityNormalized !== filterPriority) return false;
+
+        return true;
+    }), [orders, searchTerms, filterAssignment, filterApproval, filterPriority, currentUserName]);
+
+    const rows = filteredOrders.map((item) => (
         <Table.Tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => handleViewDetail(item)}>
             {(() => {
                 const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
+                const designerName = (item.disenador || '').trim();
                 return (
                     <>
             <Table.Td><Text size="xs" fw={700} c="indigo.3">{item.otNumber} / {item.partName}</Text></Table.Td>
@@ -410,7 +482,7 @@ export default function PlanesDiseno() {
                     {item.prioridad}
                 </Badge>
             </Table.Td>
-            <Table.Td><Text size="xs">{item.disenador || 'No asignado'}</Text></Table.Td>
+            <Table.Td><Text size="xs">{designerName || 'No asignado'}</Text></Table.Td>
             <Table.Td><Text size="xs">{new Date(item.createdAt).toLocaleDateString()}</Text></Table.Td>
             <Table.Td>
                 <Badge size="xs" variant="light" color={attachmentStatus.ampliacionesOk ? 'green' : 'gray'}>
@@ -447,6 +519,9 @@ export default function PlanesDiseno() {
                     <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
                         <Menu.Item onClick={() => openQuickEditor(item)}>
                             Editar prioridad / diseñador
+                        </Menu.Item>
+                        <Menu.Item onClick={() => handleOpenInternalChat(item)}>
+                            Chat interno
                         </Menu.Item>
                     </Menu.Dropdown>
                 </Menu>
@@ -487,14 +562,55 @@ export default function PlanesDiseno() {
 
             <Card styles={glassStyles} p={0}>
                 <Box p="md" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <TextInput
-                        placeholder="Buscar por OT, cliente, producto..."
-                        leftSection={<IconSearch size={18} stroke={1.5} />}
-                        value={search}
-                        onChange={(e) => setSearch(e.currentTarget.value)}
-                        variant="filled"
-                        styles={{ input: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' } }}
-                    />
+                    <Stack gap="sm">
+                        <TextInput
+                            placeholder="Buscar por OT, cliente, producto..."
+                            leftSection={<IconSearch size={18} stroke={1.5} />}
+                            value={search}
+                            onChange={(e) => setSearch(e.currentTarget.value)}
+                            variant="filled"
+                            styles={{ input: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' } }}
+                        />
+                        <SimpleGrid cols={{ base: 1, md: 3, lg: 3 }}>
+                            <Select
+                                label="Asignación"
+                                value={filterAssignment}
+                                onChange={(value) => setFilterAssignment(value || 'all')}
+                                data={[
+                                    { value: 'all', label: 'Todas' },
+                                    { value: 'mine', label: 'Asignadas a mí' },
+                                    { value: 'assigned', label: 'Con diseñador' },
+                                    { value: 'unassigned', label: 'Sin asignar' }
+                                ]}
+                                variant="filled"
+                            />
+                            <Select
+                                label="Aprobación"
+                                value={filterApproval}
+                                onChange={(value) => setFilterApproval(value || 'all')}
+                                data={[
+                                    { value: 'all', label: 'Todas' },
+                                    { value: 'pending', label: 'Pendientes' },
+                                    { value: 'approved', label: 'Aprobadas' },
+                                    { value: 'rejected', label: 'Rechazadas' }
+                                ]}
+                                variant="filled"
+                            />
+                            <Select
+                                label="Prioridad"
+                                value={filterPriority}
+                                onChange={(value) => setFilterPriority(value || 'all')}
+                                data={[
+                                    { value: 'all', label: 'Todas' },
+                                    { value: 'baja', label: 'Baja' },
+                                    { value: 'normal', label: 'Normal' },
+                                    { value: 'alta', label: 'Alta' },
+                                    { value: 'urgente', label: 'Urgente' }
+                                ]}
+                                variant="filled"
+                            />
+                        </SimpleGrid>
+                    </Stack>
                 </Box>
 
                 <ScrollArea h={650}>
@@ -609,22 +725,15 @@ export default function PlanesDiseno() {
                                     <Divider label="Descripción del diseño" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
                                     <Grid gutter="xs">
                                         <Grid.Col span={3}><TextInput label="No. de OT" value={selectedOT?.otNumber} readOnly variant="filled" size="xs" /></Grid.Col>
-                                        <Grid.Col span={4}><TextInput label="Fecha" value={selectedOT?.createdAt ? new Date(selectedOT.createdAt).toLocaleDateString() : ''} readOnly variant="filled" size="xs" /></Grid.Col>
-                                        <Grid.Col span={2}><TextInput label="Fuelle" value={selectedOT?.fuelle || 0} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="Fecha" value={selectedOT?.createdAt ? new Date(selectedOT.createdAt).toLocaleDateString() : ''} readOnly variant="filled" size="xs" /></Grid.Col>
                                         <Grid.Col span={3}><TextInput label="Nombre Pieza" value={selectedOT?.partName} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="Fuelle" value={selectedOT?.fuelle || 0} readOnly variant="filled" size="xs" /></Grid.Col>
 
-                                        <Grid.Col span={5}>
-                                            <Group gap="xs" grow>
-                                                <TextInput label="Ancho" value={selectedOT?.ancho || 0} readOnly variant="filled" size="xs" />
-                                                <TextInput label="Largo" value={selectedOT?.largo || 0} readOnly variant="filled" size="xs" />
-                                                <TextInput label="Fondo" value={selectedOT?.alto || 0} readOnly variant="filled" size="xs" />
-                                            </Group>
-                                        </Grid.Col>
-                                        <Grid.Col span={3}><TextInput label="Alto Pliego" value={selectedOT?.altoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
+                                        <Grid.Col span={4}><TextInput label="Cabida" value={selectedOT?.cabida || '1.00'} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={4}><TextInput label="Alto Pliego" value={selectedOT?.altoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
                                         <Grid.Col span={4}><TextInput label="Ancho Pliego" value={selectedOT?.anchoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
 
-                                        <Grid.Col span={2}><TextInput label="Cabida" value={selectedOT?.cabida || '1.00'} readOnly variant="filled" size="xs" /></Grid.Col>
-                                        <Grid.Col span={10}>
+                                        <Grid.Col span={12}>
                                             <Stack gap={2}>
                                                 <Text size="xs" fw={700}>Notas de Diseño</Text>
                                                 <Paper bg="rgba(0,0,0,0.3)" p="xs" radius="xs" style={{ minHeight: 60, border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -658,8 +767,8 @@ export default function PlanesDiseno() {
                                                         background: 'rgba(0,0,0,0.2)'
                                                     }}
                                                 >
-                                                    <Image
-                                                        src={absoluteUploadUrl(urlArte1)}
+                                                    <AuthenticatedImage
+                                                        publicPath={urlArte1}
                                                         alt="Ampliación"
                                                         mah={200}
                                                         maw="100%"
@@ -698,8 +807,8 @@ export default function PlanesDiseno() {
                                                         background: 'rgba(0,0,0,0.2)'
                                                     }}
                                                 >
-                                                    <Image
-                                                        src={absoluteUploadUrl(urlArte2)}
+                                                    <AuthenticatedImage
+                                                        publicPath={urlArte2}
                                                         alt="Adjunto"
                                                         mah={200}
                                                         maw="100%"
@@ -818,7 +927,13 @@ export default function PlanesDiseno() {
 
             <Modal
                 opened={previewOpened}
-                onClose={closePreview}
+                onClose={() => {
+                    setPreviewUrl((prev) => {
+                        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                        return '';
+                    });
+                    closePreview();
+                }}
                 title="Vista ampliada"
                 centered
                 size="xl"

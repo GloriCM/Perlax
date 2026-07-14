@@ -116,7 +116,7 @@
     color: white;
     text-align: center;
     padding: 12px;
-    font-size: 13px;
+    font-size: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -127,29 +127,58 @@
 
 .budget-table td {
     padding: 0;
+    font-size: 12px;
+    text-align: center;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .rubro-cell {
-    padding: 12px;
-    font-size: 13px;
+    padding: 10px 12px;
+    font-size: 12px;
     color: #e2e8f0;
+    text-align: left !important;
 }
 
 .budget-input {
     width: 100%;
-    height: 40px;
+    height: 34px;
     background: transparent;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
     color: white;
     text-align: center;
-    font-size: 13px;
+    font-size: 12px;
     outline: none;
     transition: background 0.2s ease;
 }
 
 .budget-input:focus {
     background: rgba(255, 255, 255, 0.05);
+}
+
+.total-col-header,
+.total-col-cell {
+    font-weight: 700;
+}
+
+.total-col-header {
+    background: rgba(5, 102, 74, 0.75) !important;
+    color: #d1fae5 !important;
+}
+
+.total-col-cell {
+    color: #d1fae5;
+    background: rgba(5, 102, 74, 0.5);
+}
+
+.total-row {
+    background: rgba(15, 23, 42, 0.75);
+}
+
+.total-row-label,
+.total-row-cell {
+    font-weight: 700;
+    color: #e2e8f0;
 }
 
 .footer-actions {

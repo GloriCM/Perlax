@@ -19,10 +19,18 @@ import { IconArrowLeft, IconChevronLeft, IconChevronRight, IconDeviceFloppy, Ico
 import { notifications } from '@mantine/notifications';
 import { api } from '../../utils/api';
 
+const readCurrentUser = () => {
+    try {
+        return JSON.parse(localStorage.getItem('user') || '{}');
+    } catch {
+        return {};
+    }
+};
+
 export default function NuevoPedido() {
     const navigate = useNavigate();
     const { id } = useParams();
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = readCurrentUser();
 
     const [loading, setLoading] = useState(false);
     const [orderNumber, setOrderNumber] = useState('');
@@ -36,38 +44,55 @@ export default function NuevoPedido() {
         agreedDeliveryDate: null
     });
 
+    const requiredHeaderCompleted = useMemo(() => (
+        Boolean(String(formData.clientName || '').trim()) &&
+        Boolean(String(formData.purchaseOrderNumber || '').trim()) &&
+        Boolean(formData.agreedDeliveryDate)
+    ), [formData]);
+
+    const filteredProducts = useMemo(() => {
+        const client = String(formData.clientName || '').trim().toLowerCase();
+        if (!client) return [];
+
+        return availableProducts.filter(product =>
+            String(product?.clientName || '').trim().toLowerCase() === client
+        );
+    }, [availableProducts, formData.clientName]);
+
     const productOptions = useMemo(
-        () => availableProducts.map(product => ({
+        () => filteredProducts.map(product => ({
             value: product.partId,
             label: `${product.otNumber} | ${product.productName} | ${product.referenceName}`
         })),
-        [availableProducts]
+        [filteredProducts]
     );
 
     useEffect(() => {
         const run = async () => {
             try {
-                const [productsRes, productionOrdersRes, nextNumberRes] = await Promise.allSettled([
-                    api.get('/production/customer-orders/available-products'),
-                    api.get('/production/orders'),
-                    id ? Promise.resolve(null) : api.get('/production/customer-orders/next-number')
-                ]);
+                const productionOrders = await api.get('/production/orders');
+                const mappedProducts = (productionOrders || []).flatMap(order =>
+                    (order.parts || [])
+                        .filter(part => part?.isTechnicalSheetApproved)
+                        .map(part => ({
+                            partId: part.id,
+                            otNumber: order.otNumber,
+                            productName: order.productName,
+                            referenceName: part.partName || 'Pieza',
+                            clientName: order.cliente,
+                            approvedUnitPrice: 0
+                        }))
+                );
 
-                const products = productsRes.status === 'fulfilled' ? (productsRes.value || []) : [];
-                const productionOrders = productionOrdersRes.status === 'fulfilled' ? (productionOrdersRes.value || []) : [];
-                const nextNumber = nextNumberRes.status === 'fulfilled' ? nextNumberRes.value : null;
-
-                setAvailableProducts(products);
+                setAvailableProducts(mappedProducts);
                 const uniqueClients = [...new Set(
-                    [
-                        ...productionOrders.map(order => (order?.cliente || '').trim()),
-                        ...products.map(product => (product?.clientName || '').trim())
-                    ]
+                    mappedProducts.map(product => (product?.clientName || '').trim())
                         .filter(Boolean)
                 )].sort((a, b) => a.localeCompare(b));
                 setClientOptions(uniqueClients.map(client => ({ value: client, label: client })));
                 if (!id) {
-                    setOrderNumber(nextNumber || '');
+                    const nextNumber = await api.get('/production/customer-orders/next-number');
+                    setOrderNumber(String(nextNumber || ''));
                 }
             } catch (error) {
                 notifications.show({
@@ -105,7 +130,8 @@ export default function NuevoPedido() {
 
                 setItems((data.items || []).map(item => ({
                     orderPartId: item.orderPartId,
-                    quantity: item.quantity || 0
+                    quantity: item.quantity || 0,
+                    approvedUnitPrice: Number(item.approvedUnitPrice ?? 0)
                 })));
             } catch (error) {
                 notifications.show({
@@ -120,7 +146,7 @@ export default function NuevoPedido() {
     }, [id]);
 
     const addItem = () => {
-        setItems(prev => [...prev, { orderPartId: null, quantity: 0 }]);
+        setItems(prev => [...prev, { orderPartId: null, quantity: 0, approvedUnitPrice: 0 }]);
     };
 
     const removeItem = (index) => {
@@ -128,14 +154,29 @@ export default function NuevoPedido() {
     };
 
     const updateItem = (index, field, value) => {
-        setItems(prev => prev.map((row, idx) => (
-            idx === index ? { ...row, [field]: value } : row
-        )));
+        setItems(prev => prev.map((row, idx) => {
+            if (idx !== index) return row;
+
+            // El PV unitario NO se define aquí; se asigna en Informe de Pedidos.
+            if (field === 'orderPartId') {
+                return {
+                    ...row,
+                    orderPartId: value,
+                    approvedUnitPrice: 0
+                };
+            }
+
+            if (field === 'approvedUnitPrice') {
+                return { ...row, approvedUnitPrice: 0 };
+            }
+
+            return { ...row, [field]: value };
+        }));
     };
 
     const validateBeforeSave = () => {
-        if (!formData.clientName.trim()) return 'El campo CLIENTE es obligatorio.';
-        if (!formData.purchaseOrderNumber.trim()) return 'El campo ORDEN DE COMPRA es obligatorio.';
+        if (!String(formData.clientName || '').trim()) return 'El campo CLIENTE es obligatorio.';
+        if (!String(formData.purchaseOrderNumber || '').trim()) return 'El campo ORDEN DE COMPRA es obligatorio.';
         if (!formData.agreedDeliveryDate) return 'La FECHA PACTADA DE ENTREGA es obligatoria.';
         if (items.length === 0) return 'Debe agregar al menos un producto al pedido.';
 
@@ -219,11 +260,20 @@ export default function NuevoPedido() {
         }
 
         const payload = {
+            id: id || crypto.randomUUID(),
+            orderNumber,
             orderDate: formData.orderDate,
             clientName: formData.clientName,
             purchaseOrderNumber: formData.purchaseOrderNumber,
             agreedDeliveryDate: formData.agreedDeliveryDate,
-            items
+            isApproved: false,
+            items: items.map(item => ({
+                orderPartId: item.orderPartId,
+                quantity: item.quantity,
+                approvedUnitPrice: 0,
+                productName: availableProducts.find(p => p.partId === item.orderPartId)?.productName || '',
+                referenceName: availableProducts.find(p => p.partId === item.orderPartId)?.referenceName || ''
+            }))
         };
 
         try {
@@ -281,7 +331,6 @@ export default function NuevoPedido() {
                             description={`${clientOptions.length} clientes disponibles desde OT`}
                             placeholder="Buscar o seleccionar cliente..."
                             searchable
-                            nothingFoundMessage="No se encontraron clientes"
                             maxDropdownHeight={260}
                             leftSection={<IconUsers size={16} />}
                             data={clientOptions}
@@ -312,16 +361,7 @@ export default function NuevoPedido() {
                                 option: {
                                     borderRadius: '8px',
                                     marginBottom: '4px',
-                                    fontSize: '13px',
-                                    '&[data-combobox-active]': {
-                                        background: 'rgba(99, 102, 241, 0.25)',
-                                        color: '#e0e7ff'
-                                    },
-                                    '&[data-combobox-selected]': {
-                                        background: 'rgba(99, 102, 241, 0.35)',
-                                        color: '#c7d2fe',
-                                        fontWeight: 700
-                                    }
+                                    fontSize: '13px'
                                 }
                             }}
                             required
@@ -342,7 +382,12 @@ export default function NuevoPedido() {
                         <TextInput
                             label="Orden de compra"
                             value={formData.purchaseOrderNumber}
-                            onChange={(e) => setFormData(prev => ({ ...prev, purchaseOrderNumber: e.currentTarget.value }))}
+                            onChange={(valueOrEvent) => {
+                                const nextValue = typeof valueOrEvent === 'string'
+                                    ? valueOrEvent
+                                    : (valueOrEvent?.currentTarget?.value ?? '');
+                                setFormData(prev => ({ ...prev, purchaseOrderNumber: nextValue }));
+                            }}
                             styles={textInputStyles}
                             required
                         />
@@ -365,12 +410,6 @@ export default function NuevoPedido() {
                             value={user.username || 'Sistema'}
                             readOnly
                             styles={textInputStyles}
-                        />
-                        <DateInput
-                            label="Fecha de despacho prevista"
-                            value={formData.agreedDeliveryDate}
-                            readOnly
-                            styles={calendarStyles}
                         />
                     </Group>
                 </Stack>
@@ -403,6 +442,7 @@ export default function NuevoPedido() {
                                             data={productOptions}
                                             value={item.orderPartId}
                                             onChange={(value) => updateItem(idx, 'orderPartId', value)}
+                                            disabled={!formData.clientName}
                                         />
                                     </Table.Td>
                                     <Table.Td>

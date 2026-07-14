@@ -116,7 +116,7 @@ const Cotizaciones = ({ titulo = 'Cotizaciones de Producción', subtitulo = 'Con
                         </div>
                     </Group>
                     <Button color="teal" leftSection={<IconPlus size={16} />} radius="md" onClick={handleAdd}>
-                        + Nueva Cotización
+                        Nueva Cotización
                     </Button>
                 </Group>
             </Paper>

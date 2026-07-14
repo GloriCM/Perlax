@@ -3,9 +3,28 @@
  * Handles base URL, content-type headers, and JWT Authentication
  */
 
-const BASE_URL =
-    import.meta.env.VITE_API_BASE_URL ||
-    `https://${window.location.hostname}:5263/api`;
+const LOCAL_API_HOSTS = new Set(['localhost', '127.0.0.1', 'perla']);
+
+function resolveApiBaseUrl() {
+    const fromEnv = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+    if (fromEnv) {
+        return fromEnv.replace(/\/$/, '');
+    }
+
+    const host = window.location.hostname;
+    if (LOCAL_API_HOSTS.has(host)) {
+        return `https://${host}:5263/api`;
+    }
+
+    // Túnel Cloudflare: la API va por HTTPS en el puerto 443, sin :5263
+    if (host === 'perlax.perla.work' || host.endsWith('.perla.work')) {
+        return 'https://api-perlax.perla.work/api';
+    }
+
+    return `https://${host}:5263/api`;
+}
+
+const BASE_URL = resolveApiBaseUrl();
 
 /** Origen del servidor API (sin `/api`), útil para `/uploads/...` y estáticos. */
 export function getApiOrigin() {
@@ -25,6 +44,26 @@ function getStoredAuthToken() {
     } catch {
         return null;
     }
+}
+
+function isAuthLoginRequest(endpoint) {
+    return String(endpoint || '').includes('/users/auth/login');
+}
+
+async function readErrorMessage(response) {
+    const errorText = (await response.text()).trim();
+    if (!errorText) return 'Error en la petición';
+
+    try {
+        const parsed = JSON.parse(errorText);
+        if (typeof parsed === 'string') return parsed;
+        if (parsed?.message) return parsed.message;
+        if (parsed?.title) return parsed.title;
+    } catch {
+        // Respuesta en texto plano del backend
+    }
+
+    return errorText.replace(/^"+|"+$/g, '');
 }
 
 export const api = {
@@ -49,15 +88,17 @@ export const api = {
             const response = await fetch(`${BASE_URL}${endpoint}`, config);
 
             if (response.status === 401) {
-                // Token expired or invalid
+                if (isAuthLoginRequest(endpoint) || options.skipAuthRedirect) {
+                    throw new Error(await readErrorMessage(response));
+                }
+
                 localStorage.removeItem('user');
                 window.location.href = '/login';
                 return null;
             }
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Error en la petición');
+                throw new Error(await readErrorMessage(response));
             }
 
             // Check if response has content
@@ -112,14 +153,17 @@ export const api = {
         });
 
         if (response.status === 401) {
+            if (isAuthLoginRequest(endpoint)) {
+                throw new Error(await readErrorMessage(response));
+            }
+
             localStorage.removeItem('user');
             window.location.href = '/login';
             return null;
         }
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Error en la petición');
+            throw new Error(await readErrorMessage(response));
         }
 
         const contentType = response.headers.get('content-type');

@@ -85,7 +85,7 @@ const Recargos = () => {
                             Reporte Excel
                         </Button>
                         <Button color="teal" leftSection={<IconPlus size={16} />} radius="md" onClick={handleAdd}>
-                            + Agregar
+                            Agregar
                         </Button>
                     </Group>
                 </Group>

@@ -37,7 +37,7 @@ export default function CotizacionesSST() {
             </Paper>
 
             <Button fullWidth size="md" radius="md" mb="xl" color="blue" leftSection={<IconPlus size={20} />} styles={{ root: { background: '#2563eb' } }}>
-                + Nueva Cotización
+                Nueva Cotización
             </Button>
 
             <Paper p="xl" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>

@@ -47,7 +47,7 @@ export default function DashboardPage() {
                         <Text size="sm" c="dimmed">Resumen general de las operaciones del día.</Text>
                     </div>
                 </Group>
-                <SimpleGrid cols={3} mt="xl" spacing="xl">
+                <SimpleGrid cols={{ base: 1, sm: 3 }} mt="xl" spacing="xl">
                     {stats.map((stat) => (
                         <div key={stat.label} className="stat-card">
                             <Group gap="sm" align="center">

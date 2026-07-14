@@ -107,7 +107,7 @@ const PersonalAlmacen = ({ titulo = 'Personal de Almacén', subtitulo = 'Planeac
                         Excel H. Extras
                     </Button>
                     <Button color="blue" leftSection={<IconPlus size={18} />} radius="md" onClick={handleAdd} fw={700}>
-                        + Nuevo Personal
+                        Nuevo Personal
                     </Button>
                 </Group>
             </Group>

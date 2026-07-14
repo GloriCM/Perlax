@@ -119,3 +119,21 @@
 .sidebar-nav-item {
     font-family: 'Inter', sans-serif;
 }
+
+.sidebar-wrapper.sidebar-drawer {
+    width: 100%;
+    min-width: 0;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    contain: none;
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+}
+
+.sidebar-wrapper.sidebar-drawer .sidebar-logo-img {
+    height: 56px !important;
+}
+
+.sidebar-wrapper.sidebar-drawer .sidebar-user-header .user-name {
+    font-size: 1rem;
+}

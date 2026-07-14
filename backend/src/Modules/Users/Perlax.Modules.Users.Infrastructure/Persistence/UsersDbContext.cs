@@ -24,6 +24,7 @@ public class UsersDbContext : DbContext
             builder.Property(x => x.Email).IsRequired().HasMaxLength(100);
             builder.Property(x => x.FirstName).HasMaxLength(100);
             builder.Property(x => x.LastName).HasMaxLength(100);
+            builder.Property(x => x.Area).HasMaxLength(100);
             builder.Property(x => x.AllowedRoutesJson).HasColumnType("text");
             builder.Property(x => x.Role).HasMaxLength(20);
         });
