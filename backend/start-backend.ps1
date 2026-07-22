@@ -16,6 +16,15 @@ if (-not (Test-Path $localSettings)) {
 if ($env:KESTREL_PFX_PASSWORD) {
     $env:Kestrel__Endpoints__Https__Certificate__Password = $env:KESTREL_PFX_PASSWORD
 }
+elseif (-not $env:Kestrel__Endpoints__Https__Certificate__Password) {
+    $frontendEnv = Join-Path (Split-Path $PSScriptRoot -Parent) "frontend/.env.local"
+    if (Test-Path $frontendEnv) {
+        $match = Select-String -Path $frontendEnv -Pattern '^\s*VITE_DEV_CERT_PASS\s*=\s*(.+)\s*$' | Select-Object -First 1
+        if ($match -and $match.Matches.Groups[1].Value.Trim()) {
+            $env:Kestrel__Endpoints__Https__Certificate__Password = $match.Matches.Groups[1].Value.Trim()
+        }
+    }
+}
 
 function Stop-PerlaxWebHostProcesses {
     Get-Process -Name 'dotnet' -ErrorAction SilentlyContinue | ForEach-Object {

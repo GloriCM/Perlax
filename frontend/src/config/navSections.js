@@ -361,12 +361,20 @@ export const navSections = [
                 icon: IconWallet,
                 path: '/presupuestos',
                 children: [
-                    { label: 'Producción', icon: IconCube, path: '/presupuestos/produccion' },
-                    { label: 'Talleres', icon: IconTools, path: '/presupuestos/talleres' },
-                    { label: 'G. Humana', icon: IconUsers, path: '/presupuestos/gestion-humana' },
-                    { label: 'Sst', icon: IconShieldCheck, path: '/presupuestos/sst' },
-                    { label: 'Planeación', icon: IconReportAnalytics, path: '/presupuestos/planeacion' },
-                    { label: 'Diseño', icon: IconPalette, path: '/presupuestos/diseno' },
+                    { label: 'Presupuesto General', icon: IconReportAnalytics, path: '/presupuestos' },
+                    {
+                        label: 'Por Área',
+                        icon: IconCube,
+                        path: '/presupuestos/areas',
+                        children: [
+                            { label: 'Producción', icon: IconCube, path: '/presupuestos/produccion' },
+                            { label: 'Talleres', icon: IconTools, path: '/presupuestos/talleres' },
+                            { label: 'G. Humana', icon: IconUsers, path: '/presupuestos/gestion-humana' },
+                            { label: 'Sst', icon: IconShieldCheck, path: '/presupuestos/sst' },
+                            { label: 'Planeación', icon: IconReportAnalytics, path: '/presupuestos/planeacion' },
+                            { label: 'Diseño', icon: IconPalette, path: '/presupuestos/diseno' },
+                        ],
+                    },
                 ],
             },
             {

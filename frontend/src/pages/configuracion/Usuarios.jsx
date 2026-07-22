@@ -13,13 +13,14 @@ import {
     ActionIcon,
     Tooltip,
     Modal,
+    NumberInput,
     PasswordInput,
     Select,
     ScrollArea,
     Box,
     UnstyledButton,
 } from '@mantine/core';
-import { IconPlus, IconPencil, IconTrash, IconRefresh, IconLayoutGrid } from '@tabler/icons-react';
+import { IconPlus, IconPencil, IconUserOff, IconUserCheck, IconRefresh, IconLayoutGrid } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../utils/api';
 import {
@@ -34,11 +35,14 @@ const emptyForm = {
     firstName: '',
     lastName: '',
     area: '',
+    documentNumber: '',
+    salary: '',
     username: '',
     email: '',
     password: '',
     role: 'Administrativo',
     allowedRoutes: [],
+    isActive: true,
 };
 
 const AREA_OPTIONS = [
@@ -126,9 +130,9 @@ export default function UsuariosConfig() {
 
     const openEdit = (u) => {
         const rawRole = (u.role || 'Administrativo').toLowerCase();
-        const role = rawRole === 'admin' || rawRole === 'administrador'
-            ? 'Administrador'
-            : 'Administrativo';
+        let role = 'Administrativo';
+        if (rawRole === 'admin' || rawRole === 'administrador') role = 'Administrador';
+        else if (rawRole === 'operario') role = 'Operario';
         let routes = [];
         if (role === 'Administrativo') {
             if (Array.isArray(u.allowedRoutes)) routes = [...u.allowedRoutes];
@@ -139,11 +143,14 @@ export default function UsuariosConfig() {
             firstName: u.firstName || '',
             lastName: u.lastName || '',
             area: u.area || '',
+            documentNumber: u.documentNumber || '',
+            salary: u.salary ?? '',
             username: u.username || '',
             email: u.email || '',
             password: '',
             role,
             allowedRoutes: routes,
+            isActive: u.isActive !== false,
         });
         setModalOpen(true);
     };
@@ -170,15 +177,26 @@ export default function UsuariosConfig() {
 
     const handleSubmit = async () => {
         const isAdminRole = form.role === 'Administrador';
-        if (!editingId && !form.password?.trim()) {
+        const isOperatorRole = form.role === 'Operario';
+        const documentNumber = String(form.documentNumber || '').replace(/[^\d]/g, '');
+
+        if (!documentNumber) {
             notifications.show({
-                title: 'Contraseña',
-                message: 'La contraseña es obligatoria al crear un usuario',
+                title: 'Cédula requerida',
+                message: 'La cédula de ciudadanía es obligatoria. Será el usuario y la contraseña inicial.',
                 color: 'yellow',
             });
             return;
         }
-        if (!isAdminRole && !form.area) {
+        if (form.salary === '' || form.salary === null || form.salary === undefined) {
+            notifications.show({
+                title: 'Salario requerido',
+                message: 'Indique el salario del usuario.',
+                color: 'yellow',
+            });
+            return;
+        }
+        if (!isAdminRole && !isOperatorRole && !form.area) {
             notifications.show({
                 title: 'Área requerida',
                 message: 'Seleccione el área para rol Administrativo.',
@@ -192,10 +210,12 @@ export default function UsuariosConfig() {
                 const putPayload = {
                     firstName: form.firstName?.trim() || null,
                     lastName: form.lastName?.trim() || null,
-                    area: isAdminRole ? null : form.area,
-                    email: form.email.trim(),
+                    area: isAdminRole ? null : (isOperatorRole ? 'produccion' : form.area),
+                    documentNumber,
+                    salary: Number(form.salary),
+                    email: form.email?.trim() || null,
                     role: form.role,
-                    allowedRoutes: isAdminRole ? null : form.allowedRoutes,
+                    allowedRoutes: isAdminRole ? null : (isOperatorRole ? [] : form.allowedRoutes),
                 };
                 if (form.password?.trim()) putPayload.password = form.password;
                 await api.put(`/users/${editingId}`, putPayload);
@@ -203,17 +223,19 @@ export default function UsuariosConfig() {
                 await api.post('/users', {
                     firstName: form.firstName?.trim() || null,
                     lastName: form.lastName?.trim() || null,
-                    area: isAdminRole ? null : form.area,
-                    username: form.username.trim(),
-                    email: form.email.trim(),
-                    password: form.password,
+                    area: isAdminRole ? null : (isOperatorRole ? 'produccion' : form.area),
+                    documentNumber,
+                    salary: Number(form.salary),
+                    email: form.email?.trim() || null,
                     role: form.role,
-                    allowedRoutes: isAdminRole ? null : form.allowedRoutes,
+                    allowedRoutes: isAdminRole ? null : (isOperatorRole ? [] : form.allowedRoutes),
                 });
             }
             notifications.show({
                 title: 'Listo',
-                message: editingId ? 'Usuario actualizado' : 'Usuario creado',
+                message: editingId
+                    ? 'Usuario actualizado'
+                    : `Usuario creado. Login y contraseña temporal: ${documentNumber}`,
                 color: 'teal',
             });
             setModalOpen(false);
@@ -229,24 +251,36 @@ export default function UsuariosConfig() {
         }
     };
 
-    const handleDelete = async (u) => {
-        if (u.isSystemUser) return;
-        if (!window.confirm(`¿Eliminar al usuario "${u.username}"?`)) return;
+    const handleSetActive = async (u, isActive) => {
+        if (u.isSystemUser && !isActive) return;
+        const label = isActive ? 'reactivar' : 'desactivar';
+        if (!window.confirm(`¿${isActive ? 'Reactivar' : 'Desactivar'} al usuario "${u.username}"?${isActive ? '' : ' No podrá iniciar sesión; el historial se conserva.'}`)) return;
         try {
-            await api.delete(`/users/${u.id}`);
-            notifications.show({ title: 'Eliminado', message: 'Usuario eliminado', color: 'teal' });
+            await api.post(`/users/${u.id}/set-active`, { isActive });
+            notifications.show({
+                title: isActive ? 'Reactivado' : 'Desactivado',
+                message: isActive
+                    ? 'El usuario puede volver a iniciar sesión.'
+                    : 'Usuario desactivado. Puede reactivarlo cuando vuelva.',
+                color: 'teal',
+            });
+            if (editingId === u.id) {
+                setForm((f) => ({ ...f, isActive }));
+            }
             load();
         } catch (e) {
             notifications.show({
                 title: 'Error',
-                message: e.message || 'No se pudo eliminar',
+                message: e.message || `No se pudo ${label}`,
                 color: 'red',
             });
         }
     };
 
     const permLabel = (u) => {
-        if ((u.role || '').toLowerCase() === 'admin') return 'Completo';
+        if (u.isActive === false) return 'Desactivado';
+        if ((u.role || '').toLowerCase() === 'operario') return 'Planta (/planta)';
+        if ((u.role || '').toLowerCase() === 'admin' || (u.role || '').toLowerCase() === 'administrador') return 'Completo';
         if (u.allowedRoutes === null || u.allowedRoutes === undefined) return 'Completo (sin lista)';
         if (u.allowedRoutes.length === 0) return 'Solo inicio';
         return `${u.allowedRoutes.length} vista(s)`;
@@ -260,8 +294,8 @@ export default function UsuariosConfig() {
                 <div>
                     <Title order={2}>Usuarios</Title>
                     <Text size="sm" c="dimmed" maw={560}>
-                        Alta, edición y eliminación de usuarios. Los perfiles &quot;Usuario&quot; solo ven las rutas del menú que
-                        autorice en la matriz (o solo el inicio si no marca ninguna vista).
+                        Alta y edición de usuarios. Si alguien deja de trabajar, desactívelo (no se borra): puede
+                        reactivarlo cuando vuelva. El historial se conserva.
                     </Text>
                 </div>
                 <Group>
@@ -288,6 +322,7 @@ export default function UsuariosConfig() {
                                 <Table.Th>Login</Table.Th>
                                 <Table.Th>Correo</Table.Th>
                                 <Table.Th>Rol</Table.Th>
+                                <Table.Th>Estado</Table.Th>
                                 <Table.Th>Área</Table.Th>
                                 <Table.Th>Permisos</Table.Th>
                                 <Table.Th w={120} />
@@ -295,7 +330,7 @@ export default function UsuariosConfig() {
                         </Table.Thead>
                         <Table.Tbody>
                             {users.map((u) => (
-                                <Table.Tr key={u.id}>
+                                <Table.Tr key={u.id} opacity={u.isActive === false ? 0.55 : 1}>
                                     <Table.Td>
                                         <Text size="sm">
                                             {[u.firstName, u.lastName].filter(Boolean).join(' ') || '—'}
@@ -313,6 +348,11 @@ export default function UsuariosConfig() {
                                         <Badge variant="light">{u.role}</Badge>
                                     </Table.Td>
                                     <Table.Td>
+                                        <Badge color={u.isActive === false ? 'gray' : 'teal'} variant="light">
+                                            {u.isActive === false ? 'Inactivo' : 'Activo'}
+                                        </Badge>
+                                    </Table.Td>
+                                    <Table.Td>
                                         <Text size="xs" c="dimmed">{u.area || '—'}</Text>
                                     </Table.Td>
                                     <Table.Td>
@@ -328,11 +368,19 @@ export default function UsuariosConfig() {
                                                 </ActionIcon>
                                             </Tooltip>
                                             {!u.isSystemUser && (
-                                                <Tooltip label="Eliminar">
-                                                    <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(u)}>
-                                                        <IconTrash size={18} />
-                                                    </ActionIcon>
-                                                </Tooltip>
+                                                u.isActive === false ? (
+                                                    <Tooltip label="Reactivar">
+                                                        <ActionIcon variant="subtle" color="teal" onClick={() => handleSetActive(u, true)}>
+                                                            <IconUserCheck size={18} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                ) : (
+                                                    <Tooltip label="Desactivar">
+                                                        <ActionIcon variant="subtle" color="orange" onClick={() => handleSetActive(u, false)}>
+                                                            <IconUserOff size={18} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                )
                                             )}
                                         </Group>
                                     </Table.Td>
@@ -362,42 +410,78 @@ export default function UsuariosConfig() {
                             onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                         />
                     </Group>
-                    <TextInput
-                        label="Usuario (login)"
-                        value={form.username}
-                        onChange={(e) => setForm({ ...form, username: e.target.value })}
-                        disabled={!!editingId}
-                        required
-                    />
-                    <TextInput
-                        label="Correo"
-                        type="email"
-                        value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        required
-                    />
-                    <PasswordInput
-                        label={editingId ? 'Contraseña (vacío = no cambiar)' : 'Contraseña'}
-                        value={form.password}
-                        onChange={(e) => setForm({ ...form, password: e.target.value })}
-                        required={!editingId}
-                    />
+                    <Group grow>
+                        <TextInput
+                            label="Cédula de ciudadanía"
+                            value={form.documentNumber}
+                            onChange={(e) => setForm({ ...form, documentNumber: e.target.value.replace(/[^\d]/g, '') })}
+                            placeholder="Sin puntos ni comas"
+                            required
+                        />
+                        <NumberInput
+                            label="Salario"
+                            value={form.salary}
+                            onChange={(v) => setForm({ ...form, salary: v ?? '' })}
+                            min={0}
+                            step={50000}
+                            thousandSeparator="."
+                            decimalSeparator=","
+                            prefix="$ "
+                            hideControls
+                            required
+                        />
+                    </Group>
+                    {!editingId && (
+                        <Text size="xs" c="dimmed">
+                            El usuario de inicio de sesión y la contraseña temporal serán la cédula.
+                            En el primer ingreso el sistema pedirá cambiar la contraseña.
+                        </Text>
+                    )}
+                    {editingId && (
+                        <>
+                            <TextInput
+                                label="Usuario (login)"
+                                value={form.documentNumber || form.username}
+                                disabled
+                                description="Coincide con la cédula"
+                            />
+                            <TextInput
+                                label="Correo"
+                                type="email"
+                                value={form.email}
+                                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                            />
+                            <PasswordInput
+                                label="Restablecer contraseña (vacío = no cambiar)"
+                                value={form.password}
+                                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                                description="Si la restablece, el usuario deberá cambiarla al entrar"
+                            />
+                        </>
+                    )}
                     <Select
                         label="Rol"
                         data={[
                             { value: 'Administrativo', label: 'Administrativo' },
                             { value: 'Administrador', label: 'Administrador' },
+                            { value: 'Operario', label: 'Operario (planta)' },
                         ]}
                         value={form.role}
                         onChange={(v) =>
                             setForm({
                                 ...form,
                                 role: v || 'Administrativo',
-                                area: v === 'Administrador' ? '' : form.area,
-                                allowedRoutes: v === 'Administrador' ? [] : form.allowedRoutes,
+                                area: v === 'Administrativo' ? form.area : '',
+                                allowedRoutes: v === 'Administrativo' ? form.allowedRoutes : [],
                             })
                         }
                     />
+                    {form.role === 'Operario' && (
+                        <Text size="xs" c="dimmed">
+                            Los usuarios con rol Operario aparecen automáticamente como operarios en la pantalla de
+                            planta (/planta) y en el Reporte Diario. No tienen acceso a los módulos administrativos.
+                        </Text>
+                    )}
                     {form.role === 'Administrativo' && (
                         <Stack gap="xs">
                             <Select
@@ -431,13 +515,38 @@ export default function UsuariosConfig() {
                             </Group>
                         </Stack>
                     )}
-                    <Group justify="flex-end">
-                        <Button variant="default" onClick={() => setModalOpen(false)}>
-                            Cancelar
-                        </Button>
-                        <Button onClick={handleSubmit} loading={saving}>
-                            Guardar
-                        </Button>
+                    <Group justify="space-between" wrap="wrap">
+                        {editingId && !users.find((x) => x.id === editingId)?.isSystemUser ? (
+                            form.isActive === false ? (
+                                <Button
+                                    variant="light"
+                                    color="teal"
+                                    leftSection={<IconUserCheck size={16} />}
+                                    onClick={() => handleSetActive({ id: editingId, username: form.username || form.documentNumber, isSystemUser: false }, true)}
+                                >
+                                    Reactivar usuario
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="light"
+                                    color="orange"
+                                    leftSection={<IconUserOff size={16} />}
+                                    onClick={() => handleSetActive({ id: editingId, username: form.username || form.documentNumber, isSystemUser: false }, false)}
+                                >
+                                    Desactivar usuario
+                                </Button>
+                            )
+                        ) : (
+                            <span />
+                        )}
+                        <Group>
+                            <Button variant="default" onClick={() => setModalOpen(false)}>
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleSubmit} loading={saving}>
+                                Guardar
+                            </Button>
+                        </Group>
                     </Group>
                 </Stack>
             </Modal>

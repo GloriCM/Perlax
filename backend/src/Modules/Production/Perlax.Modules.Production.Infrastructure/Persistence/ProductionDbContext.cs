@@ -24,6 +24,16 @@ public class ProductionDbContext : DbContext
     public DbSet<DesignPlannerJob> DesignPlannerJobs => Set<DesignPlannerJob>();
     public DbSet<DesignPlannerActivity> DesignPlannerActivities => Set<DesignPlannerActivity>();
 
+    public DbSet<ProductionMachine> ProductionMachines => Set<ProductionMachine>();
+    public DbSet<ProductionOperator> ProductionOperators => Set<ProductionOperator>();
+    public DbSet<ProductionActivityCode> ProductionActivityCodes => Set<ProductionActivityCode>();
+    public DbSet<ProductionActivitySubcode> ProductionActivitySubcodes => Set<ProductionActivitySubcode>();
+    public DbSet<ProductionShift> ProductionShifts => Set<ProductionShift>();
+    public DbSet<ProductionWasteReason> ProductionWasteReasons => Set<ProductionWasteReason>();
+    public DbSet<ProductionSession> ProductionSessions => Set<ProductionSession>();
+    public DbSet<ProductionActivity> ProductionActivities => Set<ProductionActivity>();
+    public DbSet<ProductionWasteEntry> ProductionWasteEntries => Set<ProductionWasteEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("production");
@@ -233,6 +243,165 @@ public class ProductionDbContext : DbContext
             b.Property(x => x.Nombre).IsRequired().HasMaxLength(100);
             b.Property(x => x.Observaciones).HasMaxLength(2000);
             b.HasIndex(x => x.DesignPlannerJobId);
+        });
+
+        ConfigureDailyProduction(modelBuilder);
+    }
+
+    private static void ConfigureDailyProduction(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ProductionMachine>(b =>
+        {
+            b.ToTable("ProductionMachines");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(255);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.Code).IsUnique();
+            b.HasIndex(x => x.Name);
+        });
+
+        modelBuilder.Entity<ProductionOperator>(b =>
+        {
+            b.ToTable("ProductionOperators");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(50);
+            b.Property(x => x.DisplayName).IsRequired().HasMaxLength(255);
+            b.Property(x => x.DocumentNumber).HasMaxLength(50);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.Code).IsUnique();
+            b.HasIndex(x => x.DisplayName);
+            b.HasIndex(x => x.UserId);
+        });
+
+        modelBuilder.Entity<ProductionActivityCode>(b =>
+        {
+            b.ToTable("ProductionActivityCodes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(20);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.Code).IsUnique();
+
+            b.HasMany(x => x.Subcodes)
+                .WithOne(x => x.ActivityCode)
+                .HasForeignKey(x => x.ActivityCodeId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProductionActivitySubcode>(b =>
+        {
+            b.ToTable("ProductionActivitySubcodes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(20);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.HasIndex(x => new { x.ActivityCodeId, x.Code }).IsUnique();
+        });
+
+        modelBuilder.Entity<ProductionShift>(b =>
+        {
+            b.ToTable("ProductionShifts");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(10);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<ProductionWasteReason>(b =>
+        {
+            b.ToTable("ProductionWasteReasons");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(20);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<ProductionSession>(b =>
+        {
+            b.ToTable("ProductionSessions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.MachineCodeSnapshot).IsRequired().HasMaxLength(50);
+            b.Property(x => x.MachineNameSnapshot).IsRequired().HasMaxLength(255);
+            b.Property(x => x.OperatorCodeSnapshot).IsRequired().HasMaxLength(50);
+            b.Property(x => x.OperatorNameSnapshot).IsRequired().HasMaxLength(255);
+            b.Property(x => x.ShiftCodeSnapshot).IsRequired().HasMaxLength(10);
+            b.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            b.Property(x => x.Source).IsRequired().HasMaxLength(40);
+            b.Property(x => x.CurrentActivityCode).HasMaxLength(20);
+            b.Property(x => x.CurrentActivityName).HasMaxLength(200);
+            b.Property(x => x.CurrentOp).HasMaxLength(20);
+            b.Property(x => x.IdempotencyKey).HasMaxLength(100);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken();
+
+            b.HasIndex(x => x.OperationalDate);
+            b.HasIndex(x => new { x.MachineId, x.OperationalDate, x.Status });
+            b.HasIndex(x => new { x.OperatorId, x.OperationalDate, x.Status });
+            b.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
+
+            b.HasOne(x => x.Machine).WithMany().HasForeignKey(x => x.MachineId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Operator).WithMany().HasForeignKey(x => x.OperatorId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Shift).WithMany().HasForeignKey(x => x.ShiftId).OnDelete(DeleteBehavior.Restrict);
+
+            b.HasMany(x => x.Activities)
+                .WithOne(x => x.Session)
+                .HasForeignKey(x => x.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProductionActivity>(b =>
+        {
+            b.ToTable("ProductionActivities", t =>
+            {
+                t.HasCheckConstraint("CK_ProductionActivities_EndAfterStart", "\"EndAt\" IS NULL OR \"EndAt\" > \"StartAt\"");
+                t.HasCheckConstraint("CK_ProductionActivities_QtyNonNegative", "\"QuantityProcessed\" >= 0 AND \"Waste\" >= 0");
+            });
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.ActivityCodeSnapshot).IsRequired().HasMaxLength(20);
+            b.Property(x => x.ActivityNameSnapshot).IsRequired().HasMaxLength(200);
+            b.Property(x => x.SubcodeSnapshot).HasMaxLength(20);
+            b.Property(x => x.SubcodeDetailSnapshot).HasMaxLength(200);
+            b.Property(x => x.ProductionOrderNumber).HasMaxLength(20);
+            b.Property(x => x.QuantityProcessed).HasPrecision(18, 2);
+            b.Property(x => x.Waste).HasPrecision(18, 2);
+            b.Property(x => x.Observations).HasMaxLength(2000);
+            b.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            b.Property(x => x.IdempotencyKey).HasMaxLength(100);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+
+            b.HasIndex(x => x.SessionId);
+            b.HasIndex(x => x.OperationalDate);
+            b.HasIndex(x => x.ProductionOrderNumber);
+            b.HasIndex(x => new { x.StartAt, x.EndAt });
+            b.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
+
+            b.HasOne(x => x.ActivityCode).WithMany().HasForeignKey(x => x.ActivityCodeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Subcode).WithMany().HasForeignKey(x => x.SubcodeId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.SetNull);
+
+            b.HasMany(x => x.WasteEntries)
+                .WithOne(x => x.Activity)
+                .HasForeignKey(x => x.ActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProductionWasteEntry>(b =>
+        {
+            b.ToTable("ProductionWasteEntries");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ReasonCodeSnapshot).IsRequired().HasMaxLength(20);
+            b.Property(x => x.ReasonNameSnapshot).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Quantity).HasPrecision(18, 2);
+            b.Property(x => x.Observations).HasMaxLength(1000);
+            b.HasIndex(x => x.ActivityId);
+            b.HasOne(x => x.WasteReason).WithMany().HasForeignKey(x => x.WasteReasonId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

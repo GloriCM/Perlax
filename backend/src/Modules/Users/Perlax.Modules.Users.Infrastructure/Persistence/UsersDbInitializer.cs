@@ -66,6 +66,10 @@ public static class UsersDbInitializer
             ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "LastName" character varying(100);
             ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "Area" character varying(100);
             ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "AllowedRoutesJson" text;
+            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "DocumentNumber" character varying(30);
+            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "Salary" numeric(18,2);
+            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "MustChangePassword" boolean NOT NULL DEFAULT false;
+            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
             """);
     }
 }

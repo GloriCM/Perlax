@@ -96,7 +96,7 @@ export default function TopBar({ showMenuButton = false, menuOpened = false, onM
 
     return (
         <div className="topbar-root">
-            <Group justify="space-between" align="center" py="sm" px={4} wrap="nowrap" gap="sm">
+            <div className="topbar-grid">
                 <Group gap="sm" wrap="nowrap" className="topbar-search-group">
                     <Burger
                         className={`topbar-burger ${showMenuButton ? 'topbar-burger--visible' : ''}`}
@@ -146,7 +146,23 @@ export default function TopBar({ showMenuButton = false, menuOpened = false, onM
                         }}
                     />
                 </Group>
-                <Group gap="sm" wrap="nowrap" className="topbar-actions">
+
+                <Box
+                    px="md"
+                    py={6}
+                    className="topbar-date"
+                    style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 10,
+                    }}
+                >
+                    <Text size="sm" c="dimmed" style={{ textTransform: 'capitalize' }}>
+                        {date}
+                    </Text>
+                </Box>
+
+                <Group gap="sm" wrap="nowrap" className="topbar-actions" justify="flex-end">
                     <ActionIcon
                         variant="subtle"
                         size="lg"
@@ -169,22 +185,8 @@ export default function TopBar({ showMenuButton = false, menuOpened = false, onM
                             <IconBell size={22} stroke={1.5} />
                         </ActionIcon>
                     </Indicator>
-                    <Box
-                        px="md"
-                        py={6}
-                        className="topbar-date"
-                        style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 10,
-                        }}
-                    >
-                        <Text size="sm" c="dimmed" style={{ textTransform: 'capitalize' }}>
-                            {date}
-                        </Text>
-                    </Box>
                 </Group>
-            </Group>
+            </div>
         </div>
     );
 }

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Text.Json.Serialization;
 using Perlax.Modules.Users.Api;
 using Perlax.Modules.Audit.Api;
+using Perlax.Modules.Budgets.Api;
 using Perlax.Modules.Users.Infrastructure.Persistence;
 using Perlax.Modules.Audit.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -41,7 +42,10 @@ builder.WebHost.ConfigureKestrel(options =>
 // Add services to the container.
 builder.Services.AddProductionModule(builder.Configuration);
 builder.Services.AddUsersModule(builder.Configuration);
+// Los usuarios con rol "Operario" se exponen como operarios de planta
+builder.Services.AddScoped<Perlax.Modules.Production.Application.DailyProduction.IOperatorUserDirectory, Perlax.Web.Services.UsersOperatorDirectory>();
 builder.Services.AddAuditModule(builder.Configuration);
+builder.Services.AddBudgetsModule(builder.Configuration);
 
 // --- JWT AUTHENTICATION ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -124,6 +128,9 @@ builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = 104_857_600;
 });
 
+builder.Services.Configure<Perlax.Modules.Production.Api.Controllers.PlantaOptions>(
+    builder.Configuration.GetSection(Perlax.Modules.Production.Api.Controllers.PlantaOptions.SectionName));
+
 builder.Services.AddControllers(options =>
     {
         options.Filters.Add(new AuthorizeFilter(
@@ -131,6 +138,10 @@ builder.Services.AddControllers(options =>
                 .RequireAuthenticatedUser()
                 .Build()));
     })
+    .AddApplicationPart(typeof(Perlax.Modules.Production.Api.Controllers.PlantaController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Users.Api.Controllers.AuthController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Audit.Api.Controllers.AuditLogsController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Budgets.Api.Controllers.BudgetsController).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
@@ -158,6 +169,11 @@ try
         await productionContext.Database.MigrateAsync();
         await Perlax.Modules.Production.Infrastructure.Persistence.CotizadorDbSeeder.SeedAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.DesignPlannerDbSeeder.SeedAsync(productionContext);
+        await Perlax.Modules.Production.Infrastructure.Persistence.DailyProductionDbSeeder.SeedAsync(productionContext);
+
+        var budgetsContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbContext>();
+        await budgetsContext.Database.MigrateAsync();
+        await Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbSeeder.SeedAsync(budgetsContext);
     }
 }
 catch (Exception ex)
@@ -239,5 +255,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<InternalChatHub>("/hubs/internal-chat");
+app.MapHub<ProductionFloorHub>(ProductionFloorHub.HubPath);
 
 app.Run();

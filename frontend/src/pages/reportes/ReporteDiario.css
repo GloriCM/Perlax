@@ -1,0 +1,48 @@
+/* Reporte Diario - estetica glass alineada al proyecto */
+
+.reporte-diario .glass-card:hover {
+  transform: none;
+}
+
+.reporte-diario-table-wrap {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reporte-diario-segmented .mantine-SegmentedControl-root {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reporte-diario-segmented .mantine-SegmentedControl-label {
+  color: #94a3b8;
+}
+
+.reporte-diario-segmented .mantine-SegmentedControl-label[data-active] {
+  color: #fff;
+}
+
+/* Tabla de captura: columnas redimensionables arrastrando el borde del encabezado */
+.reporte-diario-capture-table th {
+  resize: horizontal;
+  overflow: hidden;
+  min-width: 36px;
+  position: relative;
+}
+
+.reporte-diario-capture-table th::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: rgba(148, 163, 184, 0.25);
+  pointer-events: none;
+}
+
+.reporte-diario-capture-table td {
+  overflow: hidden;
+}

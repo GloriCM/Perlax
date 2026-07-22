@@ -18,6 +18,10 @@ export default function ProtectedRoute({ children }) {
             return <Navigate to="/login" replace />;
         }
 
+        if (user.mustChangePassword || user.MustChangePassword) {
+            return <Navigate to="/login" replace />;
+        }
+
         // Decodificamos el payload del JWT para validar la fecha de expiración
         const jwt = user.token || user.Token;
         const payloadBase64 = jwt.split('.')[1];

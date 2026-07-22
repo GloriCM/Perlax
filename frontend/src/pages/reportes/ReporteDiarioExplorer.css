@@ -1,0 +1,129 @@
+.rd-explorer {
+    width: 100%;
+    color: #e2e8f0;
+}
+
+.rd-explorer-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.rd-explorer-list {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 12px;
+    position: sticky;
+    top: 8px;
+}
+
+.rd-session-card {
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    background: rgba(15, 23, 42, 0.65) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.rd-session-card:hover {
+    border-color: rgba(96, 165, 250, 0.45) !important;
+}
+
+.rd-session-card.active {
+    border-color: rgba(59, 130, 246, 0.7) !important;
+    background: rgba(30, 58, 138, 0.35) !important;
+}
+
+.rd-session-card .rd-session-card__meta {
+    color: #94a3b8;
+}
+
+.rd-session-card .rd-session-card__stats {
+    color: #cbd5e1;
+}
+
+.rd-explorer-detail {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    min-height: 420px;
+}
+
+.rd-explorer-detail .rd-kpi {
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+}
+
+.rd-explorer-detail .rd-kpi__label {
+    color: #94a3b8;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.rd-explorer-detail .rd-kpi__value {
+    color: #f1f5f9;
+    font-weight: 700;
+    font-size: 1.15rem;
+}
+
+.rd-explorer-detail .rd-section-title {
+    color: #e2e8f0;
+}
+
+.rd-explorer .rd-explorer-subtitle {
+    color: #94a3b8;
+}
+
+.rd-explorer-detail .rd-detail-subtitle {
+    color: #94a3b8;
+}
+
+.rd-explorer-detail .rd-detail-origin {
+    color: #64748b;
+}
+
+.rd-explorer-table-wrap {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.rd-explorer-detail table thead th {
+    background: rgba(15, 23, 42, 0.95);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.rd-explorer-detail table tbody td {
+    color: #e2e8f0;
+    font-size: 12px;
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+.rd-explorer-detail table tbody tr:nth-of-type(odd) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.rd-explorer-empty {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    color: #94a3b8;
+    text-align: center;
+    padding: 24px;
+}
+
+@media (max-width: 960px) {
+    .rd-explorer-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rd-explorer-list {
+        position: static;
+        max-height: 320px;
+    }
+}

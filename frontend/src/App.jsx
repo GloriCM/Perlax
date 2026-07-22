@@ -1,4 +1,6 @@
 import { MantineProvider, Box, Title, Text } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
+import '@mantine/notifications/styles.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { theme } from './theme';
@@ -58,11 +60,14 @@ import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
 import SstPresupuesto from './pages/presupuesto/sst/SstPresupuesto';
 import PlaneacionPresupuesto from './pages/presupuesto/planeacion/PlaneacionPresupuesto';
 import DisenoPresupuesto from './pages/presupuesto/diseño/DisenoPresupuesto';
+import PresupuestoGeneral from './pages/presupuestos/PresupuestoGeneral';
+import PresupuestoDetalle from './pages/presupuestos/PresupuestoDetalle';
 import EquiposMantenimiento from './pages/mantenimiento_equipos/equipos/EquiposMantenimiento';
 import EncuestasCalidad from './pages/calidad/EncuestasCalidad';
 import ReporteNC from './pages/calidad/ReporteNC';
 import ConsolidadoNC from './pages/calidad/ConsolidadoNC';
 import PlanesAccion from './pages/calidad/PlanesAccion';
+import ReporteDiario from './pages/reportes/ReporteDiario';
 import GastosDiseno from './pages/diseno/gastos/GastosDiseno';
 import GraficasDiseno from './pages/diseno/gastos/GraficasDiseno';
 import RubrosDiseno from './pages/diseno/gastos/RubrosDiseno';
@@ -100,6 +105,7 @@ import './App.css';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ChatCenter from './pages/chat/ChatCenter';
 import CotizadorCatalogos from './pages/ajustes/CotizadorCatalogos.jsx';
+import PlantaFloorPage from './pages/planta/PlantaFloorPage';
 
 function App() {
   // --- SESSION SECURITY: Inactivity Timeout ---
@@ -110,6 +116,8 @@ function App() {
     const resetTimer = () => {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
+        // Vista planta: sin sesión ERP; no forzar /login
+        if (window.location.pathname.startsWith('/planta')) return;
         // Only logout if there is an active session
         if (localStorage.getItem('user')) {
           console.warn('Sesión cerrada por inactividad');
@@ -137,10 +145,12 @@ function App() {
 
   return (
     <MantineProvider theme={theme} defaultColorScheme="dark">
+      <Notifications position="top-right" zIndex={4000} />
       <AppErrorBoundary>
         <BrowserRouter>
           <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/planta" element={<PlantaFloorPage />} />
 
           {/* Internal Routes protected by login */}
           <Route path="/" element={
@@ -165,6 +175,7 @@ function App() {
             <Route path="/pedidos/nuevo" element={<NuevoPedido />} />
             <Route path="/pedidos/nuevo/:id" element={<NuevoPedido />} />
             <Route path="/pedidos/informe" element={<InformePedidos />} />
+            <Route path="/reporte-diario" element={<ReporteDiario />} />
             <Route path="/chat" element={<ChatCenter />} />
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
@@ -208,12 +219,14 @@ function App() {
             <Route path="/diseno/planeador" element={<PlaneadorDiseno />} />
 
             {/* Presupuestos */}
+            <Route path="/presupuestos" element={<PresupuestoGeneral />} />
             <Route path="/presupuestos/talleres" element={<TalleresPresupuesto />} />
             <Route path="/presupuestos/produccion" element={<ProduccionPresupuesto />} />
             <Route path="/presupuestos/gestion-humana" element={<GhumanaPresupuesto />} />
             <Route path="/presupuestos/sst" element={<SstPresupuesto />} />
             <Route path="/presupuestos/planeacion" element={<PlaneacionPresupuesto />} />
             <Route path="/presupuestos/diseno" element={<DisenoPresupuesto />} />
+            <Route path="/presupuestos/:id" element={<PresupuestoDetalle />} />
 
             {/* Mantenimiento */}
             <Route path="/mantenimiento/hojas-vida-maquinaria/hojas-de-vida" element={<HojasDeVidaMaquinariaView />} />

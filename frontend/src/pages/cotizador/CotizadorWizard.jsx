@@ -11,7 +11,6 @@ import {
     Select,
     NumberInput,
     Checkbox,
-    SimpleGrid,
     Table,
     Alert,
     Autocomplete,
@@ -43,6 +42,7 @@ import {
     getPrimaryResult,
     toInputNumber,
 } from './cotizadorHelpers';
+import './CotizadorWizard.css';
 
 export default function CotizadorWizard() {
     const navigate = useNavigate();
@@ -315,7 +315,7 @@ export default function CotizadorWizard() {
     );
 
     const renderStep1 = () => (
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+        <div className="cotizador-wizard-grid">
             <Select
                 label="Tipo de producto"
                 data={['Caja', 'Bolsa']}
@@ -361,7 +361,7 @@ export default function CotizadorWizard() {
                 required
                 error={errors.partName}
             />
-        </SimpleGrid>
+        </div>
     );
 
     const renderStep2 = () => (
@@ -369,7 +369,7 @@ export default function CotizadorWizard() {
             <Text size="sm" c="dimmed">
                 Seleccione las medidas del pliego en milímetros, la cabida y el material del papel / cartón.
             </Text>
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <NumberInput
                     label="Medida del pliego — Largo (mm)"
                     value={toInputNumber(form.largoMm)}
@@ -439,7 +439,7 @@ export default function CotizadorWizard() {
                     required
                     error={errors.precioMaterialM2}
                 />
-            </SimpleGrid>
+            </div>
         </Stack>
     );
 
@@ -447,7 +447,7 @@ export default function CotizadorWizard() {
         <Stack gap="md">
             <Text size="sm" c="dimmed">Impresión, barniz y terminados para la cotización.</Text>
             {sectionTitle('Impresión')}
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <Select
                     label="Máquina impresora"
                     placeholder="Seleccione impresora"
@@ -506,9 +506,9 @@ export default function CotizadorWizard() {
                     hideControls
                     min={1}
                 />
-            </SimpleGrid>
+            </div>
             {sectionTitle('Barniz')}
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <Select
                     label="Tipo de barniz"
                     placeholder="Seleccione tipo"
@@ -528,9 +528,9 @@ export default function CotizadorWizard() {
                     min={0}
                     decimalScale={4}
                 />
-            </SimpleGrid>
+            </div>
             {sectionTitle('Terminados')}
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <TextInput
                     label="Nombre del terminado"
                     placeholder="Ej: Laminado mate"
@@ -545,7 +545,7 @@ export default function CotizadorWizard() {
                     min={0}
                     prefix="$ "
                 />
-            </SimpleGrid>
+            </div>
         </Stack>
     );
 
@@ -553,7 +553,7 @@ export default function CotizadorWizard() {
         <Stack gap="md">
             <Text size="sm" c="dimmed">Micro/flauta y cordón de la pieza.</Text>
             {sectionTitle('Micro / Flauta')}
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <Select
                     label="Tipo micro/flauta"
                     placeholder="Seleccione del catálogo o deje manual"
@@ -583,9 +583,9 @@ export default function CotizadorWizard() {
                     min={0}
                     prefix="$ "
                 />
-            </SimpleGrid>
+            </div>
             {sectionTitle('Cordón')}
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <TextInput
                     label="Tipo de cordón"
                     placeholder="Ej: Cordón negro 3mm"
@@ -607,7 +607,7 @@ export default function CotizadorWizard() {
                     min={0}
                     prefix="$ "
                 />
-            </SimpleGrid>
+            </div>
         </Stack>
     );
 
@@ -615,7 +615,7 @@ export default function CotizadorWizard() {
         <Stack gap="md">
             <Text size="sm" c="dimmed">Refuerzos y ventanillas (solo bolsa).</Text>
             {sectionTitle('Refuerzos')}
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <NumberInput
                     label="Número de refuerzos"
                     value={toInputNumber(form.numeroRefuerzos)}
@@ -623,9 +623,9 @@ export default function CotizadorWizard() {
                     hideControls
                     min={0}
                 />
-            </SimpleGrid>
+            </div>
             {sectionTitle('Ventanillas')}
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <div className="cotizador-wizard-grid">
                 <NumberInput
                     label="Ancho ventanilla (cm)"
                     value={toInputNumber(form.anchoVentanilla)}
@@ -640,7 +640,7 @@ export default function CotizadorWizard() {
                     hideControls
                     min={0}
                 />
-            </SimpleGrid>
+            </div>
         </Stack>
     );
 
@@ -663,7 +663,7 @@ export default function CotizadorWizard() {
             <Text size="sm" c="dimmed">
                 Cantidades a cotizar. Marque la cantidad principal para resaltar en el resumen.
             </Text>
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+            <div className="cotizador-wizard-grid-qty">
                 {form.quantities.map((qty, index) => (
                     <Stack key={index} gap="xs">
                         <NumberInput
@@ -686,7 +686,7 @@ export default function CotizadorWizard() {
                         />
                     </Stack>
                 ))}
-            </SimpleGrid>
+            </div>
         </Stack>
     );
 
@@ -694,7 +694,7 @@ export default function CotizadorWizard() {
         <Stack gap="md">
             <Text size="sm" c="dimmed">Procesos de máquina y contrato de servicios por unidad.</Text>
             {sectionTitle('Procesos')}
-            <SimpleGrid cols={{ base: 2, sm: 4 }}>
+            <div className="cotizador-wizard-grid-servicios">
                 {SERVICIO_OPTIONS.map(({ key, label }) => (
                     <Checkbox
                         key={key}
@@ -707,7 +707,7 @@ export default function CotizadorWizard() {
                         }
                     />
                 ))}
-            </SimpleGrid>
+            </div>
             {sectionTitle('Contrato de servicios')}
             <NumberInput
                 label="Valor contrato servicios (por unidad)"
@@ -766,7 +766,7 @@ export default function CotizadorWizard() {
             {calcResult?.results?.length > 0 && (
                 <>
                     <Title order={5} c="white">Precios por cantidad</Title>
-                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+                    <div className="cotizador-wizard-grid-resultados">
                         {calcResult.results.map((r) => (
                             <Card key={r.quantity} withBorder p="sm" className="glass-card">
                                 <Group justify="space-between" mb="xs">
@@ -779,7 +779,7 @@ export default function CotizadorWizard() {
                                 <Text size="sm" c="dimmed">Al 5: ${formatMoney(r.precioAl5)}</Text>
                             </Card>
                         ))}
-                    </SimpleGrid>
+                    </div>
                 </>
             )}
 
@@ -845,24 +845,30 @@ export default function CotizadorWizard() {
     }
 
     return (
-        <Stack p="md" gap="lg">
+        <Stack p="md" gap="lg" className="cotizador-wizard">
             <Group justify="space-between">
                 <Button variant="subtle" leftSection={<IconArrowLeft size={16} />} onClick={() => navigate('/cotizador')}>
                     Volver
                 </Button>
                 <Title order={3} c="white">{id ? 'Editar' : 'Nueva'} cotización</Title>
             </Group>
-            <Card className="glass-card">
-                <Stepper active={active} onStepClick={handleStepClick}>
-                    {stepIds.map((sid) => (
-                        <Stepper.Step key={sid} label={`Paso ${sid}`} description={STEP_LABELS[sid]} />
-                    ))}
-                </Stepper>
-                <Stack mt="xl">
+            <Card className="glass-card cotizador-wizard-card">
+                <div className="cotizador-wizard-stepper">
+                    <Stepper active={active} onStepClick={handleStepClick} size="sm" iconSize={28}>
+                        {stepIds.map((sid, index) => (
+                            <Stepper.Step
+                                key={sid}
+                                label={`Paso ${index + 1}`}
+                                description={STEP_LABELS[sid]}
+                            />
+                        ))}
+                    </Stepper>
+                </div>
+                <Stack mt="md" gap="md">
                     <Title order={4} c="white">{STEP_LABELS[currentStepId]}</Title>
                     {renderStep()}
                 </Stack>
-                <Group justify="space-between" mt="xl">
+                <Group justify="space-between" mt="md">
                     <Button variant="default" disabled={active === 0} onClick={() => setActive((a) => Math.max(0, a - 1))}>
                         Anterior
                     </Button>
