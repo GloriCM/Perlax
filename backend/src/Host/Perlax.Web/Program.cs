@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 using Perlax.Modules.Users.Api;
 using Perlax.Modules.Audit.Api;
 using Perlax.Modules.Budgets.Api;
+using Perlax.Modules.Almacen.Api;
+using Perlax.Modules.Almacen.Infrastructure.Persistence;
 using Perlax.Modules.Users.Infrastructure.Persistence;
 using Perlax.Modules.Audit.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +48,7 @@ builder.Services.AddUsersModule(builder.Configuration);
 builder.Services.AddScoped<Perlax.Modules.Production.Application.DailyProduction.IOperatorUserDirectory, Perlax.Web.Services.UsersOperatorDirectory>();
 builder.Services.AddAuditModule(builder.Configuration);
 builder.Services.AddBudgetsModule(builder.Configuration);
+builder.Services.AddAlmacenModule(builder.Configuration);
 
 // --- JWT AUTHENTICATION ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -142,6 +145,7 @@ builder.Services.AddControllers(options =>
     .AddApplicationPart(typeof(Perlax.Modules.Users.Api.Controllers.AuthController).Assembly)
     .AddApplicationPart(typeof(Perlax.Modules.Audit.Api.Controllers.AuditLogsController).Assembly)
     .AddApplicationPart(typeof(Perlax.Modules.Budgets.Api.Controllers.BudgetsController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Almacen.Api.Controllers.AlmacenController).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
@@ -174,6 +178,9 @@ try
         var budgetsContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbContext>();
         await budgetsContext.Database.MigrateAsync();
         await Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbSeeder.SeedAsync(budgetsContext);
+
+        var almacenContext = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        await AlmacenDbInitializer.InitializeAsync(almacenContext);
     }
 }
 catch (Exception ex)

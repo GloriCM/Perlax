@@ -13,7 +13,7 @@ public sealed class PlantaOptions
 {
     public const string SectionName = "Planta";
 
-    /// <summary>Si false, /planta y /api/planta/* no operan (host público).</summary>
+    /// <summary>Si false, desactiva solo /api/planta/* (el resto del ERP no se ve afectado).</summary>
     public bool Enabled { get; set; }
 
     /// <summary>CIDRs LAN permitidos (ej. 192.168.0.0/16).</summary>
@@ -93,6 +93,14 @@ public sealed class PlantaController : ControllerBase
 
     internal static IPAddress? ResolveClientIp(HttpContext context)
     {
+        // Cloudflare envía la IP real del cliente (preferida tras el WAF).
+        var cfConnectingIp = context.Request.Headers["CF-Connecting-IP"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(cfConnectingIp)
+            && IPAddress.TryParse(cfConnectingIp.Trim(), out var cfIp))
+        {
+            return Normalize(cfIp);
+        }
+
         var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(forwarded))
         {

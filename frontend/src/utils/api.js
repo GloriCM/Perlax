@@ -56,14 +56,29 @@ async function readErrorMessage(response) {
 
     try {
         const parsed = JSON.parse(errorText);
-        if (typeof parsed === 'string') return parsed;
-        if (parsed?.message) return parsed.message;
-        if (parsed?.title) return parsed.title;
+        if (typeof parsed === 'string') return summarizeErrorMessage(parsed);
+        if (parsed?.message) return summarizeErrorMessage(parsed.message);
+        if (parsed?.title) return summarizeErrorMessage(parsed.title);
     } catch {
         // Respuesta en texto plano del backend
     }
 
-    return errorText.replace(/^"+|"+$/g, '');
+    return summarizeErrorMessage(errorText.replace(/^"+|"+$/g, ''));
+}
+
+function summarizeErrorMessage(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return 'Error en la petición';
+
+    const exceptionMatch = raw.match(/System\.[\w.]+Exception:\s*(.+)/);
+    if (exceptionMatch?.[1]) {
+        return exceptionMatch[1].split('\n')[0].trim();
+    }
+
+    const firstLine = raw.split('\n').map((line) => line.trim()).find(Boolean);
+    if (firstLine && firstLine.length <= 220) return firstLine;
+
+    return `${(firstLine || raw).slice(0, 220)}...`;
 }
 
 export const api = {

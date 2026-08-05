@@ -9,7 +9,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
 import ModulePage from './pages/ModulePage';
-import Requisicion from './pages/compras/Requisicion';
 import NuevaOT from './pages/ordenes/NuevaOT';
 import ListaOT from './pages/ordenes/ListaOT';
 import PlanesDiseno from './pages/ordenes/PlanesDiseno';
@@ -106,6 +105,10 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import ChatCenter from './pages/chat/ChatCenter';
 import CotizadorCatalogos from './pages/ajustes/CotizadorCatalogos.jsx';
 import PlantaFloorPage from './pages/planta/PlantaFloorPage';
+import RequisicionPage from './pages/compras/requisicion/RequisicionPage';
+import PedidosPage from './pages/compras/pedidos/PedidosPage';
+import RecepcionPage from './pages/compras/recepcion/RecepcionPage';
+import IndicadoresPage from './pages/compras/indicadores/IndicadoresPage';
 
 function App() {
   // --- SESSION SECURITY: Inactivity Timeout ---
@@ -161,7 +164,11 @@ function App() {
             <Route index element={<DashboardPage />} />
 
             {/* Specific Modular Routes FIRST */}
-            <Route path="/compras/requisicion" element={<Requisicion />} />
+            <Route path="/compras/requisicion" element={<RequisicionPage />} />
+            <Route path="/compras/pedidos" element={<PedidosPage />} />
+            <Route path="/compras/recepcion" element={<RecepcionPage />} />
+            <Route path="/compras/indicadores" element={<IndicadoresPage />} />
+            <Route path="/almacen" element={<Navigate to="/compras/requisicion" replace />} />
             <Route path="/ordenes/nueva" element={<NuevaOT />} />
             <Route path="/ordenes/lista" element={<ListaOT />} />
             <Route path="/ordenes/planes-diseno" element={<PlanesDiseno />} />

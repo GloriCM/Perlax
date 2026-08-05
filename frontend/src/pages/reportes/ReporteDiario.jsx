@@ -471,7 +471,7 @@ export default function ReporteDiario() {
 
         if (!silent) {
             if (catalogError && reportError) {
-                notifications.show({
+            notifications.show({
                     title: 'Sin conexión al servidor',
                     message: 'No se pudieron cargar catálogos ni reportes. Verifique el backend.',
                     color: 'red',
@@ -1316,11 +1316,11 @@ export default function ReporteDiario() {
                             : 'Perspectiva de operario: un trabajador en una o varias máquinas. El operario va arriba y la máquina en cada fila.'}
                     </Text>
 
-                    <SimpleGrid cols={{ base: 1, sm: 3 }}>
-                        <Card className="glass-card" p="md"><Text c="dimmed" size="xs">Procesos cargados</Text><Title order={3} c="white">{totals.processes}</Title></Card>
-                        <Card className="glass-card" p="md"><Text c="dimmed" size="xs">Horas acumuladas</Text><Title order={3} c="white">{totals.hours.toFixed(2)}</Title></Card>
-                        <Card className="glass-card" p="md"><Text c="dimmed" size="xs">Cantidad total</Text><Title order={3} c="white">{totals.quantity.toLocaleString()}</Title></Card>
-                    </SimpleGrid>
+            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                <Card className="glass-card" p="md"><Text c="dimmed" size="xs">Procesos cargados</Text><Title order={3} c="white">{totals.processes}</Title></Card>
+                <Card className="glass-card" p="md"><Text c="dimmed" size="xs">Horas acumuladas</Text><Title order={3} c="white">{totals.hours.toFixed(2)}</Title></Card>
+                <Card className="glass-card" p="md"><Text c="dimmed" size="xs">Cantidad total</Text><Title order={3} c="white">{totals.quantity.toLocaleString()}</Title></Card>
+            </SimpleGrid>
 
                     <Group grow align="flex-end">
                         <DateInput
@@ -1533,13 +1533,13 @@ export default function ReporteDiario() {
                                                     />
                                                 ) : (
                                                     <Autocomplete
-                                                        data={machineOptions}
-                                                        value={row.machineName}
-                                                        onChange={(value) => updateProcessCell(idx, 'machineName', value || '')}
+                                                    data={machineOptions}
+                                                    value={row.machineName}
+                                                    onChange={(value) => updateProcessCell(idx, 'machineName', value || '')}
                                                         placeholder="Máquina"
-                                                        size="xs"
+                                                    size="xs"
                                                         styles={inputStyles}
-                                                    />
+                                                />
                                                 )}
                                             </Table.Td>
                                             <Table.Td>
@@ -1599,11 +1599,11 @@ export default function ReporteDiario() {
                                             </Table.Td>
                                             <Table.Td>
                                                 {isProductionCode(row.processCode) ? (
-                                                    <NumberInput
-                                                        value={row.quantityProcessed}
-                                                        min={0}
-                                                        onChange={(value) => updateProcessCell(idx, 'quantityProcessed', Number(value || 0))}
-                                                        size="xs"
+                                                <NumberInput
+                                                    value={row.quantityProcessed}
+                                                    min={0}
+                                                    onChange={(value) => updateProcessCell(idx, 'quantityProcessed', Number(value || 0))}
+                                                    size="xs"
                                                         styles={inputStyles}
                                                     />
                                                 ) : (
@@ -1656,12 +1656,12 @@ export default function ReporteDiario() {
                         <Group>
                             {records.length > 0 && (
                                 <Group gap={4}>
-                                    <ActionIcon variant="light" onClick={goToFirst}><IconChevronsLeft size={16} /></ActionIcon>
-                                    <ActionIcon variant="light" onClick={goPrev}><IconArrowLeft size={16} /></ActionIcon>
-                                    <Badge variant="light">{recordIndex >= 0 ? `${recordIndex + 1} / ${records.length}` : `0 / ${records.length}`}</Badge>
-                                    <ActionIcon variant="light" onClick={goNext}><IconArrowRight size={16} /></ActionIcon>
-                                    <ActionIcon variant="light" onClick={goToLast}><IconChevronsRight size={16} /></ActionIcon>
-                                </Group>
+                        <ActionIcon variant="light" onClick={goToFirst}><IconChevronsLeft size={16} /></ActionIcon>
+                        <ActionIcon variant="light" onClick={goPrev}><IconArrowLeft size={16} /></ActionIcon>
+                        <Badge variant="light">{recordIndex >= 0 ? `${recordIndex + 1} / ${records.length}` : `0 / ${records.length}`}</Badge>
+                        <ActionIcon variant="light" onClick={goNext}><IconArrowRight size={16} /></ActionIcon>
+                        <ActionIcon variant="light" onClick={goToLast}><IconChevronsRight size={16} /></ActionIcon>
+                    </Group>
                             )}
                             <Button variant="subtle" color="gray" onClick={() => setCaptureOpen(false)}>Cancelar</Button>
                             <Button variant="light" color="indigo" leftSection={<IconPlayerTrackNext size={16} />} onClick={addProcess}>Siguiente fila</Button>
@@ -1683,7 +1683,7 @@ export default function ReporteDiario() {
                                 >
                                     Agregar filas
                                 </Button>
-                            </Group>
+                </Group>
                             <Button color="indigo" leftSection={<IconDeviceFloppy size={16} />} onClick={saveReport} loading={saving}>Guardar</Button>
                         </Group>
                     </Group>
@@ -1729,17 +1729,17 @@ export default function ReporteDiario() {
 
                     <ScrollArea.Autosize mah={320} type="auto" offsetScrollbars>
                         <Table highlightOnHover verticalSpacing="xs">
-                            <Table.Thead>
-                                <Table.Tr>
+                        <Table.Thead>
+                            <Table.Tr>
                                     <Table.Th>Nombre</Table.Th>
                                     <Table.Th style={{ width: 100 }}>Acciones</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
                                 {machineItems.map((name, index) => (
                                     <Table.Tr key={`${name}-${index}`} bg={editingMachineIndex === index ? 'dark.6' : undefined}>
                                         <Table.Td>{name}</Table.Td>
-                                        <Table.Td>
+                                    <Table.Td>
                                             <Group gap={4}>
                                                 <ActionIcon
                                                     variant="subtle"
@@ -1757,18 +1757,18 @@ export default function ReporteDiario() {
                                                     <IconTrash size={16} />
                                                 </ActionIcon>
                                             </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
+                                    </Table.Td>
+                                </Table.Tr>
+                            ))}
                                 {machineItems.length === 0 && (
-                                    <Table.Tr>
+                                <Table.Tr>
                                         <Table.Td colSpan={2}>
                                             <Text c="dimmed" ta="center">No hay máquinas. Agrega la primera arriba.</Text>
                                         </Table.Td>
-                                    </Table.Tr>
-                                )}
-                            </Table.Tbody>
-                        </Table>
+                                </Table.Tr>
+                            )}
+                        </Table.Tbody>
+                    </Table>
                     </ScrollArea.Autosize>
                 </Stack>
             </Modal>
@@ -1818,7 +1818,7 @@ export default function ReporteDiario() {
                         >
                             {editingCodeIndex >= 0 ? 'Guardar cambios' : 'Añadir código'}
                         </Button>
-                    </Group>
+                </Group>
 
                     {editingCodeItem && (
                         <>

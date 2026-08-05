@@ -36,9 +36,9 @@ const WASTE_CODES = [
 
 function isPlantaFeatureEnabled() {
     const flag = String(import.meta.env.VITE_PLANTA_ENABLED ?? '').trim().toLowerCase();
-    if (flag === 'true') return true;
     if (flag === 'false') return false;
-    return Boolean(import.meta.env.DEV);
+    // Por defecto activo: la restricción de acceso es por Cloudflare + /api/planta/access.
+    return true;
 }
 
 const DEFAULT_OP = '460';
@@ -753,12 +753,12 @@ export default function PlantaFloorPage() {
         return parts.join(' | ');
     };
 
-    if (!featureOn || access === 'disabled') {
+    if (!featureOn) {
         return (
             <div className="planta-floor__gate">
                 <div>
-                    <h1>Vista de planta no disponible</h1>
-                    <p>Este módulo solo se habilita en la red interna (VITE_PLANTA_ENABLED / Planta:Enabled).</p>
+                    <h1>Vista de planta desactivada</h1>
+                    <p>Este build tiene <code>VITE_PLANTA_ENABLED=false</code>. El resto del ERP sigue disponible con normalidad.</p>
                 </div>
             </div>
         );
@@ -894,8 +894,8 @@ export default function PlantaFloorPage() {
                     <div className="planta-floor__banner-main">
                         <p className="planta-floor__timer">{timerLabel}</p>
                         <div className="planta-floor__banner-activity">
-                            <div className="planta-floor__banner-kicker">Tiempo en Curso</div>
-                            <div className="planta-floor__activity-label">ACTIVIDAD ACTUAL</div>
+                            <div className="planta-floor__banner-kicker">Tiempo En Curso</div>
+                            <div className="planta-floor__activity-label">Actividad Actual</div>
                             <p className="planta-floor__activity-name">{activityTitle}</p>
                         </div>
                     </div>

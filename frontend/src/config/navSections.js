@@ -132,12 +132,12 @@ export const navSections = [
             {
                 label: 'Compras & Almacén',
                 icon: IconShoppingCart,
-                path: '/compras',
+                path: '/compras/requisicion',
                 children: [
-                    { label: 'Requisición', icon: IconFilePlus, path: '/compras/requisicion' },
-                    { label: 'Compras', icon: IconBuildingStore, path: '/compras/compras' },
-                    { label: 'Consumos', icon: IconStack2, path: '/compras/consumos' },
-                    { label: 'Saldos de Inventario', icon: IconCalculator, path: '/compras/saldos' },
+                    { label: 'Requisición', icon: IconClipboardList, path: '/compras/requisicion' },
+                    { label: 'Pedidos', icon: IconShoppingCart, path: '/compras/pedidos' },
+                    { label: 'Recepción', icon: IconPackage, path: '/compras/recepcion' },
+                    { label: 'Indicadores', icon: IconChartBar, path: '/compras/indicadores' },
                 ],
             },
             {

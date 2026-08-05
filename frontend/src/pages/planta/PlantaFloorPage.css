@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600&display=swap');
+
 .planta-floor {
   --planta-bg: #e9f1f5;
   --planta-card: #ffffff;
@@ -210,8 +212,8 @@
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--planta-banner-from) 0%, var(--planta-banner-to) 100%);
   border-radius: 15px;
-  padding: 20px 28px;
-  min-height: 118px;
+  padding: 24px 28px;
+  min-height: 132px;
   margin-bottom: 12px;
   display: flex;
   align-items: center;
@@ -256,11 +258,11 @@
 }
 
 .planta-floor__timer {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: clamp(4.5rem, 10vw, 6.5rem);
+  font-family: 'Outfit', sans-serif;
+  font-size: 96px;
   font-weight: 300;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   line-height: 1;
   margin: 0;
   color: #ffffff;
@@ -279,19 +281,17 @@
   font-size: 0.65rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.65);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .planta-floor__activity-name {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-family: 'Nunito', 'Outfit', sans-serif;
+  font-size: 1.45rem;
+  font-weight: 600;
   margin: 4px 0 0;
   color: var(--planta-activity-gold);
-  line-height: 1.15;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
 }
 
 .planta-floor__controls {

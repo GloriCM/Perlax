@@ -1,9 +1,12 @@
 .dashboard-layout {
     display: flex;
+    align-items: stretch;
     height: 100vh;
     height: 100dvh;
     padding: 20px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
     gap: 20px;
+    box-sizing: border-box;
 }
 
 .dashboard-main {
@@ -23,6 +26,7 @@
 .dashboard-layout--mobile {
     display: block;
     padding: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
     gap: 0;
 }
 

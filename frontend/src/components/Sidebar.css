@@ -1,27 +1,28 @@
 .sidebar-wrapper {
     width: 280px;
     min-width: 280px;
-    height: calc(100vh - 40px);
+    height: auto;
+    align-self: stretch;
+    max-height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     padding: 8px 16px;
-    /* Gradiente profundo y premium que no requiere blur */
     background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 24px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
     overflow: hidden;
-    /* Máximo aislamiento para rendimiento */
     contain: layout style;
 }
 
 .sidebar-nav-container {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    /* Aceleración pura por hardware sin capas extras */
     transform: translateZ(0);
     will-change: transform;
-    contain: size layout paint;
+    contain: layout paint;
 }
 
 .sidebar-nav-container::-webkit-scrollbar {
@@ -43,6 +44,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    flex-shrink: 0;
     margin-bottom: 16px;
     padding-bottom: 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -52,15 +54,18 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 0px;
+    margin-bottom: 0;
     width: 100%;
+    min-height: 70px;
 }
 
 .sidebar-logo-img {
     height: 70px !important;
     width: auto !important;
     max-width: 180px !important;
+    min-height: 48px;
     object-fit: contain;
+    object-position: center;
     backface-visibility: hidden;
     filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
     transition: transform 0.3s ease;
@@ -96,12 +101,15 @@
 }
 
 .sidebar-footer {
-    padding-top: 1px;
+    flex-shrink: 0;
+    padding-top: 8px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     margin-top: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
 }
 
 .sidebar-footer-logo {
@@ -124,10 +132,37 @@
     width: 100%;
     min-width: 0;
     height: 100dvh;
+    max-height: 100dvh;
     border-radius: 0;
     box-shadow: none;
     contain: none;
     background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+/* Tablet / pantallas bajas: sidebar más compacto sin ocultar logo ni logout */
+@media (max-height: 820px) {
+    .sidebar-wrapper:not(.sidebar-drawer) {
+        width: 252px;
+        min-width: 252px;
+        padding: 6px 12px;
+    }
+
+    .sidebar-logo {
+        min-height: 56px;
+    }
+
+    .sidebar-logo-img {
+        height: 56px !important;
+    }
+
+    .sidebar-user-header .user-name {
+        font-size: 0.95rem;
+    }
+
+    .sidebar-footer-logo {
+        max-width: 80px;
+    }
 }
 
 .sidebar-wrapper.sidebar-drawer .sidebar-logo-img {
