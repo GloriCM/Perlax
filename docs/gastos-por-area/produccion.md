@@ -1,10 +1,41 @@
-# Gastos — Produccion
+# Gastos — Produccion (control de gastos)
 
-**Estado:** En construccion
+**Menu:** Administracion -> Produccion -> Control de Gastos
 
-Este capitulo del manual de usuario se completara proximamente.
+## Para que sirve?
 
-## Mientras tanto
+Registrar y analizar **gastos del area de produccion** (distinto del flujo del pedido al cliente).
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+## Pantallas
+
+| Pantalla | URL |
+|----------|-----|
+| Captura | `/gastos/control/captura` |
+| Graficas | `/gastos/control/graficas` |
+| Rubros | `/gastos/control/rubros` |
+| Cotizaciones | `/gastos/control/cotizaciones` |
+| Proveedores | `/gastos/control/proveedores` |
+
+## Control de personal (mismo menu Produccion)
+
+| Pantalla | URL |
+|----------|-----|
+| Horas extra | `/gastos/personal/horas-extra` |
+| Recargo | `/gastos/personal/recargo` |
+| Salarios | `/gastos/personal/salarios` |
+
+## Flujo tipico — captura
+
+1. Seleccione periodo / mes.
+2. Registre egresos por rubro.
+3. Adjunte cotizacion de proveedor si aplica.
+4. Revise graficas de tendencia.
+
+## Nota
+
+Este cuadro **no descuenta inventario de Compras & Almacen** automaticamente; es contabilidad de area.
+
+## Siguiente lectura
+
+- [Gastos por area](README.md)
+- [Compras y Almacen](../operaciones-apoyo/compras-almacen.md)

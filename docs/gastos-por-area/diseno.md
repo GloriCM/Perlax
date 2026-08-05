@@ -1,10 +1,57 @@
-# Gastos — Diseno
+# Diseno
 
-**Estado:** En construccion
+**Menu:** Administracion -> Diseno
 
-Este capitulo del manual de usuario se completara proximamente.
+## Modulos
 
-## Mientras tanto
+| Modulo | URL | Estado |
+|--------|-----|--------|
+| **Planeador de Diseno** | `/diseno/planeador` | En produccion |
+| Cuadro de gastos | `/diseno/gastos/*` | Captura por area |
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+---
+
+## Planeador de Diseno
+
+### Para que sirve?
+
+Gestiona la **cola de trabajos de diseno**: preparacion tecnica, actividades, plazos y cierre.
+
+### Flujo
+
+1. **Dashboard / Trabajos asignados** con filtros (estado, cliente, vendedor, disenador).
+2. **Anadir trabajo:** cliente, vendedor, nombre, responsable, fecha entrega.
+3. Abrir detalle del trabajo:
+   - **Preparacion tecnica**
+   - **Planeacion:** actividades (Planchas, Troquel, Muestras, Impresion digital, Arte, Expertis)
+   - **Aprobacion y cierre**
+4. Actualice actividades, marque avance, **apruebe** o **finalice**.
+
+### Estados del trabajo
+
+| Estado | Significado |
+|--------|-------------|
+| Nuevo trabajo pendiente | Recien creado |
+| En desarrollo | En ejecucion |
+| Finalizado | Cerrado |
+
+El tablero muestra **semaforo** de retrasos vs fecha entrega.
+
+### Quien lo usa?
+
+- Coordinacion de diseno
+- Disenadores
+- Comercial (alta de trabajos)
+
+---
+
+## Cuadro de gastos de diseno
+
+Misma logica que otras areas: **Captura**, **Graficas**, **Rubros**, **Cotizaciones**, **Proveedores**.
+
+Ver [Gastos por area](README.md).
+
+## Siguiente lectura
+
+- [Ordenes de trabajo](../flujo-principal/ordenes-trabajo.md)
+- [Cotizador](../flujo-principal/cotizador.md)

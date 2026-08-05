@@ -1,26 +1,69 @@
 # Usuarios y permisos
 
+**Estado:** En produccion
 **Menu:** Configuracion -> Usuarios
+**URL:** `/configuracion/usuarios`
 
 ## Para que sirve?
 
-Alta, edicion, desactivacion y asignacion de permisos por vista.
+Crear y administrar cuentas: roles, areas, vistas permitidas y estado activo/inactivo.
 
-## Roles
+## Quien lo usa?
 
-Ver [Roles del sistema](../roles-del-sistema.md).
+Solo usuarios con rol **Administrador**.
 
-## Nuevo usuario administrativo
+## Listado de usuarios
 
-1. Configuracion -> Usuarios -> Nuevo usuario.
-2. Complete datos y rol **Administrativo**.
-3. Elija **area** y marque vistas en la matriz de modulos.
-4. Guarde.
+Columnas: Nombre, Login, Correo, Rol, Estado, Area, Permisos.
 
-## Operario de planta
+| Accion | Descripcion |
+|--------|-------------|
+| Editar | Modificar datos y permisos |
+| Desactivar / Reactivar | Bloquea login sin borrar historial |
+| Nuevo usuario | Alta completa |
 
-Rol **Operario (planta)** — aparece en /planta y Reporte diario sin acceso al ERP.
+## Crear usuario
 
-## Desactivar
+### Datos basicos
 
-Desactive en lugar de borrar; el historial se conserva.
+- Nombre, apellido, documento
+- Usuario (login), correo, contrasena
+- Area (administrativos), salario si aplica
+
+### Rol
+
+| Rol | Comportamiento |
+|-----|----------------|
+| **Administrador** | Acceso total |
+| **Administrativo** | Solo vistas marcadas en matriz |
+| **Operario (planta)** | Solo `/planta` y reporte como operario |
+
+### Permisos (Administrativo)
+
+1. Elija **area**.
+2. Pulse **Seleccion de modulos y vistas**.
+3. Marque con **X** cada pantalla permitida.
+4. **Sin ninguna X** = usuario solo ve pantalla de inicio.
+
+## Operarios de planta
+
+Rol **Operario (planta)**:
+
+- Aparecen en selector de `/planta`
+- Aparecen en Reporte diario
+- **No** acceden al menu ERP
+
+## Desactivar vs eliminar
+
+**Desactivar** usuarios que dejan la empresa. El historial se conserva. **Reactive** si regresan.
+
+No elimine usuarios salvo error de alta.
+
+## Restablecer contrasena
+
+Al editar, deje contrasena vacia para no cambiarla, o ingrese nueva (usuario debera cambiarla al entrar si asi lo configuran).
+
+## Siguiente lectura
+
+- [Roles del sistema](../roles-del-sistema.md)
+- [Vista de planta](../flujo-principal/planta.md)

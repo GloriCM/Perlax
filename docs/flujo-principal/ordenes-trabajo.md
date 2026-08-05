@@ -1,10 +1,81 @@
 # Ordenes de trabajo y fichas tecnicas
 
-**Estado:** En construccion
+**Estado:** En produccion (integrado con API)
+**Menu:** Operaciones -> Ordenes de Trabajo
 
-Este capitulo del manual de usuario se completara proximamente.
+## Para que sirve?
 
-## Mientras tanto
+Registra la **Orden de Trabajo (OT)** con datos comerciales y tecnicos de diseno: piezas, sustratos, tintas, troquel, procesos y condiciones de entrega. Las fichas tecnicas se aprueban desde este flujo.
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+## Quien lo usa?
+
+- Diseno
+- Comercial (datos iniciales)
+- Produccion (consulta)
+
+## Como llegar
+
+| Pantalla | URL |
+|----------|-----|
+| Nueva OT | `/ordenes/nueva` |
+| Lista de OT | `/ordenes/lista` |
+| Planes de diseno | `/ordenes/planes-diseno` |
+| Ficha tecnica (impresion) | `/fichas/lista` |
+
+## Flujo: crear OT
+
+### Paso 1 — Validacion
+
+- Consecutivo OT (automatico o editable)
+- Cliente, ejecutivo de cuenta, fecha solicitud
+- Asignacion: Diseno / Repeticion / Otro
+- Disenador, linea PT, nombre del producto
+- El sistema valida duplicados
+
+### Paso 2 — Detalle de diseno
+
+Por cada pieza:
+
+- Sustrato, medidas, flauta, troquel
+- Tintas CMYK y especiales
+- Terminados, manija, adjuntos
+- Procesos de fabricacion
+- Condiciones: remision, certificado, factura, orden de compra cliente
+
+### Guardar
+
+Pulse **Guardar OT**. Puede llegar precargada desde **Cotizador -> Convertir a OT**.
+
+## Lista de OT
+
+| Columna | Significado |
+|---------|-------------|
+| OT | Numero de orden |
+| Cliente / Producto | Identificacion |
+| Piezas | Cantidad de piezas en la OT |
+| Estado | **Pendiente** o **Aprobada** (segun fichas tecnicas) |
+
+**Acciones:** buscar, abrir para editar, eliminar.
+
+## Estados
+
+- **Pendiente:** al menos una ficha tecnica sin aprobar.
+- **Aprobada:** todas las piezas con ficha aprobada; habilita crear **Pedido de cliente**.
+
+## Fichas tecnicas
+
+Menu **Fichas Tecnicas -> Listado**: imprima o revise fichas por pieza. La aprobacion de ficha es requisito para pedidos.
+
+## Errores frecuentes
+
+| Problema | Causa |
+|----------|-------|
+| OT duplicada | Cliente + producto ya existe |
+| No puedo pedir producto | Ficha tecnica no aprobada |
+| OT vacia al convertir | Complete paso 2 tras convertir desde cotizador |
+
+## Siguiente lectura
+
+- [Cotizador](cotizador.md)
+- [Pedidos de cliente](pedidos-cliente.md)
+- [Planeador de Diseno](../gastos-por-area/diseno.md)

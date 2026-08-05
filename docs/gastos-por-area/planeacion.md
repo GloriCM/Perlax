@@ -1,10 +1,23 @@
 # Gastos — Planeacion
 
-**Estado:** En construccion
+**Menu:** Administracion -> Planeacion -> Cuadro de Gastos (+ Personal)
 
-Este capitulo del manual de usuario se completara proximamente.
+## Pantallas de gastos
 
-## Mientras tanto
+| Pantalla | URL |
+|----------|-----|
+| Captura | `/planeacion/gastos/captura` |
+| Graficas | `/planeacion/gastos/graficas` |
+| Rubros | `/planeacion/gastos/rubros` |
+| Cotizaciones | `/planeacion/gastos/cotizaciones` |
+| Proveedores | `/planeacion/gastos/proveedores` |
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+## Personal almacen
+
+`/planeacion/personal` — gestion de personal relacionado con planeacion/almacen.
+
+## Uso
+
+Captura mensual de rubros de planeacion (insumos especiales, horas extras, etc.). Misma logica que otras areas: captura -> rubros -> reportes.
+
+Ver [Gastos por area](README.md).

@@ -1,10 +1,24 @@
-# Gastos — SST
+# Gastos — SST (Seguridad y Salud en el Trabajo)
 
-**Estado:** En construccion
+**Menu:** Administracion -> SST
 
-Este capitulo del manual de usuario se completara proximamente.
+## Cuadro de gastos
 
-## Mientras tanto
+| Pantalla | URL |
+|----------|-----|
+| Captura | `/sst/gastos/captura` |
+| Cotizaciones | `/sst/gastos/cotizaciones` |
+| Graficas | `/sst/gastos/graficas` |
+| Rubros | `/sst/gastos/rubros` |
+| Tipos de servicios | `/sst/gastos/servicios` |
+| Proveedores | `/sst/gastos/proveedores` |
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+## Orden y aseo
+
+`/sst/orden-aseo` — registro de auditorias de orden y aseo por proceso/planta.
+
+## Rubros ejemplo
+
+Capacitaciones, señalizacion, riesgo psicosocial, elementos de proteccion (segun presupuesto SST).
+
+Ver [Gastos por area](README.md).

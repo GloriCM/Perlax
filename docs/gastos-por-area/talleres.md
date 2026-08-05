@@ -1,10 +1,23 @@
 # Gastos — Talleres y despachos
 
-**Estado:** En construccion
+**Menu:** Administracion -> Talleres y Despachos
 
-Este capitulo del manual de usuario se completara proximamente.
+## Cuadro de gastos
 
-## Mientras tanto
+| Pantalla | URL |
+|----------|-----|
+| Captura | `/talleres-gastos/control/captura` |
+| Graficas | `/talleres-gastos/control/graficas` |
+| Rubros | `/talleres-gastos/control/rubros` |
+| Cotizaciones | `/talleres-gastos/control/cotizaciones` |
+| Proveedores | `/talleres-gastos/control/proveedores` |
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+## Personal
+
+| Pantalla | URL |
+|----------|-----|
+| Salarios | `/talleres-gastos/personal/salarios` |
+
+Rubros tipicos en presupuesto por area: acompanamiento, alimentacion TE, alquiler montacargas, estibas.
+
+Ver [Gastos por area](README.md).

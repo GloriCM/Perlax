@@ -1,10 +1,33 @@
-# Gastos — Mantenimiento
+# Gastos — Mantenimiento de maquinaria
 
-**Estado:** En construccion
+**Menu:** Administracion -> Mantenimiento Maquinaria
 
-Este capitulo del manual de usuario se completara proximamente.
+## Hojas de vida
 
-## Mientras tanto
+| Pantalla | URL |
+|----------|-----|
+| Hojas de vida | `/mantenimiento/hojas-vida-maquinaria/hojas-de-vida` |
+| Cronogramas | `/mantenimiento/hojas-vida-maquinaria/cronogramas` |
+| Tickets de dano | `/mantenimiento/hojas-vida-maquinaria/tickets-dano` |
+| Mantenimientos | `/mantenimiento/hojas-vida-maquinaria/mantenimientos` |
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+## Gastos de mantenimiento
+
+| Pantalla | URL |
+|----------|-----|
+| Captura | `/mantenimiento/gastos/captura` |
+| Graficas | `/mantenimiento/gastos/graficas` |
+| Rubros | `/mantenimiento/gastos/rubros` |
+| Productos | `/mantenimiento/gastos/productos` |
+| Cotizaciones | `/mantenimiento/gastos/cotizaciones` |
+| Proveedores | `/mantenimiento/gastos/proveedores` |
+
+## Inventario mantenimiento
+
+`/mantenimiento/inventario` — repuestos y consumibles de mantenimiento.
+
+## Relacion con planta
+
+Codigo de actividad **Mantenimiento** en `/planta` registra tiempo de maquina parada; gastos monetarios se capturan aqui.
+
+Ver [Gastos por area](README.md).

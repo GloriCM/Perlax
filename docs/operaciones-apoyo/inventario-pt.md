@@ -1,10 +1,28 @@
-# Inventario PT
+# Inventario PT (producto terminado)
 
-**Estado:** En construccion
+**Estado:** En desarrollo
+**Menu:** Operaciones -> Inventario PT
 
-Este capitulo del manual de usuario se completara proximamente.
+## Para que sirve? (previsto)
 
-## Mientras tanto
+Controlar **existencias** de producto terminado y **devoluciones**.
 
-- Revise [Flujo del negocio](../introduccion/flujo-del-negocio.md) para ver como encaja este modulo.
-- Consulte [Roles del sistema](../roles-del-sistema.md) si no tiene acceso al menu.
+## URLs
+
+- `/inventario/existencias`
+- `/inventario/devoluciones`
+
+## Situacion actual
+
+Entradas de menu sin formulario completo. Modulo en construccion.
+
+## Flujo objetivo
+
+1. Consultar existencias por referencia / bodega.
+2. Registrar devoluciones de cliente.
+3. Cruzar con remisiones y pedidos.
+
+## Siguiente lectura
+
+- [Pedidos de cliente](../flujo-principal/pedidos-cliente.md)
+- [Remisiones](../flujo-principal/remisiones.md)
