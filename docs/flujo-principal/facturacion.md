@@ -22,7 +22,7 @@ Flujo comercial objetivo:
 Pedido Aprobado -> Produccion -> Remision -> Facturacion -> Cartera
 ```
 
-Solo los primeros eslabones estan operativos en PerlaX hoy.
+Solo los primeros eslabones estan operativos en Perla hoy.
 
 ## Siguiente lectura
 

@@ -1,57 +1,81 @@
-# Planeacion y produccion
+# Planeación y producción
 
-**Menu:** Operaciones -> Produccion
+**Menú:** Operaciones → Producción
 
-## Para que sirve?
+## Para qué sirve
 
-Coordina la **ejecucion en planta** de los pedidos aprobados: apertura de ordenes, seguimiento de estado y panel de planeacion.
+Coordina la **ejecución en planta** de los pedidos aprobados: apertura de órdenes de producción (OP), seguimiento de estado y panel de planeación.
 
-## Importante — menu vs pantallas reales
+## Apertura de OP (disponible)
 
-Algunas entradas del submenu aun muestran pantalla generica **"en desarrollo"**:
+| Entrada del menú | URL | Estado |
+|------------------|-----|--------|
+| Apertura | `/produccion/apertura` | **Operativo** |
 
-| Entrada del menu | URL | Estado actual |
-|------------------|-----|---------------|
-| Apertura | `/produccion/apertura` | En desarrollo |
-| Estado de ordenes | `/produccion/estado-ordenes` | En desarrollo |
-| Panel planeacion | `/produccion/planeacion` | En desarrollo |
+Desde **Apertura** se listan los pedidos de cliente **aprobados** que aún no tienen fecha de apertura. Al confirmar la apertura:
 
-**La operacion real hoy se hace en:**
+1. Se asigna la **fecha de apertura**.
+2. Se puede ajustar el **% recibo mercancía** (por defecto 10 %).
+3. Se calcula la **cantidad a producir** = cantidad pedida × (1 + % recibo), redondeada hacia arriba.
+4. La OP queda en estado **Abierta** y puede usarse en requisiciones de almacén.
+
+### Formato del número OP
+
+El número sigue el criterio expertiS: **4 dígitos del pedido + espacio + 2 últimos dígitos de la OT**.
+
+Ejemplo: pedido `1234` y OT `OT-7851` → OP `1234 51`.
+
+## Otras entradas del submenú
+
+| Entrada | URL | Estado actual |
+|---------|-----|---------------|
+| Estado de órdenes | `/produccion/estado-ordenes` | En desarrollo |
+| Panel planeación | `/produccion/planeacion` | En desarrollo |
+
+## Flujo operativo recomendado
+
+```
+OT + ficha aprobada
+        |
+        v
+Pedido de cliente (con OC) → Aprobación con PV unitario
+        |
+        v
+Apertura (/produccion/apertura) → OP Abierta
+        |
+        +--> Requisición almacén (buscar OP abierta)
+        |
+        v
+Operario registra en /planta (máquina, actividad, tiros)
+        |
+        v
+Supervisor revisa /reporte-diario
+```
+
+## Pantallas complementarias
 
 | Pantalla | URL | Manual |
 |----------|-----|--------|
 | Vista de planta | `/planta` | [Vista de planta](planta.md) |
 | Reporte diario | `/reporte-diario` | [Reporte diario](reporte-diario.md) |
+| Pedidos cliente | `/pedidos/informe` | [Pedidos de cliente](pedidos-cliente.md) |
 
-## Flujo operativo recomendado
+## Planeación — gastos y personal
 
-```
-Pedido cliente Aprobado
-        |
-        v
-Operario registra en /planta (maquina, actividad, tiros)
-        |
-        v
-Supervisor revisa /reporte-diario
-        |
-        v
-Indicadores / Cuadro Master (cuando esten integrados)
-```
+En **Administración → Planeación** existen módulos de **gastos** y **personal** almacén. Ver [Gastos — Planeación](../gastos-por-area/planeacion.md).
 
-## Planeacion — gastos y personal
-
-En **Administracion -> Planeacion** existen modulos de **gastos** y **personal** almacen (captura de costos de planeacion). Ver [Gastos — Planeacion](../gastos-por-area/planeacion.md).
-
-## Quien lo usa?
+## Quién lo usa
 
 | Rol | Herramienta |
 |-----|-------------|
+| Comercial / pedidos | Pedidos cliente + aprobación |
+| Jefe producción | Apertura + reporte diario |
+| Almacén | Requisiciones con OP abierta |
 | Operario | `/planta` |
 | Supervisor | Reporte diario |
-| Jefe produccion | Reporte diario + pedidos aprobados |
 
 ## Siguiente lectura
 
+- [Pedidos de cliente](pedidos-cliente.md)
 - [Vista de planta](planta.md)
 - [Reporte diario](reporte-diario.md)
-- [Pedidos de cliente](pedidos-cliente.md)

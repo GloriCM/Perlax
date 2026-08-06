@@ -1,6 +1,6 @@
-# Manual de usuario PerlaX
+# Manual de usuario Perla
 
-Bienvenido al manual de **PerlaX** (Perla ERP): sistema de producción y gestión empresarial de Aleph Impresores.
+Bienvenido al manual de **Perla** (Perla ERP): sistema de producción y gestión empresarial de Aleph Impresores.
 
 ## Qué encontrarás aquí
 

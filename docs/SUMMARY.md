@@ -1,10 +1,10 @@
-# Manual PerlaX
+# Manual Perla
 
 * [Introducción](README.md)
 
 ## Introducción
 
-* [Qué es PerlaX](introduccion/que-es-perlax.md)
+* [Qué es Perla](introduccion/que-es-perlax.md)
 * [Flujo del negocio](introduccion/flujo-del-negocio.md)
 * [Acceso al sistema](introduccion/acceso-al-sistema.md)
 * [Roles del sistema](roles-del-sistema.md)

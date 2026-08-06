@@ -1,6 +1,6 @@
-# Diseno
+# Diseño
 
-**Menu:** Administracion -> Diseno
+**Menu:** Administracion -> Diseño
 
 ## Modulos
 
@@ -11,11 +11,11 @@
 
 ---
 
-## Planeador de Diseno
+## Planeador de Diseño
 
 ### Para que sirve?
 
-Gestiona la **cola de trabajos de diseno**: preparacion tecnica, actividades, plazos y cierre.
+Gestiona la **cola de trabajos de diseño**: preparacion tecnica, actividades, plazos y cierre.
 
 ### Flujo
 
@@ -39,8 +39,7 @@ El tablero muestra **semaforo** de retrasos vs fecha entrega.
 
 ### Quien lo usa?
 
-- Coordinacion de diseno
-- Disenadores
+- Diseñadores
 - Comercial (alta de trabajos)
 
 ---

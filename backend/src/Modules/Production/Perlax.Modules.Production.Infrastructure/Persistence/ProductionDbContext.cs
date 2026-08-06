@@ -14,6 +14,7 @@ public class ProductionDbContext : DbContext
     public DbSet<Quotation> Quotations => Set<Quotation>();
     public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
     public DbSet<CustomerOrderItem> CustomerOrderItems => Set<CustomerOrderItem>();
+    public DbSet<ManufacturingOrder> ManufacturingOrders => Set<ManufacturingOrder>();
     public DbSet<InternalChatConversation> InternalChatConversations => Set<InternalChatConversation>();
     public DbSet<InternalChatMessage> InternalChatMessages => Set<InternalChatMessage>();
     public DbSet<CotizadorMachine> CotizadorMachines => Set<CotizadorMachine>();
@@ -130,6 +131,37 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
             builder.Property(x => x.ReferenceName).IsRequired().HasMaxLength(200);
             builder.HasIndex(x => x.OrderPartId);
+        });
+
+        modelBuilder.Entity<ManufacturingOrder>(builder =>
+        {
+            builder.ToTable("ManufacturingOrders");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.OpNumber).IsRequired().HasMaxLength(20);
+            builder.Property(x => x.OrderNumber).IsRequired().HasMaxLength(20);
+            builder.Property(x => x.OtNumber).IsRequired().HasMaxLength(20);
+            builder.Property(x => x.ClientName).IsRequired().HasMaxLength(255);
+            builder.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+            builder.Property(x => x.ReferenceName).IsRequired().HasMaxLength(200);
+            builder.Property(x => x.PurchaseOrderNumber).HasMaxLength(100);
+            builder.Property(x => x.QuantityOrdered).HasPrecision(18, 2);
+            builder.Property(x => x.ReceiptPercentage).HasPrecision(5, 2);
+            builder.Property(x => x.QuantityToProduce).HasPrecision(18, 2);
+            builder.Property(x => x.ApprovedUnitPrice).HasPrecision(18, 2);
+            builder.Property(x => x.Status).IsRequired().HasMaxLength(40);
+            builder.Property(x => x.CreatedBy).HasMaxLength(255);
+            builder.Property(x => x.UpdatedBy).HasMaxLength(255);
+            builder.Property(x => x.OpenedBy).HasMaxLength(255);
+            builder.HasIndex(x => x.OpNumber).IsUnique();
+            builder.HasIndex(x => x.CustomerOrderId);
+            builder.HasIndex(x => x.OrderPartId);
+            builder.HasIndex(x => x.OpeningDate);
+            builder.HasIndex(x => new { x.CustomerOrderId, x.OrderPartId }).IsUnique();
+
+            builder.HasOne(x => x.CustomerOrder)
+                .WithMany()
+                .HasForeignKey(x => x.CustomerOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<InternalChatConversation>(builder =>

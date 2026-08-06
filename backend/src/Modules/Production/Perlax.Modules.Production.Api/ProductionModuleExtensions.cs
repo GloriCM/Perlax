@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Production.Application.DailyProduction;
+using Perlax.Modules.Production.Application.Manufacturing;
 using Perlax.Modules.Production.Infrastructure.Cotizador;
 using Perlax.Modules.Production.Infrastructure.Persistence;
 using Perlax.Modules.Production.Infrastructure.Services;
@@ -19,6 +20,7 @@ public static class ProductionModuleExtensions
 
         services.AddScoped<CotizadorCalculator>();
         services.AddScoped<IDailyProductionService, DailyProductionService>();
+        services.AddScoped<IManufacturingOrderSyncService, ManufacturingOrderSyncService>();
 
         return services;
     }

@@ -30,15 +30,15 @@ Planifica ingresos y costos por **empresa**, **ano fiscal** y **unidad de negoci
 
 ### Listado
 
-Filtre por empresa, ano fiscal y estado. Cree nuevo presupuesto con:
+Filtre por empresa, año fiscal y estado. Cree nuevo presupuesto con:
 
 - Empresa, vigencia, moneda
 - Centro de costos, unidad de negocio
 - Observaciones
 
-### Detalle — pestanas
+### Detalle — pestañas
 
-| Pestana | Contenido |
+| Pestaña | Contenido |
 |---------|-----------|
 | Lineas | Ingresos, materia prima, costos produccion, gastos admin/ventas/financieros |
 | Unidades de negocio | Desglose por U.N. |

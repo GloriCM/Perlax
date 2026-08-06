@@ -31,7 +31,7 @@ Use este modulo como **referencia de proceso** hasta integracion completa.
 
 ## Filtros (encuestas)
 
-Mes, ano, dia, maquina, proceso, estatus, tipo de defecto.
+Mes, año, dia, maquina, proceso, estatus, tipo de defecto.
 
 ## Relacion con produccion
 

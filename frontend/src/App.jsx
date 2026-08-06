@@ -29,6 +29,8 @@ import ProveedoresGastos from './pages/produccion/ProveedoresGastos';
 import HorasExtra from './pages/produccion/HorasExtra';
 import Recargos from './pages/produccion/Recargos';
 import Salarios from './pages/produccion/Salarios';
+import AperturaProduccion from './pages/produccion/AperturaProduccion';
+import DetalleOpPage from './pages/produccion/DetalleOpPage';
 
 // Talleres y Despachos Wrappers
 import GastosTalleres from './pages/talleres/gastos/GastosTalleres';
@@ -183,6 +185,8 @@ function App() {
             <Route path="/pedidos/nuevo/:id" element={<NuevoPedido />} />
             <Route path="/pedidos/informe" element={<InformePedidos />} />
             <Route path="/reporte-diario" element={<ReporteDiario />} />
+            <Route path="/produccion/apertura" element={<AperturaProduccion />} />
+            <Route path="/produccion/op/:id" element={<DetalleOpPage />} />
             <Route path="/chat" element={<ChatCenter />} />
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />

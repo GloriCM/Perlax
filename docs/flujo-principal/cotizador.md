@@ -11,7 +11,7 @@ Permite cotizar productos tipo **Caja** o **Bolsa** paso a paso, guardar cotizac
 
 - Comercial / ventas
 - Ejecutivos de cuenta
-- Diseno (cuando retoman una cotizacion vinculada a OT)
+- Diseño (cuando retoman una cotizacion vinculada a OT)
 
 ## Como llegar
 

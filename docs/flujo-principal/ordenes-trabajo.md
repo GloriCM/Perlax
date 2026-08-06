@@ -5,11 +5,11 @@
 
 ## Para que sirve?
 
-Registra la **Orden de Trabajo (OT)** con datos comerciales y tecnicos de diseno: piezas, sustratos, tintas, troquel, procesos y condiciones de entrega. Las fichas tecnicas se aprueban desde este flujo.
+Registra la **Orden de Trabajo (OT)** con datos comerciales y tecnicos de diseño: piezas, sustratos, tintas, troquel, procesos y condiciones de entrega. Las fichas tecnicas se aprueban desde este flujo.
 
 ## Quien lo usa?
 
-- Diseno
+- Diseño
 - Comercial (datos iniciales)
 - Produccion (consulta)
 
@@ -28,8 +28,8 @@ Registra la **Orden de Trabajo (OT)** con datos comerciales y tecnicos de diseno
 
 - Consecutivo OT (automatico o editable)
 - Cliente, ejecutivo de cuenta, fecha solicitud
-- Asignacion: Diseno / Repeticion / Otro
-- Disenador, linea PT, nombre del producto
+- Asignacion: Diseño / Repeticion / Otro
+- Diseñador, linea PT, nombre del producto
 - El sistema valida duplicados
 
 ### Paso 2 — Detalle de diseno

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Audit.Application.Abstractions;
+using Perlax.Modules.Production.Application.Manufacturing;
 using Perlax.Modules.Production.Domain.Entities;
 using Perlax.Modules.Production.Infrastructure.Persistence;
 
@@ -14,11 +15,16 @@ public class CustomerOrdersController : ControllerBase
 {
     private readonly ProductionDbContext _context;
     private readonly IAuditService _auditService;
+    private readonly IManufacturingOrderSyncService _manufacturingSync;
 
-    public CustomerOrdersController(ProductionDbContext context, IAuditService auditService)
+    public CustomerOrdersController(
+        ProductionDbContext context,
+        IAuditService auditService,
+        IManufacturingOrderSyncService manufacturingSync)
     {
         _context = context;
         _auditService = auditService;
+        _manufacturingSync = manufacturingSync;
     }
 
     [HttpGet("available-products")]
@@ -143,6 +149,8 @@ public class CustomerOrdersController : ControllerBase
         _context.CustomerOrders.Add(entity);
         await _context.SaveChangesAsync();
 
+        await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.CreatedBy);
+
         await _auditService.LogAsync(
             User.Identity?.Name,
             User.Identity?.Name,
@@ -179,6 +187,8 @@ public class CustomerOrdersController : ControllerBase
         entity.Items = request.Items.Select(MapItem).ToList();
 
         await _context.SaveChangesAsync();
+
+        await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.UpdatedBy);
 
         await _auditService.LogAsync(
             User.Identity?.Name,
@@ -217,6 +227,8 @@ public class CustomerOrdersController : ControllerBase
         entity.UpdatedBy = User.Identity?.Name ?? "Sistema";
 
         await _context.SaveChangesAsync();
+
+        await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.ApprovedBy);
 
         await _auditService.LogAsync(
             User.Identity?.Name,
