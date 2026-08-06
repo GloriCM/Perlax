@@ -1,6 +1,6 @@
-# Qué es PerlaX
+# Qué es Perla
 
-**PerlaX** es el ERP de Aleph Impresores para gestionar el ciclo comercial y operativo: desde la cotización y el diseño hasta la producción en planta, la entrega y la facturación.
+**Perla** es el ERP de Aleph Impresores para gestionar el ciclo comercial y operativo: desde la cotización y el diseño hasta la producción en planta, la entrega y la facturación.
 
 ## Para quién es
 
