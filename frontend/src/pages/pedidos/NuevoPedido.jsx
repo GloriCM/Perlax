@@ -260,13 +260,14 @@ export default function NuevoPedido() {
         }
 
         const payload = {
-            id: id || crypto.randomUUID(),
-            orderNumber,
-            orderDate: formData.orderDate,
+            orderDate: formData.orderDate instanceof Date
+                ? formData.orderDate.toISOString()
+                : formData.orderDate,
             clientName: formData.clientName,
             purchaseOrderNumber: formData.purchaseOrderNumber,
-            agreedDeliveryDate: formData.agreedDeliveryDate,
-            isApproved: false,
+            agreedDeliveryDate: formData.agreedDeliveryDate instanceof Date
+                ? formData.agreedDeliveryDate.toISOString()
+                : formData.agreedDeliveryDate,
             items: items.map(item => ({
                 orderPartId: item.orderPartId,
                 quantity: item.quantity,
@@ -281,7 +282,10 @@ export default function NuevoPedido() {
             if (id) {
                 await api.put(`/production/customer-orders/${id}`, payload);
             } else {
-                await api.post('/production/customer-orders', payload);
+                const created = await api.post('/production/customer-orders', payload);
+                if (created?.orderNumber) {
+                    setOrderNumber(String(created.orderNumber));
+                }
             }
 
             notifications.show({

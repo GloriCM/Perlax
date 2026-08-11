@@ -6,18 +6,31 @@
 
 Coordina la **ejecución en planta** de los pedidos aprobados: apertura de órdenes de producción (OP), seguimiento de estado y panel de planeación.
 
-## Apertura de OP (disponible)
+## Pantallas operativas
 
 | Entrada del menú | URL | Estado |
 |------------------|-----|--------|
 | Apertura | `/produccion/apertura` | **Operativo** |
+| Estado de órdenes | `/produccion/estado-ordenes` | **Operativo** |
 
-Desde **Apertura** se listan los pedidos de cliente **aprobados** que aún no tienen fecha de apertura. Al confirmar la apertura:
+### Apertura de OP
+
+Desde **Apertura** se listan los pedidos de cliente **aprobados** que aún no tienen fecha de apertura. Al confirmar:
 
 1. Se asigna la **fecha de apertura**.
 2. Se puede ajustar el **% recibo mercancía** (por defecto 10 %).
 3. Se calcula la **cantidad a producir** = cantidad pedida × (1 + % recibo), redondeada hacia arriba.
 4. La OP queda en estado **Abierta** y puede usarse en requisiciones de almacén.
+
+### Estado de órdenes
+
+Muestra todas las OP **ya abiertas** con:
+
+- Cantidad objetivo vs. **producido** (suma de tiros en `/planta` con el mismo número OP).
+- **% de avance** y estado calculado: Abierta, En producción, Terminada o Cerrada.
+- Acción **Cerrar OP** cuando la orden deja de estar activa.
+
+> El avance depende de que en planta se registre la OP con el mismo número (ej. `1234 51`).
 
 ### Formato del número OP
 
@@ -29,7 +42,6 @@ Ejemplo: pedido `1234` y OT `OT-7851` → OP `1234 51`.
 
 | Entrada | URL | Estado actual |
 |---------|-----|---------------|
-| Estado de órdenes | `/produccion/estado-ordenes` | En desarrollo |
 | Panel planeación | `/produccion/planeacion` | En desarrollo |
 
 ## Flujo operativo recomendado
@@ -47,6 +59,9 @@ Apertura (/produccion/apertura) → OP Abierta
         |
         v
 Operario registra en /planta (máquina, actividad, tiros)
+        |
+        v
+Estado de órdenes (/produccion/estado-ordenes) → avance y cierre
         |
         v
 Supervisor revisa /reporte-diario
@@ -69,10 +84,10 @@ En **Administración → Planeación** existen módulos de **gastos** y **person
 | Rol | Herramienta |
 |-----|-------------|
 | Comercial / pedidos | Pedidos cliente + aprobación |
-| Jefe producción | Apertura + reporte diario |
+| Jefe producción | Apertura + estado de órdenes + reporte diario |
 | Almacén | Requisiciones con OP abierta |
 | Operario | `/planta` |
-| Supervisor | Reporte diario |
+| Supervisor | Reporte diario + estado de órdenes |
 
 ## Siguiente lectura
 

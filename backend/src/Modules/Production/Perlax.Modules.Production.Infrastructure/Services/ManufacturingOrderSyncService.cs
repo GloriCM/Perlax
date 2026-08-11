@@ -37,6 +37,21 @@ public class ManufacturingOrderSyncService : IManufacturingOrderSyncService
         if (order == null || order.Items.Count == 0)
             return;
 
+        if (!order.IsApproved)
+        {
+            var pending = await _context.ManufacturingOrders
+                .Where(m => m.CustomerOrderId == customerOrderId && m.OpeningDate == null)
+                .ToListAsync(ct);
+
+            if (pending.Count > 0)
+            {
+                _context.ManufacturingOrders.RemoveRange(pending);
+                await _context.SaveChangesAsync(ct);
+            }
+
+            return;
+        }
+
         var partIds = order.Items.Select(i => i.OrderPartId).Distinct().ToList();
         var parts = await _context.OrderParts
             .AsNoTracking()

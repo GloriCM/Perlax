@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Perlax.Modules.Production.Api.Hubs;
+using Perlax.Modules.Production.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -171,6 +172,7 @@ try
         // Use MigrateAsync for Production to handle existing migrations
         var productionContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Production.Infrastructure.Persistence.ProductionDbContext>();
         await productionContext.Database.MigrateAsync();
+        await ProductionDbInitializer.InitializeAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.CotizadorDbSeeder.SeedAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.DesignPlannerDbSeeder.SeedAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.DailyProductionDbSeeder.SeedAsync(productionContext);

@@ -15,6 +15,7 @@ public class ProductionDbContext : DbContext
     public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
     public DbSet<CustomerOrderItem> CustomerOrderItems => Set<CustomerOrderItem>();
     public DbSet<ManufacturingOrder> ManufacturingOrders => Set<ManufacturingOrder>();
+    public DbSet<OpProcessSchedule> OpProcessSchedules => Set<OpProcessSchedule>();
     public DbSet<InternalChatConversation> InternalChatConversations => Set<InternalChatConversation>();
     public DbSet<InternalChatMessage> InternalChatMessages => Set<InternalChatMessage>();
     public DbSet<CotizadorMachine> CotizadorMachines => Set<CotizadorMachine>();
@@ -111,6 +112,7 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.OrderNumber).IsRequired().HasMaxLength(20);
             builder.Property(x => x.ClientName).IsRequired().HasMaxLength(255);
             builder.Property(x => x.PurchaseOrderNumber).IsRequired().HasMaxLength(100);
+            builder.Property(x => x.Status).IsRequired().HasMaxLength(50);
             builder.Property(x => x.ApprovedBy).HasMaxLength(255);
             builder.Property(x => x.CreatedBy).HasMaxLength(255);
             builder.Property(x => x.UpdatedBy).HasMaxLength(255);
@@ -131,6 +133,12 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
             builder.Property(x => x.ReferenceName).IsRequired().HasMaxLength(200);
             builder.HasIndex(x => x.OrderPartId);
+            builder.HasIndex(x => x.ProductionOrderId);
+
+            builder.HasOne<ProductionOrder>()
+                .WithMany()
+                .HasForeignKey(x => x.ProductionOrderId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ManufacturingOrder>(builder =>
@@ -161,6 +169,27 @@ public class ProductionDbContext : DbContext
             builder.HasOne(x => x.CustomerOrder)
                 .WithMany()
                 .HasForeignKey(x => x.CustomerOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OpProcessSchedule>(builder =>
+        {
+            builder.ToTable("OpProcessSchedules");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.ProcessCode).IsRequired().HasMaxLength(50);
+            builder.Property(x => x.BlockType).IsRequired().HasMaxLength(30);
+            builder.Property(x => x.Status).IsRequired().HasMaxLength(30);
+            builder.Property(x => x.Notes).HasMaxLength(2000);
+            builder.Property(x => x.CreatedBy).HasMaxLength(255);
+            builder.Property(x => x.UpdatedBy).HasMaxLength(255);
+            builder.HasIndex(x => x.ManufacturingOrderId);
+            builder.HasIndex(x => x.ProcessCode);
+            builder.HasIndex(x => x.PlannedStart);
+            builder.HasIndex(x => x.PlannedEnd);
+
+            builder.HasOne(x => x.ManufacturingOrder)
+                .WithMany()
+                .HasForeignKey(x => x.ManufacturingOrderId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

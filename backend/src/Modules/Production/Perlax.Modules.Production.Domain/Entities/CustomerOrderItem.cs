@@ -4,6 +4,7 @@ public class CustomerOrderItem
 {
     public Guid Id { get; set; }
     public Guid CustomerOrderId { get; set; }
+    public Guid ProductionOrderId { get; set; }
     public Guid OrderPartId { get; set; }
     public decimal Quantity { get; set; }
     public decimal ApprovedUnitPrice { get; set; }

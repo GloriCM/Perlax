@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Perlax.Modules.Audit.Application.Abstractions;
 using Perlax.Modules.Production.Application.Manufacturing;
 using Perlax.Modules.Production.Domain.Entities;
@@ -130,35 +131,61 @@ public class CustomerOrdersController : ControllerBase
         var validation = await ValidateRequestAsync(request);
         if (validation is not null) return validation;
 
-        var entity = new CustomerOrder
+        var partProductionOrders = await GetPartProductionOrderIdsAsync(
+            request.Items.Select(x => x.OrderPartId));
+
+        for (var attempt = 0; attempt < 5; attempt++)
         {
-            Id = Guid.NewGuid(),
-            OrderNumber = string.IsNullOrWhiteSpace(request.OrderNumber)
-                ? await GetNextNumberValueAsync()
-                : request.OrderNumber.Trim(),
-            OrderDate = ToUtcDateTime(request.OrderDate),
-            ClientName = request.ClientName.Trim(),
-            PurchaseOrderNumber = request.PurchaseOrderNumber.Trim(),
-            AgreedDeliveryDate = ToUtcDateTime(request.AgreedDeliveryDate),
-            IsApproved = false,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = User.Identity?.Name ?? "Sistema",
-            Items = request.Items.Select(MapItem).ToList()
-        };
+            var orderId = Guid.NewGuid();
+            var orderNumber = await GetNextNumberValueAsync();
 
-        _context.CustomerOrders.Add(entity);
-        await _context.SaveChangesAsync();
+            var entity = new CustomerOrder
+            {
+                Id = orderId,
+                OrderNumber = orderNumber,
+                OrderDate = ToUtcDateTime(request.OrderDate),
+                ClientName = request.ClientName.Trim(),
+                PurchaseOrderNumber = request.PurchaseOrderNumber.Trim(),
+                AgreedDeliveryDate = ToUtcDateTime(request.AgreedDeliveryDate!.Value),
+                Status = CustomerOrderStatuses.Pending,
+                IsApproved = false,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = User.Identity?.Name ?? "Sistema",
+                Items = request.Items
+                    .Select(item => MapItem(item, orderId, partProductionOrders[item.OrderPartId]))
+                    .ToList()
+            };
 
-        await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.CreatedBy);
+            _context.CustomerOrders.Add(entity);
 
-        await _auditService.LogAsync(
-            User.Identity?.Name,
-            User.Identity?.Name,
-            "CREATE_CUSTOMER_ORDER",
-            $"Se creó pedido cliente {entity.OrderNumber} ({entity.ClientName})",
-            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            try
+            {
+                await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new { id = entity.Id });
+                await _auditService.LogAsync(
+                    User.Identity?.Name,
+                    User.Identity?.Name,
+                    "CREATE_CUSTOMER_ORDER",
+                    $"Se creó pedido cliente {entity.OrderNumber} ({entity.ClientName})",
+                    HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
+                return CreatedAtAction(
+                    nameof(GetById),
+                    new { id = entity.Id },
+                    new { id = entity.Id, orderNumber = entity.OrderNumber });
+            }
+            catch (DbUpdateException ex) when (IsUniqueOrderNumberViolation(ex) && attempt < 4)
+            {
+                DetachTrackedOrder(_context, entity);
+                continue;
+            }
+            catch (DbUpdateException ex)
+            {
+                return BadRequest(new { message = DescribeDbError(ex) });
+            }
+        }
+
+        return StatusCode(500, new { message = "No se pudo asignar un numero de pedido unico. Intente de nuevo." });
     }
 
     [HttpPut("{id:guid}")]
@@ -173,10 +200,14 @@ public class CustomerOrdersController : ControllerBase
 
         if (entity == null) return NotFound();
 
+        var partProductionOrders = await GetPartProductionOrderIdsAsync(
+            request.Items.Select(x => x.OrderPartId));
+
         entity.OrderDate = ToUtcDateTime(request.OrderDate);
         entity.ClientName = request.ClientName.Trim();
         entity.PurchaseOrderNumber = request.PurchaseOrderNumber.Trim();
         entity.AgreedDeliveryDate = ToUtcDateTime(request.AgreedDeliveryDate);
+        entity.Status = CustomerOrderStatuses.Pending;
         entity.IsApproved = false;
         entity.ApprovedAt = null;
         entity.ApprovedBy = null;
@@ -184,11 +215,11 @@ public class CustomerOrdersController : ControllerBase
         entity.UpdatedBy = User.Identity?.Name ?? "Sistema";
 
         _context.CustomerOrderItems.RemoveRange(entity.Items);
-        entity.Items = request.Items.Select(MapItem).ToList();
+        entity.Items = request.Items
+            .Select(item => MapItem(item, entity.Id, partProductionOrders[item.OrderPartId]))
+            .ToList();
 
         await _context.SaveChangesAsync();
-
-        await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.UpdatedBy);
 
         await _auditService.LogAsync(
             User.Identity?.Name,
@@ -220,6 +251,7 @@ public class CustomerOrdersController : ControllerBase
             item.ApprovedUnitPrice = row.ApprovedUnitPrice;
         }
 
+        entity.Status = CustomerOrderStatuses.Approved;
         entity.IsApproved = true;
         entity.ApprovedAt = DateTime.UtcNow;
         entity.ApprovedBy = User.Identity?.Name ?? "Sistema";
@@ -228,7 +260,14 @@ public class CustomerOrdersController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.ApprovedBy);
+        try
+        {
+            await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.ApprovedBy);
+        }
+        catch
+        {
+            // La aprobacion ya quedo guardada; Apertura reintenta sync al listar pendientes.
+        }
 
         await _auditService.LogAsync(
             User.Identity?.Name,
@@ -270,17 +309,58 @@ public class CustomerOrdersController : ControllerBase
         return null;
     }
 
-    private static CustomerOrderItem MapItem(SaveCustomerOrderItemRequest request)
+    private static CustomerOrderItem MapItem(
+        SaveCustomerOrderItemRequest request,
+        Guid customerOrderId,
+        Guid productionOrderId)
     {
         return new CustomerOrderItem
         {
             Id = Guid.NewGuid(),
+            CustomerOrderId = customerOrderId,
+            ProductionOrderId = productionOrderId,
             OrderPartId = request.OrderPartId,
             Quantity = request.Quantity,
             ApprovedUnitPrice = request.ApprovedUnitPrice,
             ProductName = request.ProductName?.Trim() ?? string.Empty,
             ReferenceName = request.ReferenceName?.Trim() ?? string.Empty
         };
+    }
+
+    private static bool IsUniqueOrderNumberViolation(DbUpdateException ex)
+    {
+        return ex.InnerException is PostgresException pg &&
+               pg.SqlState == PostgresErrorCodes.UniqueViolation &&
+               (pg.ConstraintName?.Contains("OrderNumber", StringComparison.OrdinalIgnoreCase) == true ||
+                pg.MessageText.Contains("OrderNumber", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void DetachTrackedOrder(ProductionDbContext context, CustomerOrder entity)
+    {
+        foreach (var item in entity.Items.ToList())
+        {
+            var itemEntry = context.Entry(item);
+            if (itemEntry.State != EntityState.Detached)
+                itemEntry.State = EntityState.Detached;
+        }
+
+        var entry = context.Entry(entity);
+        if (entry.State != EntityState.Detached)
+            entry.State = EntityState.Detached;
+    }
+
+    private static string DescribeDbError(DbUpdateException ex)
+    {
+        if (ex.InnerException is PostgresException pg)
+        {
+            if (pg.SqlState == PostgresErrorCodes.UniqueViolation)
+                return "Ya existe un pedido con ese numero. Actualice la pagina e intente de nuevo.";
+
+            if (!string.IsNullOrWhiteSpace(pg.MessageText))
+                return pg.MessageText;
+        }
+
+        return "No se pudo guardar el pedido en base de datos.";
     }
 
     private static DateTime ToUtcDateTime(DateTime value)
@@ -313,6 +393,15 @@ public class CustomerOrdersController : ControllerBase
         }
 
         return (maxNumber + 1).ToString();
+    }
+
+    private async Task<Dictionary<Guid, Guid>> GetPartProductionOrderIdsAsync(IEnumerable<Guid> partIds)
+    {
+        var ids = partIds.Distinct().ToList();
+        return await _context.OrderParts
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.ProductionOrderId);
     }
 
     public sealed class SaveCustomerOrderRequest

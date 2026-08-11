@@ -1,5 +1,11 @@
 namespace Perlax.Modules.Production.Domain.Entities;
 
+public static class CustomerOrderStatuses
+{
+    public const string Pending = "Pendiente";
+    public const string Approved = "Aprobado";
+}
+
 public class CustomerOrder
 {
     public Guid Id { get; set; }
@@ -8,6 +14,7 @@ public class CustomerOrder
     public string ClientName { get; set; } = string.Empty;
     public string PurchaseOrderNumber { get; set; } = string.Empty;
     public DateTime? AgreedDeliveryDate { get; set; }
+    public string Status { get; set; } = CustomerOrderStatuses.Pending;
     public bool IsApproved { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public string? ApprovedBy { get; set; }

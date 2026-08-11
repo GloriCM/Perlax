@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Perlax.Modules.Production.Application.DailyProduction;
 using Perlax.Modules.Production.Application.Manufacturing;
 using Perlax.Modules.Production.Infrastructure.Cotizador;
@@ -16,7 +17,8 @@ public static class ProductionModuleExtensions
         var connectionString = configuration.GetConnectionString("ProductionConnection");
 
         services.AddDbContext<ProductionDbContext>(options =>
-            options.UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(ProductionDbContext).Assembly.FullName)));
+            options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
+                .UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(ProductionDbContext).Assembly.FullName)));
 
         services.AddScoped<CotizadorCalculator>();
         services.AddScoped<IDailyProductionService, DailyProductionService>();

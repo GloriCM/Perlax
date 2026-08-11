@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Audit.Application.Abstractions;
 using Perlax.Modules.Production.Application.Manufacturing;
+using Perlax.Modules.Production.Domain.Entities;
 using Perlax.Modules.Production.Infrastructure.Persistence;
 using Perlax.Modules.Production.Infrastructure.Services;
 
@@ -57,6 +58,75 @@ public class ManufacturingOrdersController : ControllerBase
                 status = m.Status
             })
             .ToListAsync(ct);
+
+        return Ok(rows);
+    }
+
+    [HttpGet("status-board")]
+    public async Task<ActionResult<IEnumerable<object>>> GetStatusBoard(
+        [FromQuery] string? status,
+        [FromQuery] string? q,
+        CancellationToken ct)
+    {
+        var orders = await _context.ManufacturingOrders
+            .AsNoTracking()
+            .Where(m => m.OpeningDate != null)
+            .OrderByDescending(m => m.OpeningDate)
+            .ThenBy(m => m.OpNumber)
+            .ToListAsync(ct);
+
+        var producedMap = await LoadProducedQuantitiesByOpAsync(ct);
+        var term = string.IsNullOrWhiteSpace(q) ? null : q.Trim().ToLowerInvariant();
+        var statusFilter = string.IsNullOrWhiteSpace(status) ? null : status.Trim();
+
+        var rows = orders
+            .Select(mo =>
+            {
+                var produced = GetProducedQuantity(mo.OpNumber, producedMap);
+                var progressPercent = mo.QuantityToProduce > 0
+                    ? Math.Min(100m, Math.Round(produced / mo.QuantityToProduce * 100m, 1))
+                    : 0m;
+                var displayStatus = ResolveDisplayStatus(mo, produced);
+
+                return new
+                {
+                    id = mo.Id,
+                    opNumber = mo.OpNumber,
+                    orderNumber = mo.OrderNumber,
+                    otNumber = mo.OtNumber,
+                    clientName = mo.ClientName,
+                    productName = mo.ProductName,
+                    referenceName = mo.ReferenceName,
+                    agreedDeliveryDate = mo.AgreedDeliveryDate,
+                    quantityToProduce = mo.QuantityToProduce,
+                    quantityProduced = produced,
+                    progressPercent,
+                    displayStatus,
+                    status = mo.Status,
+                    openingDate = mo.OpeningDate,
+                    openedBy = mo.OpenedBy
+                };
+            })
+            .Where(row =>
+            {
+                if (statusFilter != null && !string.Equals(row.displayStatus, statusFilter, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (term == null)
+                    return true;
+
+                return new[]
+                {
+                    row.opNumber,
+                    row.orderNumber,
+                    row.otNumber,
+                    row.clientName,
+                    row.productName,
+                    row.referenceName,
+                    row.displayStatus
+                }.Any(field => (field ?? string.Empty).ToLowerInvariant().Contains(term));
+            })
+            .ToList();
 
         return Ok(rows);
     }
@@ -172,6 +242,79 @@ public class ManufacturingOrdersController : ControllerBase
 
         await _context.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    [HttpPut("{id:guid}/close")]
+    public async Task<ActionResult> Close(Guid id, CancellationToken ct)
+    {
+        var mo = await _context.ManufacturingOrders
+            .FirstOrDefaultAsync(m => m.Id == id, ct);
+
+        if (mo == null)
+            return NotFound();
+
+        if (mo.OpeningDate == null)
+            return BadRequest(new { message = "Solo se pueden cerrar OP ya abiertas." });
+
+        if (string.Equals(mo.Status, "Cerrada", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Esta orden de produccion ya esta cerrada." });
+
+        mo.Status = "Cerrada";
+        mo.UpdatedAt = DateTime.UtcNow;
+        mo.UpdatedBy = User.Identity?.Name ?? "Sistema";
+
+        await _context.SaveChangesAsync(ct);
+
+        await _auditService.LogAsync(
+            User.Identity?.Name,
+            User.Identity?.Name,
+            "CLOSE_MANUFACTURING_ORDER",
+            $"Se cerro OP {mo.OpNumber} ({mo.ClientName})",
+            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
+        return NoContent();
+    }
+
+    private async Task<Dictionary<string, decimal>> LoadProducedQuantitiesByOpAsync(CancellationToken ct)
+    {
+        var activities = await _context.ProductionActivities
+            .AsNoTracking()
+            .Where(a => a.Status == ProductionActivityStatuses.Done && a.ProductionOrderNumber != null)
+            .Select(a => new { a.ProductionOrderNumber, a.QuantityProcessed })
+            .ToListAsync(ct);
+
+        return activities
+            .GroupBy(a => NormalizeOpKey(a.ProductionOrderNumber))
+            .Where(g => g.Key.Length > 0)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.QuantityProcessed));
+    }
+
+    private static decimal GetProducedQuantity(string opNumber, IReadOnlyDictionary<string, decimal> producedMap)
+    {
+        var key = NormalizeOpKey(opNumber);
+        return key.Length == 0 ? 0m : producedMap.GetValueOrDefault(key, 0m);
+    }
+
+    private static string ResolveDisplayStatus(ManufacturingOrder mo, decimal quantityProduced)
+    {
+        if (string.Equals(mo.Status, "Cerrada", StringComparison.OrdinalIgnoreCase))
+            return "Cerrada";
+
+        if (mo.QuantityToProduce > 0 && quantityProduced >= mo.QuantityToProduce)
+            return "Terminada";
+
+        if (quantityProduced > 0)
+            return "EnProduccion";
+
+        return "Abierta";
+    }
+
+    private static string NormalizeOpKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
     }
 
     private static object MapDetail(Domain.Entities.ManufacturingOrder m) => new
