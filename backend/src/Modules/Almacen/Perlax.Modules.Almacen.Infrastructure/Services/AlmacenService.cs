@@ -9,25 +9,24 @@ using Perlax.Modules.Almacen.Application.Abstractions;
 using Perlax.Modules.Almacen.Application.DTOs;
 using Perlax.Modules.Almacen.Domain.Entities;
 using Perlax.Modules.Almacen.Infrastructure.Persistence;
-using Perlax.Modules.Production.Infrastructure.Persistence;
 
 namespace Perlax.Modules.Almacen.Infrastructure.Services;
 
 public class AlmacenService : IAlmacenService
 {
     private readonly AlmacenDbContext _db;
-    private readonly ProductionDbContext _productionDb;
+    private readonly IProductionOrderLookup _productionOrders;
     private readonly IConfiguration _configuration;
     private readonly AlmacenEmailService _email;
 
     public AlmacenService(
         AlmacenDbContext db,
-        ProductionDbContext productionDb,
+        IProductionOrderLookup productionOrders,
         IConfiguration configuration,
         AlmacenEmailService email)
     {
         _db = db;
-        _productionDb = productionDb;
+        _productionOrders = productionOrders;
         _configuration = configuration;
         _email = email;
     }
@@ -318,48 +317,8 @@ public class AlmacenService : IAlmacenService
         return new ImportResultDto(insertados, actualizados, omitidos, errores);
     }
 
-    public async Task<IReadOnlyList<OrdenProduccionLookupDto>> SearchOrdenesProduccionAsync(string? q, int limit, CancellationToken ct = default)
-    {
-        limit = Math.Clamp(limit <= 0 ? 30 : limit, 1, 100);
-        var term = string.IsNullOrWhiteSpace(q) ? null : q.Trim().ToLowerInvariant();
-
-        var otQuery = _productionDb.ProductionOrders.AsNoTracking();
-        if (term != null)
-        {
-            otQuery = otQuery.Where(o =>
-                o.OTNumber.ToLower().Contains(term) ||
-                o.Cliente.ToLower().Contains(term) ||
-                o.ProductName.ToLower().Contains(term));
-        }
-
-        var opQuery = _productionDb.ManufacturingOrders.AsNoTracking()
-            .Where(m => m.OpeningDate != null && m.Status == "Abierta");
-        if (term != null)
-        {
-            opQuery = opQuery.Where(m =>
-                m.OpNumber.ToLower().Contains(term) ||
-                m.ClientName.ToLower().Contains(term) ||
-                m.ProductName.ToLower().Contains(term) ||
-                m.OrderNumber.ToLower().Contains(term));
-        }
-
-        var otResults = await otQuery
-            .OrderByDescending(o => o.CreatedAt)
-            .Take(limit)
-            .Select(o => new OrdenProduccionLookupDto(o.Id, o.OTNumber, o.Cliente, o.ProductName))
-            .ToListAsync(ct);
-
-        var opResults = await opQuery
-            .OrderByDescending(m => m.OpeningDate)
-            .Take(limit)
-            .Select(m => new OrdenProduccionLookupDto(m.Id, m.OpNumber, m.ClientName, m.ProductName))
-            .ToListAsync(ct);
-
-        return otResults
-            .Concat(opResults)
-            .Take(limit)
-            .ToList();
-    }
+    public Task<IReadOnlyList<OrdenProduccionLookupDto>> SearchOrdenesProduccionAsync(string? q, int limit, CancellationToken ct = default)
+        => _productionOrders.SearchAsync(q, limit, ct);
 
     public async Task<IReadOnlyList<RequisicionListDto>> ListRequisicionesAsync(string? tipo, string? estado, string? q, CancellationToken ct = default)
     {

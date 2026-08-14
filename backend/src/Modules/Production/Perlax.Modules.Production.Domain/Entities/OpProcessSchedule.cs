@@ -34,6 +34,44 @@ public static class ProductionProcessCatalog
     ];
 }
 
+/// <summary>
+/// Mapea máquinas/notas de OP expertiS (Guillotina, SpeedMaster, Pegadora…) al catálogo del programador.
+/// </summary>
+public static class ExpertisProcessCatalogMapper
+{
+    public static string? MapToCatalogCode(string? machine, string? notes = null)
+    {
+        var t = $"{machine} {notes}".ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(t)) return null;
+        if (t.Contains("CONVERT", StringComparison.Ordinal) || t.Contains("CONVERSI", StringComparison.Ordinal))
+            return "Conversion";
+        if (t.Contains("CORRUG", StringComparison.Ordinal))
+            return "Corrugacion";
+        if (t.Contains("GUILLOT", StringComparison.Ordinal) || t.Contains("REFILAR", StringComparison.Ordinal)
+            || RegexContainsCorte(t))
+            return "Corte";
+        if (t.Contains("SPEED", StringComparison.Ordinal) || t.Contains("IMPRE", StringComparison.Ordinal)
+            || t.Contains("C+M+Y", StringComparison.Ordinal))
+            return "Impresion";
+        if (t.Contains("COLAMIN", StringComparison.Ordinal))
+            return "Colaminado";
+        if (t.Contains("TROQUEL", StringComparison.Ordinal))
+            return "Troquelado";
+        if (t.Contains("DESPIQ", StringComparison.Ordinal))
+            return "Despique";
+        if (t.Contains("PEGAD", StringComparison.Ordinal) || t.Contains("PEGAR", StringComparison.Ordinal))
+            return "Pegadora";
+        if (t.Contains("MANUAL", StringComparison.Ordinal) || t.Contains("ARMAR", StringComparison.Ordinal))
+            return "TerminadoManual";
+        if (t.Contains("BARNIZ", StringComparison.Ordinal) || t.Contains("LAMIN", StringComparison.Ordinal))
+            return "Acabado";
+        return null;
+    }
+
+    private static bool RegexContainsCorte(string t) =>
+        t.Contains(" CORTE", StringComparison.Ordinal) || t.StartsWith("CORTE", StringComparison.Ordinal);
+}
+
 public class OpProcessSchedule
 {
     public Guid Id { get; set; }
@@ -45,6 +83,8 @@ public class OpProcessSchedule
     public DateTime PlannedEnd { get; set; }
     public string Status { get; set; } = OpScheduleStatuses.Scheduled;
     public int SortOrder { get; set; }
+    public bool IsUrgency { get; set; }
+    public decimal? EstimatedHours { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedBy { get; set; }

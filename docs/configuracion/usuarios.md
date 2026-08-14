@@ -34,9 +34,12 @@ Columnas: Nombre, Login, Correo, Rol, Estado, Area, Permisos.
 
 | Rol | Comportamiento |
 |-----|----------------|
-| **Administrador** | Acceso total |
+| **Administrador** | Acceso total. **Sin horas extras.** |
 | **Administrativo** | Solo vistas marcadas en matriz |
-| **Operario (planta)** | Solo `/planta` y reporte como operario |
+| **Operario (planta)** | Solo `/planta`. Extras en Producción |
+| **Auxiliar** | Personal de producción. No aparece en `/planta`. Extras en Producción |
+| **Almacén** | Personal de Planeación. Extras en Gastos de Planeación |
+| **Taller** | Personal de Talleres. Extras en Talleres |
 
 ### Permisos (Administrativo)
 

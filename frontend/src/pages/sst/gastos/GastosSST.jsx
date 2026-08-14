@@ -1,5 +1,5 @@
-﻿import React from 'react';
-import GastosProduccion from '../../produccion/GastosProduccion';
+import React from 'react';
+import GastosProduccion from '../../produccion/gastos/GastosProduccion';
 
 const RUBROS_SST = [
     'Todos los Rubros',

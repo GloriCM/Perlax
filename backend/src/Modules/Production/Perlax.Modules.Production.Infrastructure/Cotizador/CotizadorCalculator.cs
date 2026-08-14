@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Perlax.Modules.Production.Application.Cotizador;
 using Perlax.Modules.Production.Infrastructure.Persistence;
 
 namespace Perlax.Modules.Production.Infrastructure.Cotizador;

@@ -1,6 +1,24 @@
 namespace Perlax.Modules.Production.Application.DailyProduction;
 
-public record MachineDto(Guid Id, string Code, string Name, bool IsActive);
+public record MachineDto(Guid Id, string Code, string Name, string? ProcessCode, bool IsActive);
+
+public record MachineScheduleBlockDto(
+    Guid Id,
+    Guid? ManufacturingOrderId,
+    string ProcessCode,
+    Guid? MachineId,
+    string BlockType,
+    DateTime PlannedStart,
+    DateTime PlannedEnd,
+    string Status,
+    bool IsUrgency,
+    decimal? EstimatedHours,
+    string? Notes,
+    string? OpNumber,
+    string? OtNumber,
+    string? ClientName,
+    string? ProductName,
+    string? ReferenceName);
 public record OperatorDto(Guid Id, string Code, string DisplayName, string? DocumentNumber, Guid? UserId, bool IsActive);
 public record ActivitySubcodeDto(Guid Id, string Code, string Name, bool RequiresObservation, bool IsActive);
 public record ActivityCodeDto(
@@ -153,7 +171,7 @@ public record FinishActivityRequest(
     IReadOnlyList<WasteEntryDto>? WasteEntries,
     long? ConcurrencyStamp);
 
-public record UpsertMachineRequest(string Code, string Name, bool IsActive = true);
+public record UpsertMachineRequest(string Code, string Name, string? ProcessCode, bool IsActive = true);
 public record UpsertOperatorRequest(string Code, string DisplayName, string? DocumentNumber, Guid? UserId, bool IsActive = true);
 public record UpsertActivitySubcodeRequest(string Code, string Name, bool RequiresObservation = false, bool IsActive = true);
 public record UpsertActivityCodeRequest(

@@ -1,11 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Perlax.Modules.Audit.Application.Abstractions;
-using Perlax.Modules.Production.Application.Manufacturing;
-using Perlax.Modules.Production.Domain.Entities;
-using Perlax.Modules.Production.Infrastructure.Persistence;
+using Perlax.Modules.Production.Application.CustomerOrders;
 
 namespace Perlax.Modules.Production.Api.Controllers;
 
@@ -14,395 +10,152 @@ namespace Perlax.Modules.Production.Api.Controllers;
 [Route("api/production/customer-orders")]
 public class CustomerOrdersController : ControllerBase
 {
-    private readonly ProductionDbContext _context;
+    private readonly ICustomerOrderService _orders;
     private readonly IAuditService _auditService;
-    private readonly IManufacturingOrderSyncService _manufacturingSync;
 
-    public CustomerOrdersController(
-        ProductionDbContext context,
-        IAuditService auditService,
-        IManufacturingOrderSyncService manufacturingSync)
+    public CustomerOrdersController(ICustomerOrderService orders, IAuditService auditService)
     {
-        _context = context;
+        _orders = orders;
         _auditService = auditService;
-        _manufacturingSync = manufacturingSync;
     }
 
     [HttpGet("available-products")]
-    public async Task<ActionResult<IEnumerable<object>>> GetAvailableProducts()
+    public async Task<ActionResult<IEnumerable<object>>> GetAvailableProducts(CancellationToken ct)
     {
-        var products = await _context.OrderParts
-            .AsNoTracking()
-            .Include(p => p.Order)
-            .Where(p => p.IsTechnicalSheetApproved && p.Order != null)
-            .OrderByDescending(p => p.Order!.CreatedAt)
-            .Select(p => new
-            {
-                partId = p.Id,
-                otNumber = p.Order!.OTNumber,
-                productName = p.Order.ProductName,
-                referenceName = p.PartName,
-                clientName = p.Order.Cliente,
-                approvedUnitPrice = 0m
-            })
-            .ToListAsync();
-
-        return Ok(products);
+        var products = await _orders.GetAvailableProductsAsync(ct);
+        return Ok(products.Select(p => new
+        {
+            partId = p.PartId,
+            otNumber = p.OtNumber,
+            productName = p.ProductName,
+            referenceName = p.ReferenceName,
+            clientName = p.ClientName,
+            approvedUnitPrice = p.ApprovedUnitPrice
+        }));
     }
 
     [HttpGet("next-number")]
-    public async Task<ActionResult<string>> GetNextNumber()
-    {
-        var numbers = await _context.CustomerOrders
-            .AsNoTracking()
-            .Select(x => x.OrderNumber)
-            .ToListAsync();
-
-        var maxNumber = 0;
-        foreach (var value in numbers)
-        {
-            if (int.TryParse(value, out var parsed) && parsed > maxNumber)
-                maxNumber = parsed;
-        }
-
-        return Ok((maxNumber + 1).ToString());
-    }
+    public async Task<ActionResult<string>> GetNextNumber(CancellationToken ct) =>
+        Ok(await _orders.GetNextNumberAsync(ct));
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> GetOrders()
+    public async Task<ActionResult<IEnumerable<object>>> GetOrders(CancellationToken ct)
     {
-        var rows = await _context.CustomerOrders
-            .AsNoTracking()
-            .Include(x => x.Items)
-            .OrderByDescending(x => x.CreatedAt)
-            .SelectMany(x => x.Items.Select(i => new
-            {
-                id = x.Id,
-                orderNumber = x.OrderNumber,
-                orderDate = x.OrderDate,
-                dispatchDate = x.AgreedDeliveryDate,
-                clientName = x.ClientName,
-                purchaseOrderNumber = x.PurchaseOrderNumber,
-                productName = i.ProductName,
-                referenceName = i.ReferenceName,
-                quantity = i.Quantity,
-                approvedUnitPrice = i.ApprovedUnitPrice,
-                orderPartId = i.OrderPartId,
-                isApproved = x.IsApproved
-            }))
-            .ToListAsync();
-
-        return Ok(rows);
+        var rows = await _orders.ListAsync(ct);
+        return Ok(rows.Select(x => new
+        {
+            id = x.Id,
+            orderNumber = x.OrderNumber,
+            orderDate = x.OrderDate,
+            dispatchDate = x.DispatchDate,
+            clientName = x.ClientName,
+            purchaseOrderNumber = x.PurchaseOrderNumber,
+            productName = x.ProductName,
+            referenceName = x.ReferenceName,
+            quantity = x.Quantity,
+            approvedUnitPrice = x.ApprovedUnitPrice,
+            orderPartId = x.OrderPartId,
+            isApproved = x.IsApproved
+        }));
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<object>> GetById(Guid id)
+    public async Task<ActionResult<object>> GetById(Guid id, CancellationToken ct)
     {
-        var order = await _context.CustomerOrders
-            .AsNoTracking()
-            .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id);
-
-        if (order == null) return NotFound();
-
-        return Ok(new
+        try
         {
-            id = order.Id,
-            orderNumber = order.OrderNumber,
-            orderDate = order.OrderDate,
-            clientName = order.ClientName,
-            purchaseOrderNumber = order.PurchaseOrderNumber,
-            agreedDeliveryDate = order.AgreedDeliveryDate,
-            isApproved = order.IsApproved,
-            items = order.Items.Select(i => new
+            var order = await _orders.GetByIdAsync(id, ct);
+            return Ok(new
             {
-                orderPartId = i.OrderPartId,
-                quantity = i.Quantity,
-                approvedUnitPrice = i.ApprovedUnitPrice,
-                productName = i.ProductName,
-                referenceName = i.ReferenceName
-            })
-        });
+                id = order.Id,
+                orderNumber = order.OrderNumber,
+                orderDate = order.OrderDate,
+                clientName = order.ClientName,
+                purchaseOrderNumber = order.PurchaseOrderNumber,
+                agreedDeliveryDate = order.AgreedDeliveryDate,
+                isApproved = order.IsApproved,
+                items = order.Items.Select(i => new
+                {
+                    orderPartId = i.OrderPartId,
+                    quantity = i.Quantity,
+                    approvedUnitPrice = i.ApprovedUnitPrice,
+                    productName = i.ProductName,
+                    referenceName = i.ReferenceName
+                })
+            });
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpPost]
-    public async Task<ActionResult<object>> Create([FromBody] SaveCustomerOrderRequest request)
+    public async Task<ActionResult<object>> Create([FromBody] SaveCustomerOrderRequest request, CancellationToken ct)
     {
-        var validation = await ValidateRequestAsync(request);
-        if (validation is not null) return validation;
-
-        var partProductionOrders = await GetPartProductionOrderIdsAsync(
-            request.Items.Select(x => x.OrderPartId));
-
-        for (var attempt = 0; attempt < 5; attempt++)
+        try
         {
-            var orderId = Guid.NewGuid();
-            var orderNumber = await GetNextNumberValueAsync();
+            var result = await _orders.CreateAsync(ToCommand(request), CurrentUser(), ct);
+            await _auditService.LogAsync(
+                User.Identity?.Name, User.Identity?.Name, "CREATE_CUSTOMER_ORDER",
+                $"Se creo pedido cliente {result.OrderNumber}",
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
-            var entity = new CustomerOrder
-            {
-                Id = orderId,
-                OrderNumber = orderNumber,
-                OrderDate = ToUtcDateTime(request.OrderDate),
-                ClientName = request.ClientName.Trim(),
-                PurchaseOrderNumber = request.PurchaseOrderNumber.Trim(),
-                AgreedDeliveryDate = ToUtcDateTime(request.AgreedDeliveryDate!.Value),
-                Status = CustomerOrderStatuses.Pending,
-                IsApproved = false,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = User.Identity?.Name ?? "Sistema",
-                Items = request.Items
-                    .Select(item => MapItem(item, orderId, partProductionOrders[item.OrderPartId]))
-                    .ToList()
-            };
-
-            _context.CustomerOrders.Add(entity);
-
-            try
-            {
-                await _context.SaveChangesAsync();
-
-                await _auditService.LogAsync(
-                    User.Identity?.Name,
-                    User.Identity?.Name,
-                    "CREATE_CUSTOMER_ORDER",
-                    $"Se creó pedido cliente {entity.OrderNumber} ({entity.ClientName})",
-                    HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-
-                return CreatedAtAction(
-                    nameof(GetById),
-                    new { id = entity.Id },
-                    new { id = entity.Id, orderNumber = entity.OrderNumber });
-            }
-            catch (DbUpdateException ex) when (IsUniqueOrderNumberViolation(ex) && attempt < 4)
-            {
-                DetachTrackedOrder(_context, entity);
-                continue;
-            }
-            catch (DbUpdateException ex)
-            {
-                return BadRequest(new { message = DescribeDbError(ex) });
-            }
+            return CreatedAtAction(nameof(GetById), new { id = result.Id },
+                new { id = result.Id, orderNumber = result.OrderNumber });
         }
-
-        return StatusCode(500, new { message = "No se pudo asignar un numero de pedido unico. Intente de nuevo." });
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult> Update(Guid id, [FromBody] SaveCustomerOrderRequest request)
+    public async Task<ActionResult> Update(Guid id, [FromBody] SaveCustomerOrderRequest request, CancellationToken ct)
     {
-        var validation = await ValidateRequestAsync(request);
-        if (validation is not null) return validation;
-
-        var entity = await _context.CustomerOrders
-            .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id);
-
-        if (entity == null) return NotFound();
-
-        var partProductionOrders = await GetPartProductionOrderIdsAsync(
-            request.Items.Select(x => x.OrderPartId));
-
-        entity.OrderDate = ToUtcDateTime(request.OrderDate);
-        entity.ClientName = request.ClientName.Trim();
-        entity.PurchaseOrderNumber = request.PurchaseOrderNumber.Trim();
-        entity.AgreedDeliveryDate = ToUtcDateTime(request.AgreedDeliveryDate);
-        entity.Status = CustomerOrderStatuses.Pending;
-        entity.IsApproved = false;
-        entity.ApprovedAt = null;
-        entity.ApprovedBy = null;
-        entity.UpdatedAt = DateTime.UtcNow;
-        entity.UpdatedBy = User.Identity?.Name ?? "Sistema";
-
-        _context.CustomerOrderItems.RemoveRange(entity.Items);
-        entity.Items = request.Items
-            .Select(item => MapItem(item, entity.Id, partProductionOrders[item.OrderPartId]))
-            .ToList();
-
-        await _context.SaveChangesAsync();
-
-        await _auditService.LogAsync(
-            User.Identity?.Name,
-            User.Identity?.Name,
-            "UPDATE_CUSTOMER_ORDER",
-            $"Se actualizó pedido cliente {entity.OrderNumber} ({entity.ClientName})",
-            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-
-        return NoContent();
+        try
+        {
+            await _orders.UpdateAsync(id, ToCommand(request), CurrentUser(), ct);
+            await _auditService.LogAsync(
+                User.Identity?.Name, User.Identity?.Name, "UPDATE_CUSTOMER_ORDER",
+                $"Se actualizo pedido cliente {id}",
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            return NoContent();
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpPut("{id:guid}/approve")]
-    public async Task<ActionResult> Approve(Guid id, [FromBody] ApproveCustomerOrderRequest request)
+    public async Task<ActionResult> Approve(Guid id, [FromBody] ApproveCustomerOrderRequest request, CancellationToken ct)
     {
-        var entity = await _context.CustomerOrders
-            .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id);
-
-        if (entity == null) return NotFound();
-        if (request.Items == null || request.Items.Count == 0)
-            return BadRequest(new { message = "Debe enviar items para aprobar." });
-
-        foreach (var row in request.Items)
-        {
-            var item = entity.Items.FirstOrDefault(x => x.OrderPartId == row.OrderPartId);
-            if (item == null) continue;
-            if (row.ApprovedUnitPrice < 0)
-                return BadRequest(new { message = "El PV unitario no puede ser negativo." });
-            item.ApprovedUnitPrice = row.ApprovedUnitPrice;
-        }
-
-        entity.Status = CustomerOrderStatuses.Approved;
-        entity.IsApproved = true;
-        entity.ApprovedAt = DateTime.UtcNow;
-        entity.ApprovedBy = User.Identity?.Name ?? "Sistema";
-        entity.UpdatedAt = DateTime.UtcNow;
-        entity.UpdatedBy = User.Identity?.Name ?? "Sistema";
-
-        await _context.SaveChangesAsync();
-
         try
         {
-            await _manufacturingSync.SyncForCustomerOrderAsync(entity.Id, entity.ApprovedBy);
+            var items = (request.Items ?? new List<ApproveCustomerOrderItemRequest>())
+                .Select(i => new ApproveCustomerOrderItemCommand(i.OrderPartId, i.ApprovedUnitPrice))
+                .ToList();
+
+            var detail = await _orders.GetByIdAsync(id, ct);
+            await _orders.ApproveAsync(id, items, CurrentUser(), ct);
+
+            await _auditService.LogAsync(
+                User.Identity?.Name, User.Identity?.Name, "APPROVE_CUSTOMER_ORDER",
+                $"Se aprobo pedido cliente {detail.OrderNumber} ({detail.ClientName})",
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
+            return NoContent();
         }
-        catch
-        {
-            // La aprobacion ya quedo guardada; Apertura reintenta sync al listar pendientes.
-        }
-
-        await _auditService.LogAsync(
-            User.Identity?.Name,
-            User.Identity?.Name,
-            "APPROVE_CUSTOMER_ORDER",
-            $"Se aprobó pedido cliente {entity.OrderNumber} ({entity.ClientName})",
-            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
-
-        return NoContent();
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    private async Task<ActionResult?> ValidateRequestAsync(SaveCustomerOrderRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.ClientName))
-            return BadRequest(new { message = "CLIENTE es obligatorio." });
-        if (string.IsNullOrWhiteSpace(request.PurchaseOrderNumber))
-            return BadRequest(new { message = "ORDEN DE COMPRA es obligatoria." });
-        if (request.AgreedDeliveryDate is null)
-            return BadRequest(new { message = "FECHA PACTADA DE ENTREGA es obligatoria." });
-        if (request.Items == null || request.Items.Count == 0)
-            return BadRequest(new { message = "Debe agregar al menos un item." });
+    private static SaveCustomerOrderCommand ToCommand(SaveCustomerOrderRequest request) => new(
+        request.OrderNumber,
+        request.OrderDate,
+        request.ClientName,
+        request.PurchaseOrderNumber,
+        request.AgreedDeliveryDate,
+        request.Items.Select(i => new SaveCustomerOrderItemCommand(
+            i.OrderPartId, i.Quantity, i.ApprovedUnitPrice, i.ProductName, i.ReferenceName)).ToList());
 
-        var partIds = request.Items.Select(x => x.OrderPartId).Distinct().ToList();
-        var approvedParts = await _context.OrderParts
-            .AsNoTracking()
-            .Include(x => x.Order)
-            .Where(x => partIds.Contains(x.Id) && x.IsTechnicalSheetApproved && x.Order != null)
-            .Select(x => x.Id)
-            .ToListAsync();
-
-        if (approvedParts.Count != partIds.Count)
-            return BadRequest(new { message = "Todos los productos deben estar aprobados en ficha técnica." });
-
-        if (request.Items.Any(x => x.Quantity <= 0))
-            return BadRequest(new { message = "La cantidad debe ser mayor a cero." });
-        if (request.Items.Any(x => x.ApprovedUnitPrice < 0))
-            return BadRequest(new { message = "PV unitario no puede ser negativo." });
-
-        return null;
-    }
-
-    private static CustomerOrderItem MapItem(
-        SaveCustomerOrderItemRequest request,
-        Guid customerOrderId,
-        Guid productionOrderId)
-    {
-        return new CustomerOrderItem
-        {
-            Id = Guid.NewGuid(),
-            CustomerOrderId = customerOrderId,
-            ProductionOrderId = productionOrderId,
-            OrderPartId = request.OrderPartId,
-            Quantity = request.Quantity,
-            ApprovedUnitPrice = request.ApprovedUnitPrice,
-            ProductName = request.ProductName?.Trim() ?? string.Empty,
-            ReferenceName = request.ReferenceName?.Trim() ?? string.Empty
-        };
-    }
-
-    private static bool IsUniqueOrderNumberViolation(DbUpdateException ex)
-    {
-        return ex.InnerException is PostgresException pg &&
-               pg.SqlState == PostgresErrorCodes.UniqueViolation &&
-               (pg.ConstraintName?.Contains("OrderNumber", StringComparison.OrdinalIgnoreCase) == true ||
-                pg.MessageText.Contains("OrderNumber", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static void DetachTrackedOrder(ProductionDbContext context, CustomerOrder entity)
-    {
-        foreach (var item in entity.Items.ToList())
-        {
-            var itemEntry = context.Entry(item);
-            if (itemEntry.State != EntityState.Detached)
-                itemEntry.State = EntityState.Detached;
-        }
-
-        var entry = context.Entry(entity);
-        if (entry.State != EntityState.Detached)
-            entry.State = EntityState.Detached;
-    }
-
-    private static string DescribeDbError(DbUpdateException ex)
-    {
-        if (ex.InnerException is PostgresException pg)
-        {
-            if (pg.SqlState == PostgresErrorCodes.UniqueViolation)
-                return "Ya existe un pedido con ese numero. Actualice la pagina e intente de nuevo.";
-
-            if (!string.IsNullOrWhiteSpace(pg.MessageText))
-                return pg.MessageText;
-        }
-
-        return "No se pudo guardar el pedido en base de datos.";
-    }
-
-    private static DateTime ToUtcDateTime(DateTime value)
-    {
-        return value.Kind switch
-        {
-            DateTimeKind.Utc => value,
-            DateTimeKind.Local => value.ToUniversalTime(),
-            _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
-        };
-    }
-
-    private static DateTime? ToUtcDateTime(DateTime? value)
-    {
-        return value.HasValue ? ToUtcDateTime(value.Value) : null;
-    }
-
-    private async Task<string> GetNextNumberValueAsync()
-    {
-        var numbers = await _context.CustomerOrders
-            .AsNoTracking()
-            .Select(x => x.OrderNumber)
-            .ToListAsync();
-
-        var maxNumber = 0;
-        foreach (var value in numbers)
-        {
-            if (int.TryParse(value, out var parsed) && parsed > maxNumber)
-                maxNumber = parsed;
-        }
-
-        return (maxNumber + 1).ToString();
-    }
-
-    private async Task<Dictionary<Guid, Guid>> GetPartProductionOrderIdsAsync(IEnumerable<Guid> partIds)
-    {
-        var ids = partIds.Distinct().ToList();
-        return await _context.OrderParts
-            .AsNoTracking()
-            .Where(x => ids.Contains(x.Id))
-            .ToDictionaryAsync(x => x.Id, x => x.ProductionOrderId);
-    }
+    private string CurrentUser() => User.Identity?.Name ?? "Sistema";
 
     public sealed class SaveCustomerOrderRequest
     {

@@ -4,16 +4,16 @@ import '@mantine/notifications/styles.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { theme } from './theme';
-import LoginPage from './pages/LoginPage';
+import LoginPage from './pages/auth/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
-import DashboardPage from './pages/DashboardPage';
-import ModulePage from './pages/ModulePage';
+import DashboardPage from './pages/dashboard/DashboardPage';
+import ModulePage from './pages/shared/ModulePage';
 import NuevaOT from './pages/ordenes/NuevaOT';
 import ListaOT from './pages/ordenes/ListaOT';
 import PlanesDiseno from './pages/ordenes/PlanesDiseno';
-import Auditoria from './pages/admin/Auditoria';
-import UsuariosConfig from './pages/configuracion/Usuarios';
+import Auditoria from './pages/admin/auditoria/Auditoria';
+import UsuariosConfig from './pages/admin/usuarios/Usuarios';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
 import CotizadorHome from './pages/cotizador/CotizadorHome';
@@ -21,18 +21,19 @@ import CotizadorWizard from './pages/cotizador/CotizadorWizard';
 import CotizadorGuardadas from './pages/cotizador/CotizadorGuardadas';
 import NuevoPedido from './pages/pedidos/NuevoPedido';
 import InformePedidos from './pages/pedidos/InformePedidos';
-import GastosProduccion from './pages/produccion/GastosProduccion';
-import GraficasGastos from './pages/produccion/GraficasGastos';
-import RubrosGastos from './pages/produccion/RubrosGastos';
-import Cotizaciones from './pages/produccion/Cotizaciones';
-import ProveedoresGastos from './pages/produccion/ProveedoresGastos';
-import HorasExtra from './pages/produccion/HorasExtra';
-import Recargos from './pages/produccion/Recargos';
-import Salarios from './pages/produccion/Salarios';
-import AperturaProduccion from './pages/produccion/AperturaProduccion';
-import DetalleOpPage from './pages/produccion/DetalleOpPage';
-import EstadoOrdenesProduccion from './pages/produccion/EstadoOrdenesProduccion';
-import PlaneacionProduccion from './pages/produccion/PlaneacionProduccion';
+import GastosProduccion from './pages/produccion/gastos/GastosProduccion';
+import GraficasGastos from './pages/produccion/gastos/GraficasGastos';
+import RubrosGastos from './pages/produccion/gastos/RubrosGastos';
+import Cotizaciones from './pages/produccion/gastos/Cotizaciones';
+import ProveedoresGastos from './pages/produccion/gastos/ProveedoresGastos';
+import HorasExtra from './pages/produccion/personal/HorasExtra';
+import Recargos from './pages/produccion/personal/Recargos';
+import Salarios from './pages/produccion/personal/Salarios';
+import AperturaProduccion from './pages/produccion/operacion/AperturaProduccion';
+import DetalleOpPage from './pages/produccion/operacion/DetalleOpPage';
+import EstadoOrdenesProduccion from './pages/produccion/operacion/EstadoOrdenesProduccion';
+import RegistrarOpExistente from './pages/produccion/operacion/RegistrarOpExistente';
+import Programador from './pages/planeacion/programador/Programador';
 
 // Talleres y Despachos Wrappers
 import GastosTalleres from './pages/talleres/gastos/GastosTalleres';
@@ -56,16 +57,16 @@ import CotizacionesPlaneacion from './pages/planeacion/gastos/CotizacionesPlanea
 import GraficasPlaneacion from './pages/planeacion/gastos/GraficasPlaneacion';
 import RubrosPlaneacion from './pages/planeacion/gastos/RubrosPlaneacion';
 import ProveedoresPlaneacion from './pages/planeacion/gastos/ProveedoresPlaneacion';
-import PersonalAlmacen from './pages/planeacion/PersonalAlmacen';
+import PersonalAlmacen from './pages/planeacion/personal/PersonalAlmacen';
 import TalleresPresupuesto from './pages/presupuesto/talleres/TalleresPresupuesto';
 import ProduccionPresupuesto from './pages/presupuesto/produccion/ProduccionPresupuesto';
 import GhumanaPresupuesto from './pages/presupuesto/gh/GhumanaPresupuesto';
 import SstPresupuesto from './pages/presupuesto/sst/SstPresupuesto';
 import PlaneacionPresupuesto from './pages/presupuesto/planeacion/PlaneacionPresupuesto';
 import DisenoPresupuesto from './pages/presupuesto/diseño/DisenoPresupuesto';
-import PresupuestoGeneral from './pages/presupuestos/PresupuestoGeneral';
-import PresupuestoDetalle from './pages/presupuestos/PresupuestoDetalle';
-import EquiposMantenimiento from './pages/mantenimiento_equipos/equipos/EquiposMantenimiento';
+import PresupuestoGeneral from './pages/presupuesto/general/PresupuestoGeneral';
+import PresupuestoDetalle from './pages/presupuesto/detalle/PresupuestoDetalle';
+import EquiposMantenimiento from './pages/mantenimiento/equipos/EquiposMantenimiento';
 import EncuestasCalidad from './pages/calidad/EncuestasCalidad';
 import ReporteNC from './pages/calidad/ReporteNC';
 import ConsolidadoNC from './pages/calidad/ConsolidadoNC';
@@ -76,10 +77,10 @@ import GraficasDiseno from './pages/diseno/gastos/GraficasDiseno';
 import RubrosDiseno from './pages/diseno/gastos/RubrosDiseno';
 import CotizacionesDiseno from './pages/diseno/gastos/CotizacionesDiseno';
 import ProveedoresDiseno from './pages/diseno/gastos/ProveedoresDiseno';
-import PlaneadorDiseno from './pages/diseno/programador-diseno/PlaneadorDiseno';
-import PanelMantenimiento from './pages/mantenimiento_equipos/PanelMantenimiento';
-import GastosMantenimiento from './pages/mantenimiento/GastosMantenimiento';
-import InventarioMantenimiento from './pages/mantenimiento/InventarioMantenimiento';
+import PlaneadorDiseno from './pages/diseno/programador/PlaneadorDiseno';
+import PanelMantenimiento from './pages/mantenimiento/equipos/PanelMantenimiento';
+import GastosMantenimiento from './pages/mantenimiento/gastos/GastosMantenimiento';
+import InventarioMantenimiento from './pages/mantenimiento/inventario/InventarioMantenimiento';
 import HojasDeVidaMaquinariaView from './pages/mantenimiento/hojas-vida-maquinaria/HojasDeVidaMaquinariaView';
 import CronogramasMaquinariaView from './pages/mantenimiento/hojas-vida-maquinaria/CronogramasMaquinariaView';
 import TicketsDanoMaquinariaView from './pages/mantenimiento/hojas-vida-maquinaria/TicketsDanoMaquinariaView';
@@ -107,7 +108,7 @@ import '@mantine/core/styles.css';
 import './App.css';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ChatCenter from './pages/chat/ChatCenter';
-import CotizadorCatalogos from './pages/ajustes/CotizadorCatalogos.jsx';
+import CotizadorCatalogos from './pages/admin/ajustes/CotizadorCatalogos.jsx';
 import PlantaFloorPage from './pages/planta/PlantaFloorPage';
 import RequisicionPage from './pages/compras/requisicion/RequisicionPage';
 import PedidosPage from './pages/compras/pedidos/PedidosPage';
@@ -188,7 +189,10 @@ function App() {
             <Route path="/pedidos/informe" element={<InformePedidos />} />
             <Route path="/reporte-diario" element={<ReporteDiario />} />
             <Route path="/produccion/apertura" element={<AperturaProduccion />} />
-            <Route path="/produccion/planeacion" element={<PlaneacionProduccion />} />
+            <Route path="/produccion/op-existente" element={<RegistrarOpExistente />} />
+            <Route path="/planeacion/programador" element={<Programador />} />
+            <Route path="/planeacion/panel" element={<Navigate to="/planeacion/programador" replace />} />
+            <Route path="/produccion/planeacion" element={<Navigate to="/planeacion/programador" replace />} />
             <Route path="/produccion/estado-ordenes" element={<EstadoOrdenesProduccion />} />
             <Route path="/produccion/op/:id" element={<DetalleOpPage />} />
             <Route path="/chat" element={<ChatCenter />} />
@@ -198,6 +202,28 @@ function App() {
             <Route path="/gastos/control/cotizaciones" element={<Cotizaciones />} />
             <Route path="/gastos/control/proveedores" element={<ProveedoresGastos subtitulo="Producción - Control de Gastos" />} />
             <Route path="/gastos/personal/horas-extra" element={<HorasExtra />} />
+            <Route
+                path="/planeacion/personal/horas-extra"
+                element={(
+                    <HorasExtra
+                        titulo="Horas Extra de Almacén"
+                        subtitulo="Planeación"
+                        personnelRoles={['Almacen']}
+                        expenseHint="Las horas extras de almacén se registran en Gastos de Planeación."
+                    />
+                )}
+            />
+            <Route
+                path="/talleres-gastos/personal/horas-extra"
+                element={(
+                    <HorasExtra
+                        titulo="Horas Extra de Talleres"
+                        subtitulo="Control de Personal"
+                        personnelRoles={['Taller']}
+                        expenseHint="Las horas extras del personal de talleres se registran en Gastos de Talleres."
+                    />
+                )}
+            />
             <Route path="/gastos/personal/recargo" element={<Recargos />} />
             <Route path="/gastos/personal/salarios" element={<Salarios />} />
 

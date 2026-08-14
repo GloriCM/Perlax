@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Perlax.Modules.Almacen.Application.Abstractions;
@@ -23,7 +23,7 @@ public static class AlmacenModuleExtensions
         var connectionString = ResolveConnectionString(configuration);
 
         services.AddDbContext<AlmacenDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(AlmacenDbContext).Assembly.FullName)));
 
         services.AddScoped<IAlmacenService, AlmacenService>();
         services.AddSingleton<AlmacenEmailService>();

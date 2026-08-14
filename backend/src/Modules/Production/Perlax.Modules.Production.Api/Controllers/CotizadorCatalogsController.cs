@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Audit.Application.Abstractions;
+using Perlax.Modules.Production.Application.Common;
+using Perlax.Modules.Production.Application.Cotizador;
 using Perlax.Modules.Production.Domain.Entities;
-using Perlax.Modules.Production.Infrastructure.Persistence;
 
 namespace Perlax.Modules.Production.Api.Controllers;
 
@@ -12,218 +12,155 @@ namespace Perlax.Modules.Production.Api.Controllers;
 [Route("api/production/cotizador/catalogs")]
 public class CotizadorCatalogsController : ControllerBase
 {
-    private readonly ProductionDbContext _context;
+    private readonly ICotizadorService _cotizador;
     private readonly IAuditService _auditService;
 
-    public CotizadorCatalogsController(ProductionDbContext context, IAuditService auditService)
+    public CotizadorCatalogsController(ICotizadorService cotizador, IAuditService auditService)
     {
-        _context = context;
+        _cotizador = cotizador;
         _auditService = auditService;
     }
 
     [HttpGet("machines")]
-    public async Task<ActionResult<IEnumerable<CotizadorMachine>>> GetMachines() =>
-        Ok(await _context.CotizadorMachines.OrderBy(x => x.ServiceRole).ThenBy(x => x.Name).ToListAsync());
+    public async Task<ActionResult<IEnumerable<CotizadorMachine>>> GetMachines(CancellationToken ct) =>
+        Ok(await _cotizador.GetCatalogMachinesAsync(ct));
 
     [HttpPost("machines")]
-    public async Task<ActionResult<CotizadorMachine>> CreateMachine([FromBody] CotizadorMachine item)
+    public async Task<ActionResult<CotizadorMachine>> CreateMachine([FromBody] CotizadorMachine item, CancellationToken ct)
     {
-        item.Id = Guid.NewGuid();
-        item.CreatedAt = DateTime.UtcNow;
-        _context.CotizadorMachines.Add(item);
-        await _context.SaveChangesAsync();
-        await Audit("CREATE_COTIZADOR_MACHINE", item.Name);
-        return Ok(item);
+        var created = await _cotizador.CreateMachineAsync(item, ct);
+        await Audit("CREATE_COTIZADOR_MACHINE", created.Name);
+        return Ok(created);
     }
 
     [HttpPut("machines/{id:guid}")]
-    public async Task<ActionResult<CotizadorMachine>> UpdateMachine(Guid id, [FromBody] CotizadorMachine item)
+    public async Task<ActionResult<CotizadorMachine>> UpdateMachine(Guid id, [FromBody] CotizadorMachine item, CancellationToken ct)
     {
-        var entity = await _context.CotizadorMachines.FindAsync(id);
-        if (entity == null) return NotFound();
-        entity.Name = item.Name;
-        entity.ServiceRole = item.ServiceRole;
-        entity.SetupTimeHours = item.SetupTimeHours;
-        entity.ShotsPerHour = item.ShotsPerHour;
-        entity.HourlyRate = item.HourlyRate;
-        entity.IsActive = item.IsActive;
-        entity.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-        await Audit("UPDATE_COTIZADOR_MACHINE", entity.Name);
-        return Ok(entity);
+        try
+        {
+            var updated = await _cotizador.UpdateMachineAsync(id, item, ct);
+            await Audit("UPDATE_COTIZADOR_MACHINE", updated.Name);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpDelete("machines/{id:guid}")]
-    public async Task<IActionResult> DeleteMachine(Guid id)
+    public async Task<IActionResult> DeleteMachine(Guid id, CancellationToken ct)
     {
-        var entity = await _context.CotizadorMachines.FindAsync(id);
-        if (entity == null) return NotFound();
-        _context.CotizadorMachines.Remove(entity);
-        await _context.SaveChangesAsync();
-        await Audit("DELETE_COTIZADOR_MACHINE", entity.Name);
-        return NoContent();
+        try
+        {
+            var existing = (await _cotizador.GetCatalogMachinesAsync(ct)).FirstOrDefault(x => x.Id == id);
+            await _cotizador.DeleteMachineAsync(id, ct);
+            if (existing != null) await Audit("DELETE_COTIZADOR_MACHINE", existing.Name);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpPost("machines/import")]
-    public async Task<ActionResult<object>> ImportMachinesPlaceholder()
-    {
-        return Ok(new { message = "Importación Excel pendiente. Envíe la plantilla para habilitar este endpoint." });
-    }
+    public ActionResult<object> ImportMachinesPlaceholder() =>
+        Ok(new { message = "Importacion Excel pendiente. Envie la plantilla para habilitar este endpoint." });
 
     [HttpGet("materials")]
-    public async Task<ActionResult<IEnumerable<CotizadorMaterial>>> GetMaterials() =>
-        Ok(await _context.CotizadorMaterials.OrderBy(x => x.Name).ToListAsync());
+    public async Task<ActionResult<IEnumerable<CotizadorMaterial>>> GetMaterials(CancellationToken ct) =>
+        Ok(await _cotizador.GetCatalogMaterialsAsync(ct));
 
     [HttpPost("materials")]
-    public async Task<ActionResult<CotizadorMaterial>> CreateMaterial([FromBody] CotizadorMaterial item)
-    {
-        item.Id = Guid.NewGuid();
-        item.CreatedAt = DateTime.UtcNow;
-        _context.CotizadorMaterials.Add(item);
-        await _context.SaveChangesAsync();
-        await Audit("CREATE_COTIZADOR_MATERIAL", item.Name);
-        return Ok(item);
-    }
+    public async Task<ActionResult<CotizadorMaterial>> CreateMaterial([FromBody] CotizadorMaterial item, CancellationToken ct) =>
+        Ok(await _cotizador.CreateMaterialAsync(item, ct));
 
     [HttpPut("materials/{id:guid}")]
-    public async Task<ActionResult<CotizadorMaterial>> UpdateMaterial(Guid id, [FromBody] CotizadorMaterial item)
+    public async Task<ActionResult<CotizadorMaterial>> UpdateMaterial(Guid id, [FromBody] CotizadorMaterial item, CancellationToken ct)
     {
-        var entity = await _context.CotizadorMaterials.FindAsync(id);
-        if (entity == null) return NotFound();
-        entity.Name = item.Name;
-        entity.PricePerM2 = item.PricePerM2;
-        entity.IsActive = item.IsActive;
-        entity.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-        return Ok(entity);
+        try { return Ok(await _cotizador.UpdateMaterialAsync(id, item, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpDelete("materials/{id:guid}")]
-    public async Task<IActionResult> DeleteMaterial(Guid id)
+    public async Task<IActionResult> DeleteMaterial(Guid id, CancellationToken ct)
     {
-        var entity = await _context.CotizadorMaterials.FindAsync(id);
-        if (entity == null) return NotFound();
-        _context.CotizadorMaterials.Remove(entity);
-        await _context.SaveChangesAsync();
-        return NoContent();
+        try { await _cotizador.DeleteMaterialAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpGet("factors")]
-    public async Task<ActionResult<IEnumerable<CotizadorFactor>>> GetFactors() =>
-        Ok(await _context.CotizadorFactors.OrderBy(x => x.Key).ToListAsync());
+    public async Task<ActionResult<IEnumerable<CotizadorFactor>>> GetFactors(CancellationToken ct) =>
+        Ok(await _cotizador.GetFactorsAsync(ct));
 
     [HttpPut("factors/{id:guid}")]
-    public async Task<ActionResult<CotizadorFactor>> UpdateFactor(Guid id, [FromBody] CotizadorFactor item)
+    public async Task<ActionResult<CotizadorFactor>> UpdateFactor(Guid id, [FromBody] CotizadorFactor item, CancellationToken ct)
     {
-        var entity = await _context.CotizadorFactors.FindAsync(id);
-        if (entity == null) return NotFound();
-        entity.Value = item.Value;
-        entity.Label = string.IsNullOrWhiteSpace(item.Label) ? entity.Label : item.Label;
-        entity.Description = item.Description;
-        entity.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-        await Audit("UPDATE_COTIZADOR_FACTOR", entity.Key);
-        return Ok(entity);
+        try
+        {
+            var updated = await _cotizador.UpdateFactorAsync(id, item, ct);
+            await Audit("UPDATE_COTIZADOR_FACTOR", updated.Key);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpPost("factors")]
-    public async Task<ActionResult<CotizadorFactor>> CreateFactor([FromBody] CotizadorFactor item)
+    public async Task<ActionResult<CotizadorFactor>> CreateFactor([FromBody] CotizadorFactor item, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(item.Key))
-            return BadRequest(new { message = "El nombre del factor es obligatorio." });
-
-        var key = item.Key.Trim();
-        if (await _context.CotizadorFactors.AnyAsync(f => f.Key == key))
-            return Conflict(new { message = $"Ya existe un factor con nombre '{key}'." });
-
-        var entity = new CotizadorFactor
+        try
         {
-            Id = Guid.NewGuid(),
-            Key = key,
-            Label = string.IsNullOrWhiteSpace(item.Label) ? key : item.Label.Trim(),
-            Value = item.Value,
-            Description = item.Description,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.CotizadorFactors.Add(entity);
-        await _context.SaveChangesAsync();
-        await Audit("CREATE_COTIZADOR_FACTOR", entity.Key);
-        return Ok(entity);
+            var created = await _cotizador.CreateFactorAsync(item, ct);
+            await Audit("CREATE_COTIZADOR_FACTOR", created.Key);
+            return Ok(created);
+        }
+        catch (ResourceConflictException ex) { return Conflict(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpGet("micro-flauta")]
-    public async Task<ActionResult<IEnumerable<CotizadorMicroFlauta>>> GetMicroFlauta() =>
-        Ok(await _context.CotizadorMicroFlautas.OrderBy(x => x.Name).ToListAsync());
+    public async Task<ActionResult<IEnumerable<CotizadorMicroFlauta>>> GetMicroFlauta(CancellationToken ct) =>
+        Ok(await _cotizador.GetCatalogMicroFlautasAsync(ct));
 
     [HttpPost("micro-flauta")]
-    public async Task<ActionResult<CotizadorMicroFlauta>> CreateMicroFlauta([FromBody] CotizadorMicroFlauta item)
-    {
-        item.Id = Guid.NewGuid();
-        item.CreatedAt = DateTime.UtcNow;
-        _context.CotizadorMicroFlautas.Add(item);
-        await _context.SaveChangesAsync();
-        return Ok(item);
-    }
+    public async Task<ActionResult<CotizadorMicroFlauta>> CreateMicroFlauta([FromBody] CotizadorMicroFlauta item, CancellationToken ct) =>
+        Ok(await _cotizador.CreateMicroFlautaAsync(item, ct));
 
     [HttpPut("micro-flauta/{id:guid}")]
-    public async Task<ActionResult<CotizadorMicroFlauta>> UpdateMicroFlauta(Guid id, [FromBody] CotizadorMicroFlauta item)
+    public async Task<ActionResult<CotizadorMicroFlauta>> UpdateMicroFlauta(Guid id, [FromBody] CotizadorMicroFlauta item, CancellationToken ct)
     {
-        var entity = await _context.CotizadorMicroFlautas.FindAsync(id);
-        if (entity == null) return NotFound();
-        entity.Name = item.Name;
-        entity.PricePerM2 = item.PricePerM2;
-        entity.IsActive = item.IsActive;
-        entity.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-        return Ok(entity);
+        try { return Ok(await _cotizador.UpdateMicroFlautaAsync(id, item, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpDelete("micro-flauta/{id:guid}")]
-    public async Task<IActionResult> DeleteMicroFlauta(Guid id)
+    public async Task<IActionResult> DeleteMicroFlauta(Guid id, CancellationToken ct)
     {
-        var entity = await _context.CotizadorMicroFlautas.FindAsync(id);
-        if (entity == null) return NotFound();
-        _context.CotizadorMicroFlautas.Remove(entity);
-        await _context.SaveChangesAsync();
-        return NoContent();
+        try { await _cotizador.DeleteMicroFlautaAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpGet("planchas")]
-    public async Task<ActionResult<IEnumerable<CotizadorPlancha>>> GetPlanchas() =>
-        Ok(await _context.CotizadorPlanchas.OrderBy(x => x.Name).ToListAsync());
+    public async Task<ActionResult<IEnumerable<CotizadorPlancha>>> GetPlanchas(CancellationToken ct) =>
+        Ok(await _cotizador.GetCatalogPlanchasAsync(ct));
 
     [HttpPost("planchas")]
-    public async Task<ActionResult<CotizadorPlancha>> CreatePlancha([FromBody] CotizadorPlancha item)
-    {
-        item.Id = Guid.NewGuid();
-        item.CreatedAt = DateTime.UtcNow;
-        _context.CotizadorPlanchas.Add(item);
-        await _context.SaveChangesAsync();
-        return Ok(item);
-    }
+    public async Task<ActionResult<CotizadorPlancha>> CreatePlancha([FromBody] CotizadorPlancha item, CancellationToken ct) =>
+        Ok(await _cotizador.CreatePlanchaAsync(item, ct));
 
     [HttpPut("planchas/{id:guid}")]
-    public async Task<ActionResult<CotizadorPlancha>> UpdatePlancha(Guid id, [FromBody] CotizadorPlancha item)
+    public async Task<ActionResult<CotizadorPlancha>> UpdatePlancha(Guid id, [FromBody] CotizadorPlancha item, CancellationToken ct)
     {
-        var entity = await _context.CotizadorPlanchas.FindAsync(id);
-        if (entity == null) return NotFound();
-        entity.Name = item.Name;
-        entity.Price = item.Price;
-        entity.IsActive = item.IsActive;
-        entity.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-        return Ok(entity);
+        try { return Ok(await _cotizador.UpdatePlanchaAsync(id, item, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpDelete("planchas/{id:guid}")]
-    public async Task<IActionResult> DeletePlancha(Guid id)
+    public async Task<IActionResult> DeletePlancha(Guid id, CancellationToken ct)
     {
-        var entity = await _context.CotizadorPlanchas.FindAsync(id);
-        if (entity == null) return NotFound();
-        _context.CotizadorPlanchas.Remove(entity);
-        await _context.SaveChangesAsync();
-        return NoContent();
+        try { await _cotizador.DeletePlanchaAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     private Task Audit(string action, string detail) =>

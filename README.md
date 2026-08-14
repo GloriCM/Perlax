@@ -26,6 +26,8 @@ Sistema unificado de producción y gestión empresarial (Perla), con arquitectur
 - SignalR para chat interno en tiempo real.
 - Host HTTP en `0.0.0.0:5262` (red local) y HTTPS en `5263` (certificado local).
 
+Reglas y límites de módulo: [`docs/architecture.md`](docs/architecture.md).
+
 ### Frontend (React 19 + Vite 7)
 - **Mantine UI** + Tabler Icons.
 - React Router, Framer Motion.
@@ -51,7 +53,7 @@ Sistema unificado de producción y gestión empresarial (Perla), con arquitectur
 - Pedidos (alta e informe).
 
 ### Producción y planeación
-- Apertura / estado de órdenes, panel de planeación.
+- Apertura / estado de órdenes, **Programador** (`/planeacion/programador`).
 - Cuadros de gastos (captura, gráficas, rubros, cotizaciones, proveedores).
 - Control de personal (horas extra, recargos, salarios).
 

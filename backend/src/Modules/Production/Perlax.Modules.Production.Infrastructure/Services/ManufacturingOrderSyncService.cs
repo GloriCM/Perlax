@@ -66,7 +66,11 @@ public class ManufacturingOrderSyncService : IManufacturingOrderSyncService
 
         var activePartIds = order.Items.Select(i => i.OrderPartId).ToHashSet();
 
-        foreach (var orphan in existing.Where(m => !activePartIds.Contains(m.OrderPartId) && m.OpeningDate == null))
+            foreach (var orphan in existing.Where(m =>
+                         !activePartIds.Contains(m.OrderPartId)
+                         && m.OpeningDate == null
+                         && !string.Equals(m.Status, "Abierta", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(m.Status, "Cerrada", StringComparison.OrdinalIgnoreCase)))
         {
             _context.ManufacturingOrders.Remove(orphan);
         }

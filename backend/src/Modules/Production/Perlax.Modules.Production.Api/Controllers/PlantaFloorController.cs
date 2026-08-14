@@ -50,6 +50,23 @@ public sealed class PlantaFloorController : ControllerBase
         return Ok(await _service.GetPlantaCatalogsAsync(ct));
     }
 
+    [HttpGet("schedule")]
+    public async Task<IActionResult> Schedule([FromQuery] Guid machineId, [FromQuery] DateOnly? date, CancellationToken ct)
+    {
+        if (Guard() is { } denied) return denied;
+        if (machineId == Guid.Empty)
+            return BadRequest(new { message = "Maquina obligatoria." });
+        try
+        {
+            var blocks = await _service.GetMachineScheduleAsync(machineId, date, ct);
+            return Ok(blocks);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("sessions")]
     public async Task<IActionResult> Sessions([FromQuery] DateOnly? date, CancellationToken ct)
     {

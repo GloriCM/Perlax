@@ -47,10 +47,10 @@ import {
     getSessionsForDate,
     isProductionCode,
     todayKey,
-} from './productionExplorerStorage';
+} from './utils/productionExplorerStorage';
 import {
     toParentActivityLabel,
-} from './reporteDiarioExcelExport';
+} from './utils/reporteDiarioExcelExport';
 import {
     buildLocalImportPayloadFromStorage,
     dailyProductionApi,
@@ -58,7 +58,8 @@ import {
     mapCatalogOperators,
     mapCatalogProcessCodes,
     normalizeActivity,
-} from './dailyProductionApi';
+} from './utils/dailyProductionApi';
+import { schedulingApi } from '../../services/schedulingApi';
 import ReporteDiarioExplorer from './ReporteDiarioExplorer';
 import './ReporteDiario.css';
 
@@ -338,6 +339,8 @@ export default function ReporteDiario() {
     const [machineItems, setMachineItems] = useState(() => loadStoredMachines());
     const [machinesModalOpen, setMachinesModalOpen] = useState(false);
     const [machineDraft, setMachineDraft] = useState('');
+    const [machineProcessDraft, setMachineProcessDraft] = useState('');
+    const [planningProcesses, setPlanningProcesses] = useState([]);
     const [editingMachineIndex, setEditingMachineIndex] = useState(-1);
     const [codesModalOpen, setCodesModalOpen] = useState(false);
     const [editingCodeIndex, setEditingCodeIndex] = useState(-1);
@@ -515,13 +518,26 @@ export default function ReporteDiario() {
 
     const openMachinesModal = async () => {
         try {
-            const list = await dailyProductionApi.listMachines(true);
-            setCatalogMachines(list.map((m) => ({ id: m.id, code: m.code, name: m.name, isActive: m.isActive !== false })));
+            const [list, processes] = await Promise.all([
+                dailyProductionApi.listMachines(true),
+                schedulingApi.listProcesses().catch(() => []),
+            ]);
+            setCatalogMachines(list.map((m) => ({
+                id: m.id,
+                code: m.code,
+                name: m.name,
+                processCode: m.processCode || '',
+                isActive: m.isActive !== false,
+            })));
             setMachineItems(list.map((m) => m.name));
+            setPlanningProcesses(Array.isArray(processes)
+                ? processes.map((p) => ({ value: p.code, label: p.label || p.code }))
+                : []);
         } catch {
             setMachineItems(loadStoredMachines());
         }
         setMachineDraft('');
+        setMachineProcessDraft('');
         setEditingMachineIndex(-1);
         setMachinesModalOpen(true);
     };
@@ -538,17 +554,23 @@ export default function ReporteDiario() {
             notifications.show({ title: 'Validación', message: 'El nombre de la máquina es obligatorio.', color: 'yellow' });
             return;
         }
+        const processCode = machineProcessDraft || null;
         try {
             if (editingMachineIndex >= 0) {
                 const current = catalogMachines[editingMachineIndex];
                 if (current?.id) {
-                    await dailyProductionApi.updateMachine(current.id, { code: current.code || name, name, isActive: true });
+                    await dailyProductionApi.updateMachine(current.id, {
+                        code: current.code || name,
+                        name,
+                        processCode,
+                        isActive: true,
+                    });
                 } else {
-                    await dailyProductionApi.createMachine({ code: name, name, isActive: true });
+                    await dailyProductionApi.createMachine({ code: name, name, processCode, isActive: true });
                 }
                 notifications.show({ title: 'Máquina actualizada', message: name, color: 'teal' });
             } else {
-                await dailyProductionApi.createMachine({ code: name, name, isActive: true });
+                await dailyProductionApi.createMachine({ code: name, name, processCode, isActive: true });
                 notifications.show({ title: 'Máquina agregada', message: name, color: 'teal' });
             }
             await openMachinesModal();
@@ -561,11 +583,13 @@ export default function ReporteDiario() {
     const startEditMachine = (index) => {
         setEditingMachineIndex(index);
         setMachineDraft(machineItems[index] || '');
+        setMachineProcessDraft(catalogMachines[index]?.processCode || '');
     };
 
     const cancelEditMachine = () => {
         setEditingMachineIndex(-1);
         setMachineDraft('');
+        setMachineProcessDraft('');
     };
 
     const deleteMachine = async (index) => {
@@ -1697,21 +1721,34 @@ export default function ReporteDiario() {
                     cancelEditMachine();
                 }}
                 title="Máquinas"
-                size="md"
+                size="lg"
                 centered
             >
                 <Stack gap="md">
                     <Text size="sm" c="dimmed">
-                        Configura los nombres de las máquinas disponibles para los reportes.
+                        Alta de máquinas y asignación al proceso del Programador (Conversion, Impresion, etc.).
                     </Text>
 
-                    <Group align="flex-end" gap="sm">
-                        <TextInput
-                            label={editingMachineIndex >= 0 ? 'Renombrar máquina' : 'Nueva máquina'}
-                            placeholder="Ej: 6 SpeedMaster"
-                            value={machineDraft}
-                            onChange={(e) => setMachineDraft(e.currentTarget.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') saveMachineDraft(); }}
+                    <TextInput
+                        label={editingMachineIndex >= 0 ? 'Renombrar máquina' : 'Nueva máquina'}
+                        placeholder="Ej: 6 SpeedMaster"
+                        value={machineDraft}
+                        onChange={(e) => setMachineDraft(e.currentTarget.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveMachineDraft(); }}
+                        styles={{
+                            root: { width: '100%' },
+                            input: { width: '100%' },
+                        }}
+                    />
+                    <Group align="flex-end" gap="sm" wrap="nowrap">
+                        <Select
+                            label="Proceso (Gantt)"
+                            placeholder="Sin asignar"
+                            clearable
+                            searchable
+                            data={planningProcesses}
+                            value={machineProcessDraft || null}
+                            onChange={(value) => setMachineProcessDraft(value || '')}
                             style={{ flex: 1 }}
                         />
                         {editingMachineIndex >= 0 && (
@@ -1725,26 +1762,32 @@ export default function ReporteDiario() {
                         </Button>
                     </Group>
 
-                    <Divider label={`Máquinas registradas (${machineItems.length})`} labelPosition="left" />
+                    <Divider label={`Máquinas registradas (${catalogMachines.length || machineItems.length})`} labelPosition="left" />
 
                     <ScrollArea.Autosize mah={320} type="auto" offsetScrollbars>
                         <Table highlightOnHover verticalSpacing="xs">
                         <Table.Thead>
                             <Table.Tr>
                                     <Table.Th>Nombre</Table.Th>
+                                    <Table.Th>Proceso</Table.Th>
                                     <Table.Th style={{ width: 100 }}>Acciones</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
-                                {machineItems.map((name, index) => (
-                                    <Table.Tr key={`${name}-${index}`} bg={editingMachineIndex === index ? 'dark.6' : undefined}>
-                                        <Table.Td>{name}</Table.Td>
+                                {(catalogMachines.length > 0 ? catalogMachines : machineItems.map((name) => ({ name }))).map((row, index) => (
+                                    <Table.Tr key={`${row.id || row.name}-${index}`} bg={editingMachineIndex === index ? 'dark.6' : undefined}>
+                                        <Table.Td>{row.name}</Table.Td>
+                                        <Table.Td>
+                                            <Text size="sm" c={row.processCode ? undefined : 'dimmed'}>
+                                                {row.processCode || '—'}
+                                            </Text>
+                                        </Table.Td>
                                     <Table.Td>
                                             <Group gap={4}>
                                                 <ActionIcon
                                                     variant="subtle"
                                                     onClick={() => startEditMachine(index)}
-                                                    aria-label="Renombrar máquina"
+                                                    aria-label="Editar máquina"
                                                 >
                                                     <IconEdit size={16} />
                                                 </ActionIcon>
@@ -1760,9 +1803,9 @@ export default function ReporteDiario() {
                                     </Table.Td>
                                 </Table.Tr>
                             ))}
-                                {machineItems.length === 0 && (
+                                {machineItems.length === 0 && catalogMachines.length === 0 && (
                                 <Table.Tr>
-                                        <Table.Td colSpan={2}>
+                                        <Table.Td colSpan={3}>
                                             <Text c="dimmed" ta="center">No hay máquinas. Agrega la primera arriba.</Text>
                                         </Table.Td>
                                 </Table.Tr>

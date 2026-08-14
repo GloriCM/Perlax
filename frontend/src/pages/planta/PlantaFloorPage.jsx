@@ -5,7 +5,7 @@ import {
     elapsedSeconds,
     formatDuration,
     isProductionCode,
-} from '../reportes/productionExplorerStorage';
+} from '../reportes/utils/productionExplorerStorage';
 import {
     dailyProductionApi,
     mapCatalogMachines,
@@ -13,7 +13,7 @@ import {
     mapCatalogProcessCodes,
     normalizeActivity,
     normalizeSession,
-} from '../reportes/dailyProductionApi';
+} from '../reportes/utils/dailyProductionApi';
 import './PlantaFloorPage.css';
 
 const WASTE_CODES = [
@@ -111,6 +111,8 @@ export default function PlantaFloorPage() {
     const [history, setHistory] = useState([]);
 
     const [machineId, setMachineId] = useState('');
+    const [machineQuery, setMachineQuery] = useState('');
+    const [machineMenuOpen, setMachineMenuOpen] = useState(false);
     const [shiftCode, setShiftCode] = useState('T1');
     const [operatorId, setOperatorId] = useState('');
     const [opNumber, setOpNumber] = useState('');
@@ -136,6 +138,8 @@ export default function PlantaFloorPage() {
     const [warn, setWarn] = useState('');
     const [historyTick, setHistoryTick] = useState(0);
     const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
+    const [plannedBlocks, setPlannedBlocks] = useState([]);
+    const [plannedLoading, setPlannedLoading] = useState(false);
 
     useEffect(() => {
         try {
@@ -229,6 +233,69 @@ export default function PlantaFloorPage() {
     const machine = machines.find((m) => String(m.id) === String(machineId));
     const operator = operators.find((o) => String(o.id) === String(operatorId));
     const baseReady = Boolean(machine && operator);
+
+    const filteredMachines = useMemo(() => {
+        const q = machineQuery.trim().toLowerCase();
+        if (!q) return machines;
+        return machines.filter((m) => {
+            const name = String(m.name || '').toLowerCase();
+            const code = String(m.code || '').toLowerCase();
+            return name.includes(q) || code.includes(q);
+        });
+    }, [machines, machineQuery]);
+
+    useEffect(() => {
+        if (!machineId) return;
+        const selected = machines.find((m) => String(m.id) === String(machineId));
+        if (selected) setMachineQuery(selected.name);
+    }, [machineId, machines]);
+
+    const selectMachine = (m) => {
+        setMachineId(String(m.id));
+        setMachineQuery(m.name || '');
+        setMachineMenuOpen(false);
+    };
+
+    const onMachineQueryChange = (value) => {
+        setMachineQuery(value);
+        setMachineMenuOpen(true);
+        const selected = machines.find((m) => String(m.id) === String(machineId));
+        if (selected && value.trim() !== selected.name) {
+            setMachineId('');
+        }
+        if (!value.trim()) {
+            setMachineId('');
+        }
+    };
+
+    useEffect(() => {
+        if (!machineId) {
+            setPlannedBlocks([]);
+            return undefined;
+        }
+        let cancelled = false;
+        (async () => {
+            setPlannedLoading(true);
+            try {
+                const today = new Date();
+                const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                const rows = await dailyProductionApi.plantaSchedule({ machineId, date });
+                if (cancelled) return;
+                const list = Array.isArray(rows) ? rows : [];
+                setPlannedBlocks(list);
+                const activeOp = list.find((b) => b.blockType === 'Op' && b.opNumber);
+                if (activeOp?.opNumber && !running) {
+                    const digits = String(activeOp.opNumber).replace(/[^\d]/g, '');
+                    if (digits) setOpNumber(digits);
+                }
+            } catch {
+                if (!cancelled) setPlannedBlocks([]);
+            } finally {
+                if (!cancelled) setPlannedLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [machineId, running]);
 
     const enrichActivity = (act) => {
         const normalized = normalizeActivity(act);
@@ -805,16 +872,93 @@ export default function PlantaFloorPage() {
 
                 <div className="planta-floor__field">
                     <label>MÁQUINA</label>
-                    <select
-                        value={machineId}
-                        onChange={(e) => setMachineId(e.target.value)}
-                        disabled={Boolean(running)}
-                    >
-                        <option value="">Seleccionar máquina</option>
-                        {machines.map((m) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                    </select>
+                    <div className="planta-floor__combobox">
+                        <input
+                            type="text"
+                            value={machineQuery}
+                            onChange={(e) => onMachineQueryChange(e.target.value)}
+                            onFocus={() => {
+                                if (!running) setMachineMenuOpen(true);
+                            }}
+                            onBlur={() => {
+                                window.setTimeout(() => setMachineMenuOpen(false), 150);
+                            }}
+                            placeholder="Escribir para buscar máquina…"
+                            disabled={Boolean(running)}
+                            autoComplete="off"
+                            aria-autocomplete="list"
+                            aria-expanded={machineMenuOpen}
+                        />
+                        {machineMenuOpen && !running && (
+                            <ul className="planta-floor__combobox-list" role="listbox">
+                                {filteredMachines.length === 0 && (
+                                    <li className="planta-floor__combobox-empty">Sin coincidencias</li>
+                                )}
+                                {filteredMachines.map((m) => (
+                                    <li key={m.id}>
+                                        <button
+                                            type="button"
+                                            className={`planta-floor__combobox-option${String(m.id) === String(machineId) ? ' is-selected' : ''}`}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => selectMachine(m)}
+                                        >
+                                            {m.name}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+
+                <div className="planta-floor__field planta-floor__field--planned">
+                    <label>PLANEADO HOY</label>
+                    {!machineId && (
+                        <p className="planta-floor__hint">Seleccione una máquina para ver la programación.</p>
+                    )}
+                    {machineId && plannedLoading && (
+                        <p className="planta-floor__hint">Cargando programación…</p>
+                    )}
+                    {machineId && !plannedLoading && plannedBlocks.length === 0 && (
+                        <p className="planta-floor__hint">
+                            Sin bloques planeados para esta máquina hoy. En el Programador asigne la OP a esta máquina.
+                        </p>
+                    )}
+                    {machineId && !plannedLoading && plannedBlocks.length > 0 && (
+                        <ul className="planta-floor__planned-list">
+                            {plannedBlocks.map((block) => {
+                                const start = new Date(block.plannedStart);
+                                const end = new Date(block.plannedEnd);
+                                const fmt = (d) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+                                const title = block.blockType === 'Op'
+                                    ? (block.opNumber || 'OP')
+                                    : (block.blockType || 'Actividad');
+                                const isOp = block.blockType === 'Op' && block.opNumber;
+                                return (
+                                    <li key={block.id} className="planta-floor__planned-item">
+                                        <button
+                                            type="button"
+                                            className="planta-floor__planned-btn"
+                                            disabled={!isOp || Boolean(running)}
+                                            onClick={() => {
+                                                if (!isOp) return;
+                                                setOpNumber(String(block.opNumber).replace(/[^\d]/g, ''));
+                                            }}
+                                            title={isOp ? 'Usar esta OP' : undefined}
+                                        >
+                                            <strong>{title}</strong>
+                                            <span>{fmt(start)} – {fmt(end)}</span>
+                                            <span className="planta-floor__planned-meta">
+                                                {block.processCode}
+                                                {block.clientName ? ` · ${block.clientName}` : ''}
+                                                {block.isUrgency ? ' · Urgencia' : ''}
+                                            </span>
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
                 </div>
 
                 <div className="planta-floor__field">

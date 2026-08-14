@@ -50,6 +50,8 @@ builder.Services.AddScoped<Perlax.Modules.Production.Application.DailyProduction
 builder.Services.AddAuditModule(builder.Configuration);
 builder.Services.AddBudgetsModule(builder.Configuration);
 builder.Services.AddAlmacenModule(builder.Configuration);
+// OT/OP abiertas de Production para Almacén (sin acoplar DbContexts entre módulos)
+builder.Services.AddScoped<Perlax.Modules.Almacen.Application.Abstractions.IProductionOrderLookup, Perlax.Web.Services.ProductionOrderLookup>();
 
 // --- JWT AUTHENTICATION ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -164,24 +166,35 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var usersContext = scope.ServiceProvider.GetRequiredService<UsersDbContext>();
+        await usersContext.Database.MigrateAsync();
         await UsersDbInitializer.SeedAsync(usersContext, builder.Configuration, app.Environment.IsDevelopment());
         
         var auditContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
-        await auditContext.Database.EnsureCreatedAsync();
+        await auditContext.Database.MigrateAsync();
         
         // Use MigrateAsync for Production to handle existing migrations
         var productionContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Production.Infrastructure.Persistence.ProductionDbContext>();
-        await productionContext.Database.MigrateAsync();
+        try
+        {
+            await productionContext.Database.MigrateAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Production MigrateAsync failed: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+        }
         await ProductionDbInitializer.InitializeAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.CotizadorDbSeeder.SeedAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.DesignPlannerDbSeeder.SeedAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.DailyProductionDbSeeder.SeedAsync(productionContext);
+        await Perlax.Modules.Production.Infrastructure.Persistence.OpSchedulingSeeder.SeedAsync(productionContext);
 
         var budgetsContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbContext>();
         await budgetsContext.Database.MigrateAsync();
         await Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbSeeder.SeedAsync(budgetsContext);
 
         var almacenContext = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        await almacenContext.Database.MigrateAsync();
         await AlmacenDbInitializer.InitializeAsync(almacenContext);
     }
 }

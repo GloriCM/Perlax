@@ -57,9 +57,9 @@ public static class DailyProductionDbSeeder
         if (await db.ProductionMachines.AnyAsync(ct)) return;
 
         db.ProductionMachines.AddRange(
-            new ProductionMachine { Id = Guid.Parse("22222222-2222-2222-2222-222222222201"), Code = "1a", Name = "1A CONVERTIDORA", CreatedBy = "seed" },
-            new ProductionMachine { Id = Guid.Parse("22222222-2222-2222-2222-222222222206"), Code = "6sm", Name = "6 SpeedMaster", CreatedBy = "seed" },
-            new ProductionMachine { Id = Guid.Parse("22222222-2222-2222-2222-222222222210"), Code = "10a", Name = "10A Colaminadora Carton", CreatedBy = "seed" });
+            new ProductionMachine { Id = Guid.Parse("22222222-2222-2222-2222-222222222201"), Code = "1a", Name = "1A CONVERTIDORA", ProcessCode = "Conversion", CreatedBy = "seed" },
+            new ProductionMachine { Id = Guid.Parse("22222222-2222-2222-2222-222222222206"), Code = "6sm", Name = "6 SpeedMaster", ProcessCode = "Impresion", CreatedBy = "seed" },
+            new ProductionMachine { Id = Guid.Parse("22222222-2222-2222-2222-222222222210"), Code = "10a", Name = "10A Colaminadora Carton", ProcessCode = "Colaminado", CreatedBy = "seed" });
     }
 
     /// <summary>

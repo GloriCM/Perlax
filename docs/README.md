@@ -20,6 +20,8 @@ Bienvenido al manual de **Perla** (Perla ERP): sistema de producción y gestión
 2. Consulta [Roles del sistema](roles-del-sistema.md) si no ves algún menú.
 3. Entra al capítulo del módulo que uses.
 
+Para el equipo técnico: [Arquitectura](architecture.md).
+
 ## Estado de los módulos
 
 Algunas pantallas están más integradas que otras con el backend. En cada capítulo se indica si el módulo está **en producción**, **parcial** o **en migración**.

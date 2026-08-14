@@ -4,6 +4,7 @@ public interface IDailyProductionService
 {
     Task<DailyReportCatalogsDto> GetCatalogsAsync(CancellationToken ct = default);
     Task<DailyReportCatalogsDto> GetPlantaCatalogsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<MachineScheduleBlockDto>> GetMachineScheduleAsync(Guid machineId, DateOnly? date = null, CancellationToken ct = default);
 
     Task<IReadOnlyList<MachineDto>> ListMachinesAsync(bool includeInactive = false, CancellationToken ct = default);
     Task<MachineDto> UpsertMachineAsync(Guid? id, UpsertMachineRequest request, string actor, CancellationToken ct = default);

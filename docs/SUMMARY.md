@@ -1,6 +1,7 @@
 # Manual Perla
 
 * [Introducción](README.md)
+* [Arquitectura (equipo técnico)](architecture.md)
 
 ## Introducción
 

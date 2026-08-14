@@ -74,6 +74,41 @@ const EJECUTIVOS_CUENTA_BASE = [
 
 const NUEVO_EJECUTIVO_VALUE = '__nuevo_ejecutivo__';
 const NUEVA_LINEA_PT_VALUE = '__nueva_linea_pt__';
+
+/** Tipos de asignación OT (clase de trabajo de diseño) */
+const ASIGNACION_OPTIONS = [
+    'Nuevo',
+    'Repeticion con Cambios',
+    'Repeticion sin Cambio',
+];
+
+const ASIGNACION_REQUIERE_DISENADOR = new Set(['Nuevo', 'Repeticion con Cambios']);
+
+function requiereDisenador(asignacion) {
+    return ASIGNACION_REQUIERE_DISENADOR.has(asignacion);
+}
+
+function isRepeticionAsignacion(asignacion) {
+    return String(asignacion || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .includes('repeticion');
+}
+
+/** Normaliza valores legacy (Diseño / Repetición / Otro) al catálogo actual */
+function normalizeAsignacion(value) {
+    const raw = (value || '').trim();
+    if (ASIGNACION_OPTIONS.includes(raw)) return raw;
+    const legacy = {
+        Diseño: 'Nuevo',
+        Diseno: 'Nuevo',
+        Repetición: 'Repeticion sin Cambio',
+        Repeticion: 'Repeticion sin Cambio',
+        Otro: 'Nuevo',
+    };
+    return legacy[raw] || 'Nuevo';
+}
 const TERMINADOS_OPTIONS = [
     'Ninguno',
     'Barniz Litográfico',
@@ -181,7 +216,7 @@ export default function NuevaOT() {
         cliente: '',
         ejecutivoCuenta: '',
         fechaSolicitud: new Date(),
-        asignacion: 'Otro',
+        asignacion: 'Nuevo',
         designAssignee: '',
         lineaPT: 'Bolsa',
         numeroPartes: 1,
@@ -209,6 +244,8 @@ export default function NuevaOT() {
     const [pendingNuevaLineaPT, setPendingNuevaLineaPT] = useState(false);
     const [nuevaLineaDraft, setNuevaLineaDraft] = useState('');
     const lineaPTBackupRef = useRef(null);
+
+    const [currentPartIndex, setCurrentPartIndex] = useState(0);
 
     const ejecutivoSelectData = useMemo(() => {
         const seen = new Set();
@@ -257,6 +294,7 @@ export default function NuevaOT() {
                 setFormData((prev) => ({
                     ...prev,
                     ...order,
+                    asignacion: normalizeAsignacion(order.asignacion),
                     designAssignee: order?.parts?.[0]?.disenador || '',
                     fechaSolicitud: order.fechaSolicitud ? new Date(order.fechaSolicitud) : new Date(),
                     parts: Array.isArray(order.parts) && order.parts.length > 0 ? order.parts : prev.parts
@@ -294,6 +332,7 @@ export default function NuevaOT() {
         fetchDesignUsers();
     }, []);
 
+
     // Check duplicate by Number
     useEffect(() => {
         if (formData.otNumber.length > 2) {
@@ -303,6 +342,11 @@ export default function NuevaOT() {
 
     useEffect(() => {
         if (editingOrderId) return;
+        if (isRepeticionAsignacion(formData.asignacion)) {
+            setIsDuplicate(false);
+            setErrors((prev) => ({ ...prev, productName: null }));
+            return;
+        }
         if (formData.cliente.length > 3 && formData.productName.length > 3) {
             const checkDuplicate = async () => {
                 try {
@@ -320,7 +364,7 @@ export default function NuevaOT() {
             const timer = setTimeout(checkDuplicate, 800);
             return () => clearTimeout(timer);
         }
-    }, [formData.cliente, formData.productName, editingOrderId]);
+    }, [formData.cliente, formData.productName, formData.asignacion, editingOrderId]);
 
     useEffect(() => {
         const term = (formData.cliente || '').trim();
@@ -351,7 +395,10 @@ export default function NuevaOT() {
         if (!formData.cliente) newErrors.cliente = 'El cliente es obligatorio';
         if (!formData.ejecutivoCuenta) newErrors.ejecutivoCuenta = 'El ejecutivo es obligatorio';
         if (!formData.productName) newErrors.productName = 'El nombre del producto es obligatorio';
-        if (isDuplicate) newErrors.productName = 'Duplicado detectado';
+        if (isDuplicate && !isRepeticionAsignacion(formData.asignacion)) newErrors.productName = 'Duplicado detectado';
+        if (requiereDisenador(formData.asignacion) && !String(formData.designAssignee || '').trim()) {
+            newErrors.designAssignee = 'Debe asignar un diseñador';
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -409,9 +456,9 @@ export default function NuevaOT() {
                 ...formData,
                 parts: formData.parts.map((p) => ({
                     ...p,
-                    disenador: formData.asignacion === 'Diseño'
+                    disenador: requiereDisenador(formData.asignacion)
                         ? (formData.designAssignee || p.disenador || '')
-                        : (p.disenador || '')
+                        : ''
                 }))
             };
             const result = isEditing
@@ -702,17 +749,30 @@ export default function NuevaOT() {
                             <Select
                                 label="Asignación"
                                 placeholder="Tipo de asignación"
-                                data={['Diseño', 'Repetición', 'Otro']}
+                                data={ASIGNACION_OPTIONS}
                                 value={formData.asignacion}
                                 onChange={(val) => {
-                                    const nextAsignacion = val || 'Otro';
-                                    setFormData((prev) => ({ ...prev, asignacion: nextAsignacion }));
+                                    const nextAsignacion = normalizeAsignacion(val);
+                                    setFormData((prev) => {
+                                        const needsDesigner = requiereDisenador(nextAsignacion);
+                                        return {
+                                            ...prev,
+                                            asignacion: nextAsignacion,
+                                            designAssignee: needsDesigner ? prev.designAssignee : '',
+                                            parts: needsDesigner
+                                                ? prev.parts
+                                                : prev.parts.map((part) => ({ ...part, disenador: '' })),
+                                        };
+                                    });
+                                    if (!requiereDisenador(nextAsignacion)) {
+                                        setErrors((prev) => ({ ...prev, designAssignee: null }));
+                                    }
                                 }}
                                 variant="filled"
                             />
-                            {formData.asignacion === 'Diseño' && (
+                            {requiereDisenador(formData.asignacion) && (
                                 <Select
-                                    label="Asignar a (Área Diseño)"
+                                    label="Diseñador"
                                     placeholder="Seleccione diseñador..."
                                     data={designUserOptions}
                                     value={formData.designAssignee || null}
@@ -722,11 +782,13 @@ export default function NuevaOT() {
                                             designAssignee: val || '',
                                             parts: prev.parts.map((part) => ({ ...part, disenador: val || '' }))
                                         }));
+                                        setErrors((prev) => ({ ...prev, designAssignee: null }));
                                     }}
                                     searchable
                                     nothingFoundMessage="No hay usuarios con área Diseño"
                                     variant="filled"
                                     required
+                                    error={errors.designAssignee}
                                 />
                             )}
                         </Stack>
@@ -846,8 +908,6 @@ export default function NuevaOT() {
             </SimpleGrid>
         </Stack>
     );
-
-    const [currentPartIndex, setCurrentPartIndex] = useState(0);
 
     const updatePartField = (field, value) => {
         const newParts = [...formData.parts];

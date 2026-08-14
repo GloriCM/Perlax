@@ -44,6 +44,51 @@ import AlmacenEstadoBadge from './components/AlmacenEstadoBadge';
 import AlmacenFiltroEstado from './components/AlmacenFiltroEstado';
 import './comprasAlmacen.css';
 
+/** Mantine Autocomplete/Select no admite values duplicados (rompe la vista). */
+function uniqueAutocompleteValues(values) {
+    const seen = new Set();
+    const out = [];
+    for (const raw of values) {
+        const value = typeof raw === 'string' ? raw : raw?.value;
+        if (value == null || value === '' || seen.has(value)) continue;
+        seen.add(value);
+        out.push(raw);
+    }
+    return out;
+}
+
+function opNumero(op) {
+    return op?.otNumber || op?.oTNumber || op?.otNumero || op?.oTNumero || op?.opNumber || '';
+}
+
+function opCliente(op) {
+    return op?.cliente || op?.clientName || '';
+}
+
+function opProducto(op) {
+    return op?.productName || op?.productoNombre || '';
+}
+
+function buildOpAutocompleteOptions(data) {
+    const seen = new Set();
+    const opts = [];
+    for (const op of Array.isArray(data) ? data : []) {
+        const ot = opNumero(op);
+        const base = `${ot} — ${opCliente(op)} — ${opProducto(op)}`
+            .replace(/\s+/g, ' ')
+            .trim() || String(op.id || '');
+        let label = base;
+        let n = 2;
+        while (seen.has(label)) {
+            const suffix = ot || String(op.id || '').slice(0, 8);
+            label = `${base} (${suffix}·${n++})`;
+        }
+        seen.add(label);
+        opts.push({ value: label, label, meta: op });
+    }
+    return opts;
+}
+
 const TAB_META = {
     requisicion: {
         title: 'Requisiciones',
@@ -231,24 +276,29 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
     }, [refreshProductos, refreshProveedores]);
 
     useEffect(() => {
-        if (!opSearch || opSearch.length < 1) {
-            setOpOptions([]);
-            return;
-        }
+        if (!reqModal) return undefined;
         let cancelled = false;
-        almacenApi.searchOrdenesProduccion({ q: opSearch, limit: 20 })
+        const q = (opSearch || '').trim();
+        almacenApi.searchOrdenesProduccion({ q: q || undefined, limit: 30 })
             .then((data) => {
                 if (cancelled) return;
-                const opts = (Array.isArray(data) ? data : []).map((op) => ({
-                    value: op.otNumero || op.oTNumero || '',
-                    label: `${op.otNumero || op.oTNumero || ''} — ${op.cliente || ''} — ${op.productoNombre || ''}`,
-                    meta: op,
-                }));
-                setOpOptions(opts);
+                setOpOptions(buildOpAutocompleteOptions(data));
             })
-            .catch(() => setOpOptions([]));
+            .catch(() => {
+                if (!cancelled) setOpOptions([]);
+            });
         return () => { cancelled = true; };
-    }, [opSearch]);
+    }, [opSearch, reqModal]);
+
+    const productosReqOptions = useMemo(
+        () => uniqueAutocompleteValues(
+            productos
+                .filter((p) => p.activo !== false)
+                .filter((p) => !reqForm.tipoRequisicionId || p.tipoRequisicionId === reqForm.tipoRequisicionId)
+                .map((p) => p.nombre)
+        ),
+        [productos, reqForm.tipoRequisicionId]
+    );
 
     const showTipoFiltro = tab === 'requisicion' || tab === 'pedidos' || tab === 'recepcion';
 
@@ -297,7 +347,23 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
 
     const openCreateReq = () => {
         setEditingReqId(null);
-        setReqForm({ ...EMPTY_REQ, fechaSolicitud: new Date() });
+        setOpSearch('');
+        setOpOptions([]);
+        setReqForm({
+            ...EMPTY_REQ,
+            tipoRequisicionId: filtroTipo || 'consumo_diario',
+            fechaSolicitud: new Date(),
+            fechaRequerida: null,
+            cliente: '',
+            referencia: '',
+            catalogoOpId: null,
+            ordenProduccionNumero: '',
+            productoId: null,
+            productoNombre: '',
+            cantidad: 1,
+            unidad: 'unidades',
+            observacion: '',
+        });
         openReqModal();
     };
 
@@ -330,9 +396,34 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
     };
 
     const saveRequisicion = async () => {
+        if (!String(reqForm.ordenProduccionNumero || '').trim()) {
+            notifyError(new Error('Seleccione una orden de producción existente.'));
+            return;
+        }
+        if (!String(reqForm.cliente || '').trim() || !String(reqForm.referencia || '').trim()) {
+            notifyError(new Error('Cliente y referencia se llenan al elegir una OP. Seleccione una OP de la lista.'));
+            return;
+        }
+        if (!String(reqForm.productoNombre || '').trim()) {
+            notifyError(new Error('Seleccione o agregue un producto / insumo.'));
+            return;
+        }
+        if (!reqForm.fechaRequerida) {
+            notifyError(new Error('Indique la fecha requerida.'));
+            return;
+        }
+        if (!reqForm.unidad || !UNIDADES_MEDIDA.includes(reqForm.unidad)) {
+            notifyError(new Error('Seleccione una unidad de medida válida.'));
+            return;
+        }
+        if (!(Number(reqForm.cantidad) > 0)) {
+            notifyError(new Error('Indique la cantidad necesaria.'));
+            return;
+        }
+
         const body = {
             tipoRequisicionId: reqForm.tipoRequisicionId,
-            fechaSolicitud: toApiDate(reqForm.fechaSolicitud),
+            fechaSolicitud: toApiDate(reqForm.fechaSolicitud || new Date()),
             ordenProduccionNumero: reqForm.ordenProduccionNumero || null,
             catalogoOpId: reqForm.catalogoOpId || null,
             cliente: reqForm.cliente,
@@ -508,25 +599,51 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
 
     const saveProducto = async () => {
         if (!productoForm) return;
+        if (!String(productoForm.nombre || '').trim()) {
+            notifyError(new Error('El nombre del producto es obligatorio.'));
+            return;
+        }
         const body = {
             nombre: productoForm.nombre,
             tipoRequisicionId: productoForm.tipoRequisicionId,
             descripcion: productoForm.descripcion || null,
             costoEstandar: Number(productoForm.costoEstandar) || 0,
-            unidadSugerida: productoForm.unidadSugerida,
+            unidadSugerida: productoForm.unidadSugerida || 'unidades',
         };
         try {
+            let saved;
             if (productoForm.id) {
-                await almacenApi.updateProducto(productoForm.id, body);
+                saved = await almacenApi.updateProducto(productoForm.id, body);
             } else {
-                await almacenApi.createProducto(body);
+                saved = await almacenApi.createProducto(body);
             }
             notifySuccess('Producto guardado.');
+            const applyToReq = productoForm.applyToReq;
             setProductoForm(null);
-            refreshProductos();
+            await refreshProductos();
+            if (applyToReq && saved) {
+                setReqForm((f) => ({
+                    ...f,
+                    productoId: saved.id,
+                    productoNombre: saved.nombre,
+                    unidad: saved.unidadSugerida || f.unidad,
+                    tipoRequisicionId: saved.tipoRequisicionId || f.tipoRequisicionId,
+                }));
+            }
         } catch (err) {
             notifyError(err);
         }
+    };
+
+    const openNuevoProductoDesdeReq = () => {
+        setProductoForm({
+            nombre: '',
+            tipoRequisicionId: reqForm.tipoRequisicionId || 'consumo_diario',
+            descripcion: '',
+            costoEstandar: 0,
+            unidadSugerida: 'unidades',
+            applyToReq: true,
+        });
     };
 
     const saveProveedor = async () => {
@@ -781,79 +898,168 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
             <input ref={productosFileRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportProductos} />
             <input ref={proveedoresFileRef} type="file" accept=".xlsx,.xls" hidden onChange={handleImportProveedores} />
 
-            {/* Modal requisición */}
-            <Modal opened={reqModal} onClose={closeReqModal} title={editingReqId ? 'Editar requisición' : 'Registrar requisición'} size="lg" centered>
+            {/* Modal requisición — Anexo 2 */}
+            <Modal
+                opened={reqModal}
+                onClose={closeReqModal}
+                title={editingReqId ? 'Editar requisición' : 'Registrar nueva requisición'}
+                size="lg"
+                centered
+            >
                 <Stack gap="sm">
-                    <Text size="sm" fw={600}>Tipo de requisición</Text>
                     <Group gap="xs">
                         {TIPOS_REQUISICION.map((t) => (
                             <Button
                                 key={t.id}
-                                size="xs"
-                                variant={reqForm.tipoRequisicionId === t.id ? 'filled' : 'outline'}
-                                style={reqForm.tipoRequisicionId === t.id ? { background: t.color, borderColor: t.color } : { borderColor: t.color, color: t.color }}
-                                onClick={() => setReqForm((f) => ({ ...f, tipoRequisicionId: t.id }))}
+                                size="compact-xs"
+                                variant={reqForm.tipoRequisicionId === t.id ? 'filled' : 'light'}
+                                style={
+                                    reqForm.tipoRequisicionId === t.id
+                                        ? { background: t.color, borderColor: t.color, color: '#fff' }
+                                        : { borderColor: t.color, color: t.color }
+                                }
+                                onClick={() => setReqForm((f) => ({ ...f, tipoRequisicionId: t.id, productoId: null, productoNombre: '' }))}
                             >
                                 {t.label}
                             </Button>
                         ))}
                     </Group>
-                    <SimpleGrid cols={2}>
-                        <DateInput label="Fecha solicitud" value={reqForm.fechaSolicitud} onChange={(v) => setReqForm((f) => ({ ...f, fechaSolicitud: v }))} />
-                        <DateInput label="Fecha requerida" value={reqForm.fechaRequerida} onChange={(v) => setReqForm((f) => ({ ...f, fechaRequerida: v }))} />
-                    </SimpleGrid>
+
                     <Autocomplete
                         label="Orden de producción"
-                        placeholder="Buscar OP..."
-                        data={opOptions.map((o) => o.label)}
+                        required
+                        placeholder="Buscar OP (números)..."
+                        data={opOptions}
                         value={reqForm.ordenProduccionNumero}
                         onChange={(v) => {
                             setOpSearch(v);
-                            setReqForm((f) => ({ ...f, ordenProduccionNumero: v }));
+                            setReqForm((f) => {
+                                const changed = v !== f.ordenProduccionNumero;
+                                if (f.catalogoOpId && changed) {
+                                    return {
+                                        ...f,
+                                        ordenProduccionNumero: v,
+                                        catalogoOpId: null,
+                                        cliente: '',
+                                        referencia: '',
+                                    };
+                                }
+                                return { ...f, ordenProduccionNumero: v };
+                            });
                         }}
-                        onOptionSubmit={(label) => {
-                            const opt = opOptions.find((o) => o.label === label);
+                        onOptionSubmit={(value) => {
+                            const opt = opOptions.find((o) => o.value === value);
                             if (opt?.meta) {
+                                const ot = opNumero(opt.meta) || value;
+                                setOpSearch(ot);
                                 setReqForm((f) => ({
                                     ...f,
-                                    ordenProduccionNumero: opt.meta.otNumero || opt.meta.oTNumero || '',
+                                    ordenProduccionNumero: ot,
                                     catalogoOpId: opt.meta.id,
-                                    cliente: opt.meta.cliente || f.cliente,
-                                    referencia: opt.meta.productoNombre || f.referencia,
+                                    cliente: opCliente(opt.meta),
+                                    referencia: opProducto(opt.meta),
                                 }));
                             }
                         }}
                     />
-                    <SimpleGrid cols={2}>
-                        <TextInput label="Cliente" value={reqForm.cliente} onChange={(e) => setReqForm((f) => ({ ...f, cliente: e.target.value }))} />
-                        <TextInput label="Referencia" value={reqForm.referencia} onChange={(e) => setReqForm((f) => ({ ...f, referencia: e.target.value }))} />
-                    </SimpleGrid>
-                    <Autocomplete
-                        label="Producto / insumo"
-                        data={productos.map((p) => p.nombre)}
-                        value={reqForm.productoNombre}
-                        onChange={(v) => setReqForm((f) => ({ ...f, productoNombre: v }))}
-                        onOptionSubmit={(nombre) => {
-                            const p = productos.find((x) => x.nombre === nombre);
-                            if (p) {
-                                setReqForm((f) => ({
-                                    ...f,
-                                    productoNombre: p.nombre,
-                                    productoId: p.id,
-                                    unidad: p.unidadSugerida || f.unidad,
-                                    tipoRequisicionId: p.tipoRequisicionId || f.tipoRequisicionId,
-                                }));
-                            }
-                        }}
+
+                    <div>
+                        <Autocomplete
+                            label="Producto o insumo"
+                            required
+                            placeholder="Buscar producto..."
+                            data={productosReqOptions}
+                            value={reqForm.productoNombre}
+                            onChange={(v) => setReqForm((f) => ({ ...f, productoNombre: v, productoId: null }))}
+                            onOptionSubmit={(nombre) => {
+                                const p = productos.find((x) => x.nombre === nombre);
+                                if (p) {
+                                    setReqForm((f) => ({
+                                        ...f,
+                                        productoNombre: p.nombre,
+                                        productoId: p.id,
+                                        unidad: UNIDADES_MEDIDA.includes(p.unidadSugerida) ? p.unidadSugerida : f.unidad,
+                                        tipoRequisicionId: p.tipoRequisicionId || f.tipoRequisicionId,
+                                    }));
+                                }
+                            }}
+                        />
+                        <Group gap="xs" mt={6}>
+                            <Button size="compact-xs" variant="light" leftSection={<IconPlus size={14} />} onClick={openNuevoProductoDesdeReq}>
+                                Añadir manual (anexo 3)
+                            </Button>
+                            <Button size="compact-xs" variant="default" onClick={() => productosFileRef.current?.click()}>
+                                Importar Excel
+                            </Button>
+                        </Group>
+                    </div>
+
+                    <TextInput
+                        label="Clientes"
+                        placeholder="Se llena con la OP"
+                        value={reqForm.cliente}
+                        readOnly
+                        description="Automático desde la orden de producción"
                     />
+                    <TextInput
+                        label="Referencia"
+                        required
+                        placeholder="Se llena con la OP"
+                        value={reqForm.referencia}
+                        readOnly
+                        description="Automático desde la orden de producción"
+                    />
+
                     <SimpleGrid cols={2}>
-                        <NumberInput label="Cantidad" min={0.01} decimalScale={2} value={reqForm.cantidad} onChange={(v) => setReqForm((f) => ({ ...f, cantidad: v }))} />
-                        <Select label="Unidad" data={UNIDADES_MEDIDA} value={reqForm.unidad} onChange={(v) => setReqForm((f) => ({ ...f, unidad: v }))} />
+                        <DateInput
+                            label="Fecha de solicitud"
+                            required
+                            value={reqForm.fechaSolicitud}
+                            readOnly
+                            description="Fecha del servidor"
+                        />
+                        <DateInput
+                            label="Fecha requerida"
+                            required
+                            placeholder="dd/mm/aaaa"
+                            value={reqForm.fechaRequerida}
+                            onChange={(v) => setReqForm((f) => ({ ...f, fechaRequerida: v }))}
+                            minDate={reqForm.fechaSolicitud || undefined}
+                        />
                     </SimpleGrid>
-                    <Textarea label="Observación" value={reqForm.observacion} onChange={(e) => setReqForm((f) => ({ ...f, observacion: e.target.value }))} />
+
+                    <SimpleGrid cols={2}>
+                        <NumberInput
+                            label="Cantidad"
+                            required
+                            min={0.01}
+                            decimalScale={2}
+                            value={reqForm.cantidad}
+                            onChange={(v) => setReqForm((f) => ({ ...f, cantidad: v }))}
+                        />
+                        <Select
+                            label="Unidad de medida"
+                            required
+                            placeholder="Seleccionar..."
+                            data={UNIDADES_MEDIDA}
+                            value={reqForm.unidad}
+                            onChange={(v) => setReqForm((f) => ({ ...f, unidad: v }))}
+                            allowDeselect={false}
+                        />
+                    </SimpleGrid>
+
+                    <Textarea
+                        label="Observación inicial (opcional)"
+                        placeholder="Notas o pregunta inicial (opcional)"
+                        description="Quedará registrada con la requisición."
+                        value={reqForm.observacion}
+                        onChange={(e) => setReqForm((f) => ({ ...f, observacion: e.target.value }))}
+                        minRows={3}
+                    />
+
                     <Group justify="flex-end">
                         <Button variant="default" onClick={closeReqModal}>Cancelar</Button>
-                        <Button onClick={saveRequisicion}>{editingReqId ? 'Guardar' : 'Registrar'}</Button>
+                        <Button onClick={saveRequisicion}>{editingReqId ? 'Guardar' : 'Guardar'}</Button>
                     </Group>
                 </Stack>
             </Modal>
@@ -872,7 +1078,7 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
                             <div key={idx} className="almacen-proveedor-row">
                                 <Autocomplete
                                     label="Proveedor"
-                                    data={proveedores.map((p) => p.nombre)}
+                                    data={uniqueAutocompleteValues(proveedores.map((p) => p.nombre))}
                                     value={prov.nombre}
                                     onChange={(v) => {
                                         const copy = [...pedidoForm.proveedores];
@@ -961,12 +1167,17 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
                     <Stack gap="sm">
                         <Select
                             label="Proveedor"
-                            data={(recepcionTarget.pedido?.proveedores || [])
-                                .filter((p) => (p.saldoPendiente ?? 0) > 0)
-                                .map((p) => ({ value: p.id, label: `${p.nombre} (saldo: ${p.saldoPendiente})` }))}
-                            value={recepcionForm.pedidoProveedorId}
+                            data={uniqueAutocompleteValues(
+                                (recepcionTarget.pedido?.proveedores || [])
+                                    .filter((p) => (p.saldoPendiente ?? 0) > 0)
+                                    .map((p) => ({
+                                        value: String(p.id),
+                                        label: `${p.nombre} (saldo: ${p.saldoPendiente})`,
+                                    }))
+                            )}
+                            value={recepcionForm.pedidoProveedorId ? String(recepcionForm.pedidoProveedorId) : null}
                             onChange={(v) => {
-                                const prov = recepcionTarget.pedido.proveedores.find((p) => p.id === v);
+                                const prov = recepcionTarget.pedido.proveedores.find((p) => String(p.id) === String(v));
                                 setRecepcionForm((f) => ({
                                     ...f,
                                     pedidoProveedorId: v,
@@ -1000,7 +1211,84 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
                 )}
             </Modal>
 
-            {/* Modal productos */}
+            {/* Modal producto — Anexo 3 */}
+            <Modal
+                opened={!!productoForm}
+                onClose={() => setProductoForm(null)}
+                title={productoForm?.id ? 'Editar producto' : 'Nuevo producto'}
+                size="md"
+                centered
+            >
+                {productoForm && (
+                    <Stack gap="sm">
+                        <Text size="sm" c="dimmed">
+                            Actualice nombre, categoría, unidad y costo estimado del insumo
+                        </Text>
+                        <TextInput
+                            label="Nombre"
+                            required
+                            placeholder="Nombre del producto"
+                            value={productoForm.nombre}
+                            onChange={(e) => setProductoForm((f) => ({ ...f, nombre: e.target.value }))}
+                        />
+                        <TextInput
+                            label="Descripción"
+                            placeholder="Descripción opcional"
+                            value={productoForm.descripcion || ''}
+                            onChange={(e) => setProductoForm((f) => ({ ...f, descripcion: e.target.value }))}
+                        />
+                        <div>
+                            <Text size="sm" fw={500} mb={6}>Categoría</Text>
+                            <Group gap="xs">
+                                {TIPOS_REQUISICION.map((t) => (
+                                    <Button
+                                        key={t.id}
+                                        size="compact-xs"
+                                        variant={productoForm.tipoRequisicionId === t.id ? 'filled' : 'outline'}
+                                        style={
+                                            productoForm.tipoRequisicionId === t.id
+                                                ? { background: t.color, borderColor: t.color }
+                                                : { borderColor: t.color, color: t.color }
+                                        }
+                                        onClick={() => setProductoForm((f) => ({ ...f, tipoRequisicionId: t.id }))}
+                                    >
+                                        {t.label}
+                                    </Button>
+                                ))}
+                            </Group>
+                        </div>
+                        <div>
+                            <Text size="sm" fw={500} mb={6}>Unidad sugerida</Text>
+                            <Group gap="xs">
+                                {UNIDADES_MEDIDA.map((u) => (
+                                    <Button
+                                        key={u}
+                                        size="compact-xs"
+                                        variant={productoForm.unidadSugerida === u ? 'filled' : 'light'}
+                                        onClick={() => setProductoForm((f) => ({ ...f, unidadSugerida: u }))}
+                                    >
+                                        {u}
+                                    </Button>
+                                ))}
+                            </Group>
+                        </div>
+                        <NumberInput
+                            label="Costo estimado (COP)"
+                            value={productoForm.costoEstandar}
+                            onChange={(v) => setProductoForm((f) => ({ ...f, costoEstandar: v }))}
+                            min={0}
+                            thousandSeparator="."
+                            decimalSeparator=","
+                        />
+                        <Group justify="flex-end">
+                            <Button variant="default" onClick={() => setProductoForm(null)}>Cancelar</Button>
+                            <Button onClick={saveProducto}>Guardar</Button>
+                        </Group>
+                    </Stack>
+                )}
+            </Modal>
+
+            {/* Modal catálogo productos */}
             <Modal opened={productosModal} onClose={closeProductosModal} title="Catálogo de productos" size="xl" centered>
                 <Group mb="md">
                     <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => setProductoForm({
@@ -1010,20 +1298,6 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
                     </Button>
                     <Button size="xs" variant="outline" onClick={() => productosFileRef.current?.click()}>Importar Excel</Button>
                 </Group>
-                {productoForm && (
-                    <Stack gap="xs" mb="md" p="sm" style={{ border: '1px solid #e2e8f0', borderRadius: 8 }}>
-                        <TextInput label="Nombre" value={productoForm.nombre} onChange={(e) => setProductoForm((f) => ({ ...f, nombre: e.target.value }))} />
-                        <Select label="Tipo" data={TIPOS_REQUISICION.map((t) => ({ value: t.id, label: t.label }))} value={productoForm.tipoRequisicionId} onChange={(v) => setProductoForm((f) => ({ ...f, tipoRequisicionId: v }))} />
-                        <SimpleGrid cols={2}>
-                            <NumberInput label="Costo estándar" value={productoForm.costoEstandar} onChange={(v) => setProductoForm((f) => ({ ...f, costoEstandar: v }))} />
-                            <Select label="Unidad" data={UNIDADES_MEDIDA} value={productoForm.unidadSugerida} onChange={(v) => setProductoForm((f) => ({ ...f, unidadSugerida: v }))} />
-                        </SimpleGrid>
-                        <Group>
-                            <Button size="xs" onClick={saveProducto}>Guardar</Button>
-                            <Button size="xs" variant="default" onClick={() => setProductoForm(null)}>Cancelar</Button>
-                        </Group>
-                    </Stack>
-                )}
                 <div className="almacen-table-wrap" style={{ maxHeight: 360, overflow: 'auto' }}>
                     <table className="almacen-table">
                         <thead><tr><th>Nombre</th><th>Tipo</th><th>Unidad</th><th>Costo</th><th /></tr></thead>

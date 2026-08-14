@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Perlax.Modules.Users.Domain.Entities;
 
 public class User
@@ -15,7 +17,7 @@ public class User
     /// <summary>Rutas permitidas (paths de la SPA), JSON array. null = acceso completo (compatibilidad).</summary>
     public string? AllowedRoutesJson { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
-    public string Role { get; set; } = "Administrativo"; // Administrador, Administrativo, Operario
+    public string Role { get; set; } = "Administrativo"; // Administrador, Administrativo, Operario, Auxiliar, Almacen, Taller
     public bool IsSystemUser { get; set; } = false; // Cannot be deleted
     /// <summary>False = usuario desactivado (ya no trabaja); se conserva el historial.</summary>
     public bool IsActive { get; set; } = true;
@@ -24,4 +26,10 @@ public class User
     public int AccessFailedCount { get; set; } = 0;
     public DateTime? LockoutEnd { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public static string? ToUpperName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return value.Trim().ToUpper(CultureInfo.GetCultureInfo("es-CO"));
+    }
 }

@@ -62,6 +62,20 @@ Pulse **Guardar OT**. Puede llegar precargada desde **Cotizador -> Convertir a O
 - **Pendiente:** al menos una ficha tecnica sin aprobar.
 - **Aprobada:** todas las piezas con ficha aprobada; habilita crear **Pedido de cliente**.
 
+
+## Repeticion desde documento existente
+
+Cuando la asignacion es **Repeticion con Cambios** o **Repeticion sin Cambio**:
+
+1. En **Nueva OT** busque una OT existente (cliente, producto o numero) y cargue la plantilla.
+2. Tambien desde **Lista OT** use la accion **Repetir** (icono copiar).
+3. El sistema precarga **ficha tecnica** (piezas, sustratos, tintas, terminados, troquel, notas) y **procesos de fabricacion**.
+4. Se asigna un **nuevo numero de OT**; la ficha queda pendiente de re-aprobacion.
+5. No se exige unicidad cliente+producto en repeticion.
+6. Sigue pudiendo crear una OT **desde cero** (asignacion Nuevo) sin elegir origen.
+
+> Importar PDF de expertiS (OCR) queda fuera de este alcance.
+
 ## Fichas tecnicas
 
 Menu **Fichas Tecnicas -> Listado**: imprima o revise fichas por pieza. La aprobacion de ficha es requisito para pedidos.

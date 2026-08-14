@@ -1,10 +1,8 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Audit.Application.Abstractions;
+using Perlax.Modules.Production.Application.Quotations;
 using Perlax.Modules.Production.Domain.Entities;
-using Perlax.Modules.Production.Infrastructure.Persistence;
 
 namespace Perlax.Modules.Production.Api.Controllers;
 
@@ -13,208 +11,121 @@ namespace Perlax.Modules.Production.Api.Controllers;
 [Route("api/production/quotations")]
 public class QuotationsController : ControllerBase
 {
-    private readonly ProductionDbContext _context;
+    private readonly IQuotationsService _quotations;
     private readonly IAuditService _auditService;
 
-    public QuotationsController(ProductionDbContext context, IAuditService auditService)
+    public QuotationsController(IQuotationsService quotations, IAuditService auditService)
     {
-        _context = context;
+        _quotations = quotations;
         _auditService = auditService;
     }
 
     [HttpGet("from-ot")]
-    public async Task<ActionResult<IEnumerable<object>>> GetOrdersForQuotation()
+    public async Task<ActionResult<IEnumerable<object>>> GetOrdersForQuotation(CancellationToken ct)
     {
-        var data = await _context.ProductionOrders
-            .AsNoTracking()
-            .OrderByDescending(o => o.CreatedAt)
-            .Select(o => new
-            {
-                id = o.Id,
-                otNumber = o.OTNumber,
-                cliente = o.Cliente,
-                productName = o.ProductName,
-                createdAt = o.CreatedAt
-            })
-            .ToListAsync();
-
-        return Ok(data);
+        var data = await _quotations.GetOrdersForQuotationAsync(ct);
+        return Ok(data.Select(o => new
+        {
+            id = o.Id,
+            otNumber = o.OtNumber,
+            cliente = o.Cliente,
+            productName = o.ProductName,
+            createdAt = o.CreatedAt
+        }));
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Quotation>>> GetAll()
-    {
-        return Ok(await _context.Quotations.OrderByDescending(x => x.CreatedAt).ToListAsync());
-    }
+    public async Task<ActionResult<IEnumerable<Quotation>>> GetAll(CancellationToken ct) =>
+        Ok(await _quotations.ListAsync(ct));
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Quotation>> GetById(Guid id)
+    public async Task<ActionResult<Quotation>> GetById(Guid id, CancellationToken ct)
     {
-        var quotation = await _context.Quotations.FirstOrDefaultAsync(x => x.Id == id);
-        if (quotation == null) return NotFound();
-        return Ok(quotation);
+        try { return Ok(await _quotations.GetByIdAsync(id, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpPost]
-    public async Task<ActionResult<Quotation>> Create([FromBody] QuotationRequest request)
+    public async Task<ActionResult<Quotation>> Create([FromBody] QuotationRequest request, CancellationToken ct)
     {
-        var now = DateTime.UtcNow;
-        var nextQuoteNumber = await GetNextQuoteNumber();
-
-        var entity = new Quotation
-        {
-            Id = Guid.NewGuid(),
-            QuoteNumber = nextQuoteNumber,
-            SourceType = request.SourceType,
-            ProductionOrderId = request.ProductionOrderId,
-            ProductionOrderNumber = request.ProductionOrderNumber,
-            ClientName = request.ClientName,
-            ProspectClientName = request.ProspectClientName,
-            ProductName = request.ProductName,
-            RequestDate = request.RequestDate ?? now,
-            FreightType = request.FreightType,
-            QuantitiesJson = JsonSerializer.Serialize(request.Quantities),
-            TabsDataJson = request.TabsDataJson ?? "{}",
-            DeliveryConditions = request.DeliveryConditions ?? "Entrega sujeta a programación de producción.",
-            PriceConditions = request.PriceConditions ?? "Precios sujetos a cambios según especificaciones finales.",
-            CreatedAt = now,
-            CreatedBy = User.Identity?.Name ?? "Sistema",
-            Status = "Draft"
-        };
-
-        _context.Quotations.Add(entity);
-        await _context.SaveChangesAsync();
-        await LogAudit("CREATE_QUOTATION", $"Se creó cotización {entity.QuoteNumber} ({entity.SourceType})");
-
+        var entity = await _quotations.CreateAsync(ToCommand(request), CurrentUser(), ct);
+        await LogAudit("CREATE_QUOTATION", $"Se creo cotizacion {entity.QuoteNumber} ({entity.SourceType})");
         return Ok(entity);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<Quotation>> Update(Guid id, [FromBody] QuotationRequest request)
+    public async Task<ActionResult<Quotation>> Update(Guid id, [FromBody] QuotationRequest request, CancellationToken ct)
     {
-        var entity = await _context.Quotations.FirstOrDefaultAsync(x => x.Id == id);
-        if (entity == null) return NotFound();
-
-        entity.SourceType = request.SourceType;
-        entity.ProductionOrderId = request.ProductionOrderId;
-        entity.ProductionOrderNumber = request.ProductionOrderNumber;
-        entity.ClientName = request.ClientName;
-        entity.ProspectClientName = request.ProspectClientName;
-        entity.ProductName = request.ProductName;
-        entity.RequestDate = request.RequestDate ?? entity.RequestDate;
-        entity.FreightType = request.FreightType;
-        entity.QuantitiesJson = JsonSerializer.Serialize(request.Quantities);
-        entity.TabsDataJson = request.TabsDataJson ?? "{}";
-        entity.DeliveryConditions = request.DeliveryConditions ?? entity.DeliveryConditions;
-        entity.PriceConditions = request.PriceConditions ?? entity.PriceConditions;
-        entity.UpdatedAt = DateTime.UtcNow;
-        entity.UpdatedBy = User.Identity?.Name ?? "Sistema";
-
-        await _context.SaveChangesAsync();
-        await LogAudit("UPDATE_QUOTATION", $"Se actualizó cotización {entity.QuoteNumber}");
-        return Ok(entity);
+        try
+        {
+            var entity = await _quotations.UpdateAsync(id, ToCommand(request), CurrentUser(), ct);
+            await LogAudit("UPDATE_QUOTATION", $"Se actualizo cotizacion {entity.QuoteNumber}");
+            return Ok(entity);
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        var entity = await _context.Quotations.FirstOrDefaultAsync(x => x.Id == id);
-        if (entity == null) return NotFound();
-        _context.Quotations.Remove(entity);
-        await _context.SaveChangesAsync();
-        await LogAudit("DELETE_QUOTATION", $"Se eliminó cotización {entity.QuoteNumber}");
-        return NoContent();
+        try
+        {
+            var entity = await _quotations.GetByIdAsync(id, ct);
+            await _quotations.DeleteAsync(id, ct);
+            await LogAudit("DELETE_QUOTATION", $"Se elimino cotizacion {entity.QuoteNumber}");
+            return NoContent();
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpPost("validate-costs")]
-    public ActionResult<object> ValidateCosts([FromBody] ValidateCostsRequest request)
-    {
-        var fleteBase = request.FreightType.Equals("Nacional", StringComparison.OrdinalIgnoreCase) ? 250000m : 120000m;
-        var material = request.MaterialCost;
-        var impresion = request.PrintCost;
-        var terminados = request.FinishingCost;
-        var manija = request.HandleCost;
-        var ventanilla = request.WindowCost;
-        var procesos = request.ProcessCost;
-        var talleres = request.WorkshopCost;
-        var overhead = request.OverheadPercent / 100m;
-
-        var details = new List<object>();
-        foreach (var quantity in request.Quantities.Where(q => q > 0))
-        {
-            var subtotal = material + impresion + terminados + manija + ventanilla + procesos + talleres;
-            var unitCost = subtotal + (fleteBase / quantity);
-            unitCost += unitCost * overhead;
-            var bajo = Math.Round(unitCost * 1.20m, 2);
-            var ideal = Math.Round(unitCost * 1.35m, 2);
-            var optimo = Math.Round(unitCost * 1.50m, 2);
-
-            details.Add(new
-            {
-                quantity,
-                costBreakdown = new
-                {
-                    material,
-                    impresion,
-                    terminados,
-                    manija,
-                    ventanilla,
-                    procesos,
-                    talleres,
-                    flete = Math.Round(fleteBase / quantity, 2),
-                    overheadPercent = request.OverheadPercent
-                },
-                totalUnitCost = Math.Round(unitCost, 2),
-                suggestedSalePrices = new { bajo, ideal, optimo }
-            });
-        }
-
-        return Ok(new
-        {
-            details,
-            policy = "Los precios sugeridos BAJO/IDEAL/OPTIMO son calculados por política interna y no son editables en selección final."
-        });
-    }
+    public ActionResult<object> ValidateCosts([FromBody] ValidateCostsRequest request) =>
+        Ok(_quotations.ValidateCosts(new ValidateCostsCommand(
+            request.Quantities,
+            request.FreightType,
+            request.MaterialCost,
+            request.PrintCost,
+            request.FinishingCost,
+            request.HandleCost,
+            request.WindowCost,
+            request.ProcessCost,
+            request.WorkshopCost,
+            request.OverheadPercent)));
 
     [HttpPost("{id:guid}/select-price")]
-    public async Task<ActionResult<Quotation>> SelectPrice(Guid id, [FromBody] SelectPriceRequest request)
+    public async Task<ActionResult<Quotation>> SelectPrice(Guid id, [FromBody] SelectPriceRequest request, CancellationToken ct)
     {
-        var entity = await _context.Quotations.FirstOrDefaultAsync(x => x.Id == id);
-        if (entity == null) return NotFound();
-
-        entity.SelectedPriceTier = request.SelectedPriceTier;
-        entity.SelectedUnitPrice = request.SelectedUnitPrice;
-        entity.DeliveryConditions = request.DeliveryConditions ?? entity.DeliveryConditions;
-        entity.PriceConditions = request.PriceConditions ?? entity.PriceConditions;
-        entity.Status = "Finalized";
-        entity.UpdatedAt = DateTime.UtcNow;
-        entity.UpdatedBy = User.Identity?.Name ?? "Sistema";
-
-        await _context.SaveChangesAsync();
-        await LogAudit("SELECT_QUOTATION_PRICE", $"Se seleccionó precio {request.SelectedPriceTier} para cotización {entity.QuoteNumber}");
-        return Ok(entity);
-    }
-
-    private async Task<string> GetNextQuoteNumber()
-    {
-        var values = await _context.Quotations.Select(x => x.QuoteNumber).ToListAsync();
-        var max = 0;
-        foreach (var val in values)
+        try
         {
-            var raw = val?.Replace("COT-", "") ?? string.Empty;
-            if (int.TryParse(raw, out var n) && n > max) max = n;
+            var entity = await _quotations.SelectPriceAsync(
+                id,
+                new SelectPriceCommand(request.SelectedPriceTier, request.SelectedUnitPrice, request.DeliveryConditions, request.PriceConditions),
+                CurrentUser(), ct);
+            await LogAudit("SELECT_QUOTATION_PRICE", $"Se selecciono precio {request.SelectedPriceTier} para cotizacion {entity.QuoteNumber}");
+            return Ok(entity);
         }
-        return $"COT-{(max + 1):D5}";
+        catch (KeyNotFoundException) { return NotFound(); }
     }
+
+    private static SaveQuotationCommand ToCommand(QuotationRequest request) => new(
+        request.SourceType,
+        request.ProductionOrderId,
+        request.ProductionOrderNumber,
+        request.ClientName,
+        request.ProspectClientName,
+        request.ProductName,
+        request.RequestDate,
+        request.FreightType,
+        request.Quantities,
+        request.TabsDataJson,
+        request.DeliveryConditions,
+        request.PriceConditions);
+
+    private string CurrentUser() => User.Identity?.Name ?? "Sistema";
 
     private Task LogAudit(string action, string details) =>
-        _auditService.LogAsync(
-            User.Identity?.Name,
-            User.Identity?.Name,
-            action,
-            details,
-            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
-        );
+        _auditService.LogAsync(User.Identity?.Name, User.Identity?.Name, action, details,
+            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
     public class QuotationRequest
     {

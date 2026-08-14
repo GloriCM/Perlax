@@ -23,6 +23,21 @@ export const manufacturingOrdersApi = {
         method: 'PUT',
         body: JSON.stringify({}),
     }),
+    registerExisting: (body) => api.post('/production/manufacturing-orders/register-existing', body),
+    parseExistingPdfs: (fichaPdf, opPdf) => {
+        const fd = new FormData();
+        fd.append('fichaPdf', fichaPdf);
+        fd.append('opPdf', opPdf);
+        return api.postFormData('/production/manufacturing-orders/parse-existing-pdfs', fd);
+    },
+    registerExistingFromPdfs: (fichaPdf, opPdf, overridesJson) => {
+        const fd = new FormData();
+        fd.append('fichaPdf', fichaPdf);
+        fd.append('opPdf', opPdf);
+        if (overridesJson) fd.append('overridesJson', overridesJson);
+        return api.postFormData('/production/manufacturing-orders/register-existing-from-pdfs', fd);
+    },
+    getLegacyImport: (id) => api.get(`/production/manufacturing-orders/${id}/legacy-import`),
 };
 
 export function calcQuantityToProduce(quantityOrdered, receiptPercentage) {

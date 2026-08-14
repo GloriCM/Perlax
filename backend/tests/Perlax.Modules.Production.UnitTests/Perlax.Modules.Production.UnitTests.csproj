@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
@@ -19,6 +20,16 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Production\Perlax.Modules.Production.Domain\Perlax.Modules.Production.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Production\Perlax.Modules.Production.Application\Perlax.Modules.Production.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Production\Perlax.Modules.Production.Infrastructure\Perlax.Modules.Production.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Almacen\Perlax.Modules.Almacen.Application\Perlax.Modules.Almacen.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\src\Host\Perlax.Web\Services\ProductionOrderLookup.cs" Link="Host\ProductionOrderLookup.cs" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <None Include="Testdata\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

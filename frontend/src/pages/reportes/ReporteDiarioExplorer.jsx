@@ -22,9 +22,9 @@ import {
     summarizeByOp,
     summarizeSession,
     todayKey,
-} from './productionExplorerStorage';
-import { dailyProductionApi, normalizeActivity, normalizeSession } from './dailyProductionApi';
-import { exportDailyReportByMachine, exportDailyReportByOperator } from './reporteDiarioExcelExport';
+} from './utils/productionExplorerStorage';
+import { dailyProductionApi, normalizeActivity, normalizeSession } from './utils/dailyProductionApi';
+import { exportDailyReportByMachine, exportDailyReportByOperator } from './utils/reporteDiarioExcelExport';
 import './ReporteDiarioExplorer.css';
 
 const STATUS_FILTERS = [

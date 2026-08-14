@@ -137,6 +137,64 @@
   color: var(--planta-muted);
 }
 
+.planta-floor__field--planned {
+    margin-bottom: 0.75rem;
+}
+
+.planta-floor__planned-list {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.planta-floor__planned-item {
+    margin: 0;
+}
+
+.planta-floor__planned-btn {
+    width: 100%;
+    text-align: left;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.55);
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 0.45rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    cursor: pointer;
+}
+
+.planta-floor__planned-btn:hover:not(:disabled) {
+    border-color: rgba(45, 212, 191, 0.55);
+    background: rgba(15, 23, 42, 0.85);
+}
+
+.planta-floor__planned-btn:disabled {
+    cursor: default;
+    opacity: 0.9;
+}
+
+.planta-floor__planned-btn strong {
+    font-size: 0.85rem;
+}
+
+.planta-floor__planned-btn span {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.planta-floor__planned-meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .planta-floor__field {
   margin-bottom: 16px;
 }
@@ -171,6 +229,57 @@
   color-scheme: light;
   font-family: inherit;
   box-sizing: border-box;
+}
+
+.planta-floor__combobox {
+  position: relative;
+}
+
+.planta-floor__combobox-list {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+}
+
+.planta-floor__combobox-empty {
+  padding: 0.6rem 0.7rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.planta-floor__combobox-option {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #0f172a;
+  padding: 0.6rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.planta-floor__combobox-option:hover,
+.planta-floor__combobox-option.is-selected {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.planta-floor__field select:disabled,
+.planta-floor__field input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .planta-floor__field select option {

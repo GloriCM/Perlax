@@ -16,6 +16,11 @@ public class ProductionDbContext : DbContext
     public DbSet<CustomerOrderItem> CustomerOrderItems => Set<CustomerOrderItem>();
     public DbSet<ManufacturingOrder> ManufacturingOrders => Set<ManufacturingOrder>();
     public DbSet<OpProcessSchedule> OpProcessSchedules => Set<OpProcessSchedule>();
+    public DbSet<OpProcessCatalogItem> OpProcessCatalogItems => Set<OpProcessCatalogItem>();
+    public DbSet<OpRosterRow> OpRosterRows => Set<OpRosterRow>();
+    public DbSet<OpRosterDay> OpRosterDays => Set<OpRosterDay>();
+    public DbSet<OpCoverageAssignment> OpCoverageAssignments => Set<OpCoverageAssignment>();
+    public DbSet<OpBillingMonthGoal> OpBillingMonthGoals => Set<OpBillingMonthGoal>();
     public DbSet<InternalChatConversation> InternalChatConversations => Set<InternalChatConversation>();
     public DbSet<InternalChatMessage> InternalChatMessages => Set<InternalChatMessage>();
     public DbSet<CotizadorMachine> CotizadorMachines => Set<CotizadorMachine>();
@@ -31,6 +36,7 @@ public class ProductionDbContext : DbContext
     public DbSet<ProductionActivityCode> ProductionActivityCodes => Set<ProductionActivityCode>();
     public DbSet<ProductionActivitySubcode> ProductionActivitySubcodes => Set<ProductionActivitySubcode>();
     public DbSet<ProductionShift> ProductionShifts => Set<ProductionShift>();
+    public DbSet<ProductionMachineShift> ProductionMachineShifts => Set<ProductionMachineShift>();
     public DbSet<ProductionWasteReason> ProductionWasteReasons => Set<ProductionWasteReason>();
     public DbSet<ProductionSession> ProductionSessions => Set<ProductionSession>();
     public DbSet<ProductionActivity> ProductionActivities => Set<ProductionActivity>();
@@ -179,6 +185,7 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.ProcessCode).IsRequired().HasMaxLength(50);
             builder.Property(x => x.BlockType).IsRequired().HasMaxLength(30);
             builder.Property(x => x.Status).IsRequired().HasMaxLength(30);
+            builder.Property(x => x.EstimatedHours).HasPrecision(18, 4);
             builder.Property(x => x.Notes).HasMaxLength(2000);
             builder.Property(x => x.CreatedBy).HasMaxLength(255);
             builder.Property(x => x.UpdatedBy).HasMaxLength(255);
@@ -191,6 +198,64 @@ public class ProductionDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.ManufacturingOrderId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OpProcessCatalogItem>(builder =>
+        {
+            builder.ToTable("OpProcessCatalogItems");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Code).IsRequired().HasMaxLength(50);
+            builder.Property(x => x.Label).IsRequired().HasMaxLength(100);
+            builder.Property(x => x.CreatedBy).HasMaxLength(255);
+            builder.Property(x => x.UpdatedBy).HasMaxLength(255);
+            builder.HasIndex(x => x.Code).IsUnique();
+            builder.HasIndex(x => x.SortOrder);
+        });
+
+        modelBuilder.Entity<OpRosterRow>(builder =>
+        {
+            builder.ToTable("OpRosterRows");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.ProcessCode).IsRequired().HasMaxLength(50);
+            builder.Property(x => x.RoleTag).IsRequired().HasMaxLength(10);
+            builder.Property(x => x.CreatedBy).HasMaxLength(255);
+            builder.Property(x => x.UpdatedBy).HasMaxLength(255);
+            builder.HasIndex(x => x.WeekStart);
+            builder.HasIndex(x => new { x.WeekStart, x.SortOrder });
+
+            builder.HasMany(x => x.Days)
+                .WithOne(x => x.RosterRow)
+                .HasForeignKey(x => x.RosterRowId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OpRosterDay>(builder =>
+        {
+            builder.ToTable("OpRosterDays");
+            builder.HasKey(x => x.Id);
+            builder.HasIndex(x => x.RosterRowId);
+            builder.HasIndex(x => new { x.RosterRowId, x.DayOfWeek }).IsUnique();
+        });
+
+        modelBuilder.Entity<OpCoverageAssignment>(builder =>
+        {
+            builder.ToTable("OpCoverageAssignments");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.RoleTag).IsRequired().HasMaxLength(10);
+            builder.Property(x => x.CreatedBy).HasMaxLength(255);
+            builder.HasIndex(x => new { x.WeekStart, x.MachineId });
+            builder.HasIndex(x => new { x.WeekStart, x.MachineId, x.DayOfWeek, x.ShiftId });
+            builder.HasIndex(x => new { x.WeekStart, x.MachineId, x.DayOfWeek, x.ShiftId, x.RoleTag, x.OperatorId }).IsUnique();
+        });
+
+        modelBuilder.Entity<OpBillingMonthGoal>(builder =>
+        {
+            builder.ToTable("OpBillingMonthGoals");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.MonthlyGoal).HasPrecision(18, 2);
+            builder.Property(x => x.CreatedBy).HasMaxLength(255);
+            builder.Property(x => x.UpdatedBy).HasMaxLength(255);
+            builder.HasIndex(x => new { x.Year, x.Month }).IsUnique();
         });
 
         modelBuilder.Entity<InternalChatConversation>(builder =>
@@ -317,6 +382,7 @@ public class ProductionDbContext : DbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Code).IsRequired().HasMaxLength(50);
             b.Property(x => x.Name).IsRequired().HasMaxLength(255);
+            b.Property(x => x.ProcessCode).HasMaxLength(50);
             b.Property(x => x.CreatedBy).HasMaxLength(255);
             b.Property(x => x.UpdatedBy).HasMaxLength(255);
             b.HasIndex(x => x.Code).IsUnique();
@@ -369,6 +435,14 @@ public class ProductionDbContext : DbContext
             b.Property(x => x.Code).IsRequired().HasMaxLength(10);
             b.Property(x => x.Name).IsRequired().HasMaxLength(100);
             b.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<ProductionMachineShift>(b =>
+        {
+            b.ToTable("ProductionMachineShifts");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.MachineId, x.ShiftId }).IsUnique();
+            b.HasIndex(x => x.MachineId);
         });
 
         modelBuilder.Entity<ProductionWasteReason>(b =>

@@ -255,5 +255,158 @@ public static class ProductionDbInitializer
                 END IF;
             END $$;
             """);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'production' AND table_name = 'OpProcessSchedules'
+                      AND column_name = 'IsUrgency'
+                ) THEN
+                    ALTER TABLE production."OpProcessSchedules"
+                    ADD COLUMN "IsUrgency" boolean NOT NULL DEFAULT FALSE;
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'production' AND table_name = 'OpProcessSchedules'
+                      AND column_name = 'EstimatedHours'
+                ) THEN
+                    ALTER TABLE production."OpProcessSchedules"
+                    ADD COLUMN "EstimatedHours" numeric(18,4) NULL;
+                END IF;
+            END $$;
+            """);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS production."OpProcessCatalogItems" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "Code" character varying(50) NOT NULL,
+                "Label" character varying(100) NOT NULL,
+                "SortOrder" integer NOT NULL DEFAULT 0,
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "CreatedBy" character varying(255) NULL,
+                "UpdatedAt" timestamp with time zone NULL,
+                "UpdatedBy" character varying(255) NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_OpProcessCatalogItems_Code"
+                ON production."OpProcessCatalogItems" ("Code");
+            CREATE INDEX IF NOT EXISTS "IX_OpProcessCatalogItems_SortOrder"
+                ON production."OpProcessCatalogItems" ("SortOrder");
+
+            CREATE TABLE IF NOT EXISTS production."OpRosterRows" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "WeekStart" timestamp with time zone NOT NULL,
+                "ProcessCode" character varying(50) NOT NULL,
+                "MachineId" uuid NULL,
+                "OperatorId" uuid NULL,
+                "RoleTag" character varying(10) NOT NULL DEFAULT 'Op',
+                "SortOrder" integer NOT NULL DEFAULT 0,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "CreatedBy" character varying(255) NULL,
+                "UpdatedAt" timestamp with time zone NULL,
+                "UpdatedBy" character varying(255) NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_OpRosterRows_WeekStart"
+                ON production."OpRosterRows" ("WeekStart");
+            CREATE INDEX IF NOT EXISTS "IX_OpRosterRows_WeekStart_SortOrder"
+                ON production."OpRosterRows" ("WeekStart", "SortOrder");
+
+            CREATE TABLE IF NOT EXISTS production."OpRosterDays" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "RosterRowId" uuid NOT NULL REFERENCES production."OpRosterRows"("Id") ON DELETE CASCADE,
+                "DayOfWeek" integer NOT NULL,
+                "ShiftId" uuid NULL,
+                "IsOff" boolean NOT NULL DEFAULT FALSE
+            );
+            CREATE INDEX IF NOT EXISTS "IX_OpRosterDays_RosterRowId"
+                ON production."OpRosterDays" ("RosterRowId");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_OpRosterDays_RosterRowId_DayOfWeek"
+                ON production."OpRosterDays" ("RosterRowId", "DayOfWeek");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'production' AND table_name = 'ProductionMachines'
+                      AND column_name = 'ProcessCode'
+                ) THEN
+                    ALTER TABLE production."ProductionMachines"
+                    ADD COLUMN "ProcessCode" character varying(50) NULL;
+                END IF;
+            END $$;
+
+            UPDATE production."ProductionMachines"
+            SET "ProcessCode" = 'Conversion'
+            WHERE "ProcessCode" IS NULL AND UPPER("Name") LIKE '%CONVERT%';
+
+            UPDATE production."ProductionMachines"
+            SET "ProcessCode" = 'Impresion'
+            WHERE "ProcessCode" IS NULL AND (UPPER("Name") LIKE '%SPEED%' OR UPPER("Name") LIKE '%IMPRES%');
+
+            UPDATE production."ProductionMachines"
+            SET "ProcessCode" = 'Colaminado'
+            WHERE "ProcessCode" IS NULL AND UPPER("Name") LIKE '%COLAMIN%';
+
+            UPDATE production."ProductionMachines"
+            SET "ProcessCode" = 'Corrugacion'
+            WHERE "ProcessCode" IS NULL AND UPPER("Name") LIKE '%CORRUG%';
+
+            UPDATE production."ProductionMachines"
+            SET "ProcessCode" = 'Troquelado'
+            WHERE "ProcessCode" IS NULL AND UPPER("Name") LIKE '%TROQUEL%';
+
+            CREATE TABLE IF NOT EXISTS production."ProductionMachineShifts" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "MachineId" uuid NOT NULL,
+                "ShiftId" uuid NOT NULL REFERENCES production."ProductionShifts"("Id") ON DELETE CASCADE,
+                "IsEnabled" boolean NOT NULL DEFAULT TRUE,
+                "SortOrder" integer NOT NULL DEFAULT 0
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_ProductionMachineShifts_MachineId_ShiftId"
+                ON production."ProductionMachineShifts" ("MachineId", "ShiftId");
+            CREATE INDEX IF NOT EXISTS "IX_ProductionMachineShifts_MachineId"
+                ON production."ProductionMachineShifts" ("MachineId");
+
+            CREATE TABLE IF NOT EXISTS production."OpCoverageAssignments" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "WeekStart" timestamp with time zone NOT NULL,
+                "MachineId" uuid NOT NULL,
+                "DayOfWeek" integer NOT NULL,
+                "ShiftId" uuid NOT NULL REFERENCES production."ProductionShifts"("Id") ON DELETE CASCADE,
+                "OperatorId" uuid NOT NULL,
+                "RoleTag" character varying(10) NOT NULL DEFAULT 'Op',
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "CreatedBy" character varying(255) NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_OpCoverageAssignments_WeekStart_MachineId"
+                ON production."OpCoverageAssignments" ("WeekStart", "MachineId");
+            CREATE INDEX IF NOT EXISTS "IX_OpCoverageAssignments_WeekStart_MachineId_DayOfWeek_ShiftId"
+                ON production."OpCoverageAssignments" ("WeekStart", "MachineId", "DayOfWeek", "ShiftId");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_OpCoverageAssignments_Unique"
+                ON production."OpCoverageAssignments" ("WeekStart", "MachineId", "DayOfWeek", "ShiftId", "RoleTag", "OperatorId");
+
+            CREATE TABLE IF NOT EXISTS production."OpBillingMonthGoals" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "Year" integer NOT NULL,
+                "Month" integer NOT NULL,
+                "MonthlyGoal" numeric(18,2) NOT NULL DEFAULT 0,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "CreatedBy" character varying(255) NULL,
+                "UpdatedAt" timestamp with time zone NULL,
+                "UpdatedBy" character varying(255) NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_OpBillingMonthGoals_Year_Month"
+                ON production."OpBillingMonthGoals" ("Year", "Month");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE production."OrderParts"
+            ADD COLUMN IF NOT EXISTS "LegacyImportJson" text NULL;
+            """);
     }
 }

@@ -8,9 +8,6 @@ public static class UsersDbInitializer
 {
     public static async Task SeedAsync(UsersDbContext context, IConfiguration configuration, bool isDevelopment)
     {
-        await context.Database.EnsureCreatedAsync();
-        await EnsureUserColumnsAsync(context);
-
         if (!await context.Users.AnyAsync(u => u.Username == "admin"))
         {
             if (isDevelopment)
@@ -28,8 +25,8 @@ public static class UsersDbInitializer
                         Id = Guid.NewGuid(),
                         Username = "admin",
                         Email = "admin@perlax.com",
-                        FirstName = "Administrador",
-                        LastName = "Sistema",
+                        FirstName = "ADMINISTRADOR",
+                        LastName = "SISTEMA",
                         Area = "TI",
                         AllowedRoutesJson = null,
                         PasswordHash = BCrypt.Net.BCrypt.HashPassword(devAdminPassword),
@@ -48,8 +45,8 @@ public static class UsersDbInitializer
             var admin = await context.Users.FirstAsync(u => u.Username == "admin");
             if (string.IsNullOrWhiteSpace(admin.FirstName))
             {
-                admin.FirstName = "Administrador";
-                admin.LastName = "Sistema";
+                admin.FirstName = "ADMINISTRADOR";
+                admin.LastName = "SISTEMA";
             }
             if (string.IsNullOrWhiteSpace(admin.Area))
                 admin.Area = "TI";
@@ -57,19 +54,22 @@ public static class UsersDbInitializer
                 admin.Role = "Administrador";
             await context.SaveChangesAsync();
         }
-    }
 
-    private static async Task EnsureUserColumnsAsync(UsersDbContext context)
-    {
-        await context.Database.ExecuteSqlRawAsync("""
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "FirstName" character varying(100);
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "LastName" character varying(100);
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "Area" character varying(100);
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "AllowedRoutesJson" text;
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "DocumentNumber" character varying(30);
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "Salary" numeric(18,2);
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "MustChangePassword" boolean NOT NULL DEFAULT false;
-            ALTER TABLE users."Users" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
-            """);
+        var users = await context.Users.ToListAsync();
+        var namesChanged = false;
+        foreach (var user in users)
+        {
+            var first = Perlax.Modules.Users.Domain.Entities.User.ToUpperName(user.FirstName);
+            var last = Perlax.Modules.Users.Domain.Entities.User.ToUpperName(user.LastName);
+            if (first != user.FirstName || last != user.LastName)
+            {
+                user.FirstName = first;
+                user.LastName = last;
+                namesChanged = true;
+            }
+        }
+
+        if (namesChanged)
+            await context.SaveChangesAsync();
     }
 }

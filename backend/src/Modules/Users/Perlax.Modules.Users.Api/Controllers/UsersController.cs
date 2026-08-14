@@ -11,7 +11,7 @@ namespace Perlax.Modules.Users.Api.Controllers;
 
 [ApiController]
 [Route("api/users")]
-[Authorize(Roles = "Admin,Administrador")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private const int MaxDetailsLength = 8000;
@@ -40,6 +40,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetAll(CancellationToken cancellationToken)
     {
         var users = await _context.Users.AsNoTracking()
@@ -49,7 +50,58 @@ public class UsersController : ControllerBase
         return Ok(users.Select(MapToDto));
     }
 
+    /// <summary>Directorio de personal para horas extras (sin datos de acceso).</summary>
+    [HttpGet("personnel")]
+    [Authorize(Roles = "Admin,Administrador,Administrativo")]
+    public async Task<ActionResult<IEnumerable<object>>> GetPersonnel(
+        [FromQuery] string? roles,
+        CancellationToken cancellationToken)
+    {
+        var wanted = (roles ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(UserRoles.Normalize)
+            .Where(UserRoles.IsShopFloor)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var query = _context.Users.AsNoTracking().Where(u => u.IsActive);
+        if (wanted.Count > 0)
+            query = query.Where(u => wanted.Contains(u.Role));
+        else
+            query = query.Where(u =>
+                u.Role == UserRoles.Operario
+                || u.Role == UserRoles.Auxiliar
+                || u.Role == UserRoles.Almacen
+                || u.Role == UserRoles.Taller);
+
+        var users = await query
+            .OrderBy(u => u.Role)
+            .ThenBy(u => u.FirstName)
+            .ThenBy(u => u.LastName)
+            .ToListAsync(cancellationToken);
+
+        return Ok(users.Select(u =>
+        {
+            var fullName = $"{u.FirstName} {u.LastName}".Trim();
+            if (string.IsNullOrWhiteSpace(fullName)) fullName = u.Username;
+            return new
+            {
+                id = u.Id,
+                displayName = fullName,
+                documentNumber = u.DocumentNumber,
+                salary = u.Salary,
+                role = u.Role,
+                area = u.Area,
+                hasOvertime = UserRoles.HasOvertime(u.Role),
+                appearsInPlanta = UserRoles.AppearsInPlanta(u.Role),
+                overtimeExpenseArea = UserRoles.OvertimeExpenseArea(u.Role),
+                overtimeExpenseLabel = UserRoles.OvertimeExpenseLabel(u.Role)
+            };
+        }));
+    }
+
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<UserResponseDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
         var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
@@ -58,6 +110,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<UserResponseDto>> Create([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
         if (!IsValidRole(request.Role)) return BadRequest("Rol inválido.");
@@ -85,17 +138,19 @@ public class UsersController : ControllerBase
             Id = Guid.NewGuid(),
             Username = normalizedUser,
             Email = email,
-            FirstName = NullIfWhite(request.FirstName),
-            LastName = NullIfWhite(request.LastName),
+            FirstName = ToUpperPersonName(request.FirstName),
+            LastName = ToUpperPersonName(request.LastName),
             Role = NormalizeRole(request.Role),
-            Area = NormalizeArea(request.Area),
+            Area = NormalizeArea(request.Area) ?? UserRoles.DefaultArea(NormalizeRole(request.Role)),
             DocumentNumber = documentNumber,
             Salary = request.Salary,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(documentNumber),
             MustChangePassword = true,
             IsSystemUser = false,
             CreatedAt = DateTime.UtcNow,
-            AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(request.Role, request.AllowedRoutes)
+            AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
+                NormalizeRole(request.Role),
+                UserRoles.IsShopFloor(NormalizeRole(request.Role)) ? [] : request.AllowedRoutes)
         };
 
         var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
@@ -112,6 +167,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<UserResponseDto>> Update(Guid id, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
     {
         if (!IsValidRole(request.Role)) return BadRequest("Rol inválido.");
@@ -141,11 +197,11 @@ public class UsersController : ControllerBase
         var oldRoutesJson = entity.AllowedRoutesJson;
         var passwordWillChange = !string.IsNullOrWhiteSpace(request.Password);
 
-        entity.FirstName = NullIfWhite(request.FirstName);
-        entity.LastName = NullIfWhite(request.LastName);
+        entity.FirstName = ToUpperPersonName(request.FirstName);
+        entity.LastName = ToUpperPersonName(request.LastName);
         entity.Email = email;
         entity.Role = NormalizeRole(request.Role);
-        entity.Area = NormalizeArea(request.Area);
+        entity.Area = NormalizeArea(request.Area) ?? UserRoles.DefaultArea(entity.Role);
         if (!string.IsNullOrWhiteSpace(documentNumber))
         {
             entity.DocumentNumber = documentNumber;
@@ -158,7 +214,9 @@ public class UsersController : ControllerBase
             }
         }
         entity.Salary = request.Salary;
-        var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(request.Role, request.AllowedRoutes);
+        var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
+            entity.Role,
+            UserRoles.IsShopFloor(entity.Role) ? [] : request.AllowedRoutes);
         entity.AllowedRoutesJson = newRoutesJson;
 
         var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
@@ -208,6 +266,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/set-active")]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<UserResponseDto>> SetActive(Guid id, [FromBody] SetUserActiveRequest request, CancellationToken cancellationToken)
     {
         var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
@@ -231,6 +290,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
@@ -263,6 +323,9 @@ public class UsersController : ControllerBase
         u.MustChangePassword,
         AllowedRoutesPolicy.DeserializeForResponse(u.Role, u.AllowedRoutesJson));
 
+    private static string? ToUpperPersonName(string? value) =>
+        Perlax.Modules.Users.Domain.Entities.User.ToUpperName(value);
+
     private static string? NormalizeDocument(string? document)
     {
         if (string.IsNullOrWhiteSpace(document)) return null;
@@ -270,27 +333,15 @@ public class UsersController : ControllerBase
         return string.IsNullOrWhiteSpace(digits) ? null : digits;
     }
 
-    private static bool IsAdminRole(string role) =>
-        string.Equals(role, "Administrador", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+    private static bool IsAdminRole(string role) => UserRoles.IsAdmin(role);
 
-    private static bool IsAdministrativeRole(string role) =>
-        string.Equals(role, "Administrativo", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, "User", StringComparison.OrdinalIgnoreCase);
+    private static bool IsAdministrativeRole(string role) => UserRoles.IsAdministrative(role);
 
-    private static bool IsOperatorRole(string role) =>
-        string.Equals(role, "Operario", StringComparison.OrdinalIgnoreCase);
+    private static bool IsOperatorRole(string role) => UserRoles.IsOperario(role);
 
-    private static bool IsValidRole(string role) =>
-        IsAdminRole(role) || IsAdministrativeRole(role) || IsOperatorRole(role);
+    private static bool IsValidRole(string role) => UserRoles.IsValid(role);
 
-    private static string NormalizeRole(string role)
-    {
-        var trimmed = role.Trim();
-        if (IsAdminRole(trimmed)) return "Administrador";
-        if (IsOperatorRole(trimmed)) return "Operario";
-        return "Administrativo";
-    }
+    private static string NormalizeRole(string role) => UserRoles.Normalize(role);
 
     private static string? NormalizeArea(string? area)
     {
@@ -303,8 +354,7 @@ public class UsersController : ControllerBase
         if (IsAdminRole(role))
             return null;
 
-        // Los operarios pertenecen a producción; el área es opcional.
-        if (IsOperatorRole(role))
+        if (UserRoles.IsShopFloor(role))
         {
             if (string.IsNullOrWhiteSpace(area)) return null;
             return AllowedAreas.Contains(area) ? null : "El área seleccionada no es válida.";
@@ -317,12 +367,6 @@ public class UsersController : ControllerBase
             return "El área seleccionada no es válida.";
 
         return null;
-    }
-
-    private static string? NullIfWhite(string? s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return null;
-        return s.Trim();
     }
 
     private string GetClientIp() =>

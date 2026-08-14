@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Production.Application.DailyProduction;
+using Perlax.Modules.Production.Application.Scheduling;
 using Perlax.Modules.Production.Domain.Entities;
 using Perlax.Modules.Production.Infrastructure.Persistence;
 
@@ -10,10 +11,15 @@ public sealed class DailyProductionService : IDailyProductionService
 {
     private readonly ProductionDbContext _db;
     private readonly IOperatorUserDirectory? _operatorDirectory;
+    private readonly IOpSchedulingService _scheduling;
 
-    public DailyProductionService(ProductionDbContext db, IOperatorUserDirectory? operatorDirectory = null)
+    public DailyProductionService(
+        ProductionDbContext db,
+        IOpSchedulingService scheduling,
+        IOperatorUserDirectory? operatorDirectory = null)
     {
         _db = db;
+        _scheduling = scheduling;
         _operatorDirectory = operatorDirectory;
     }
 
@@ -219,12 +225,37 @@ public sealed class DailyProductionService : IDailyProductionService
         return new DailyReportCatalogsDto(machines, operators, codes, shifts, waste, orders);
     }
 
+    public async Task<IReadOnlyList<MachineScheduleBlockDto>> GetMachineScheduleAsync(
+        Guid machineId,
+        DateOnly? date = null,
+        CancellationToken ct = default)
+    {
+        var blocks = await _scheduling.GetMachineScheduleAsync(machineId, date, ct);
+        return blocks.Select(b => new MachineScheduleBlockDto(
+            b.Id,
+            b.ManufacturingOrderId,
+            b.ProcessCode,
+            b.MachineId,
+            b.BlockType,
+            b.PlannedStart,
+            b.PlannedEnd,
+            b.Status,
+            b.IsUrgency,
+            b.EstimatedHours,
+            b.Notes,
+            b.OpNumber,
+            b.OtNumber,
+            b.ClientName,
+            b.ProductName,
+            b.ReferenceName)).ToList();
+    }
+
     public async Task<IReadOnlyList<MachineDto>> ListMachinesAsync(bool includeInactive = false, CancellationToken ct = default)
     {
         var q = _db.ProductionMachines.AsNoTracking().AsQueryable();
         if (!includeInactive) q = q.Where(x => x.IsActive);
         return await q.OrderBy(x => x.Name)
-            .Select(x => new MachineDto(x.Id, x.Code, x.Name, x.IsActive))
+            .Select(x => new MachineDto(x.Id, x.Code, x.Name, x.ProcessCode, x.IsActive))
             .ToListAsync(ct);
     }
 
@@ -254,9 +285,10 @@ public sealed class DailyProductionService : IDailyProductionService
 
         entity.Code = code;
         entity.Name = name;
+        entity.ProcessCode = string.IsNullOrWhiteSpace(request.ProcessCode) ? null : request.ProcessCode.Trim();
         entity.IsActive = request.IsActive;
         await _db.SaveChangesAsync(ct);
-        return new MachineDto(entity.Id, entity.Code, entity.Name, entity.IsActive);
+        return new MachineDto(entity.Id, entity.Code, entity.Name, entity.ProcessCode, entity.IsActive);
     }
 
     public async Task DeleteMachineAsync(Guid id, CancellationToken ct = default)

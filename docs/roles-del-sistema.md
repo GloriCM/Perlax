@@ -1,53 +1,49 @@
 # Roles del sistema
 
-PerlaX define tres roles principales al crear usuarios en **Configuración → Usuarios**.
+PerlaX define roles de **oficina** y de **personal** (horas extras). Los **Administradores no tienen horas extras**.
 
-## Roles disponibles
+## Roles de oficina
 
-| Rol | Acceso al ERP | Vista de planta | Reporte diario |
-|-----|---------------|-----------------|----------------|
-| **Administrador** | Completo (todo el menú) | Sí (como cualquier usuario con URL) | Sí |
-| **Administrativo** | Solo vistas autorizadas | Según permisos | Según permisos |
-| **Operario (planta)** | No (sin módulos administrativos) | Sí, como operario en `/planta` | Aparece como operario |
+| Rol | Acceso al ERP | Horas extras |
+|-----|---------------|--------------|
+| **Administrador** | Completo | **No** |
+| **Administrativo** | Vistas autorizadas + área | Sí (según su área) |
+
+## Roles de personal (horas extras)
+
+Se crean en **Configuración → Usuarios**. No usan la matriz de módulos.
+
+| Rol | Quién lo gestiona | /planta | Horas extras van a |
+|-----|-------------------|---------|--------------------|
+| **Operario (planta)** | Producción → Control de Personal | **Sí** (único rol seleccionable) | Gastos de **Producción** |
+| **Auxiliar** | Producción → Control de Personal | No | Gastos de **Producción** |
+| **Almacén** | Planeación → Personal | No | Gastos de **Planeación** |
+| **Taller** | Talleres → Personal | No | Gastos de **Talleres** |
+
+## Operario vs auxiliar
+
+- En **/planta** solo aparecen usuarios con rol **Operario**.
+- Los **auxiliares** son personal de producción para salarios y horas extras, no para el selector de planta.
 
 ## Administrador
 
-- Acceso total al sistema.
-- Gestiona usuarios, auditoría y configuración.
-- No necesita matriz de vistas.
+- Acceso total.
+- No registra horas extras.
 
 ## Administrativo
 
-- Debe tener un **área** asignada (Diseño, Producción, Compras, etc.).
-- El administrador elige **vistas permitidas** con la matriz de módulos.
-- Si **no tiene ninguna vista marcada**, solo verá la pantalla de inicio al entrar.
-- Puede tener acceso a uno o varios módulos según su trabajo.
+- Área obligatoria y **vistas permitidas**.
+- Si no tiene vistas, solo ve el inicio.
 
-### Ejemplos de permisos mostrados en la tabla de usuarios
+## Personal de almacén, operarios, auxiliares y talleres
 
-| Texto en columna Permisos | Significado |
-|---------------------------|-------------|
-| Completo | Administrador |
-| Completo (sin lista) | Acceso amplio sin restricción de rutas |
-| 3 vista(s) | Administrativo con 3 pantallas autorizadas |
-| Solo inicio | Administrativo sin vistas marcadas |
-| Planta (/planta) | Operario |
-| Desactivado | Usuario inactivo; no puede entrar |
-
-## Operario (planta)
-
-- Creado en **Configuración → Usuarios** con rol **Operario (planta)**.
-- Aparece automáticamente en el selector de operarios de **Vista de planta** y en **Reporte diario**.
-- **No** accede al menú del ERP (cotizador, compras, etc.).
-- Trabaja en https://perlax.perla.work/planta desde la red de la fábrica.
+- Login = cédula (igual que el resto).
+- No acceden al menú ERP.
+- Salario y cédula sirven para el cálculo de extras en el área indicada.
 
 ## Usuarios inactivos
 
-Un usuario **desactivado** no puede iniciar sesión. El historial se conserva. Un administrador puede **reactivarlo** cuando vuelva a la empresa.
-
-## Contraseña provisional
-
-Si el administrador restablece la contraseña, el usuario deberá cambiarla al ingresar.
+Un usuario **desactivado** no puede iniciar sesión. El historial se conserva.
 
 ## Siguiente lectura
 
