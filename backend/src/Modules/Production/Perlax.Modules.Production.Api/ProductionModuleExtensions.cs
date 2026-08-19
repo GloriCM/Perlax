@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Perlax.Modules.Production.Application.Chat;
 using Perlax.Modules.Production.Application.CustomerOrders;
+using Perlax.Modules.Production.Application.Overtime;
 using Perlax.Modules.Production.Application.Quotations;
 using Perlax.Modules.Production.Application.TechnicalSheets;
 using Perlax.Modules.Production.Application.Cotizador;
@@ -39,6 +40,7 @@ public static class ProductionModuleExtensions
         services.AddScoped<IInternalChatService, InternalChatService>();
         services.AddScoped<ITechnicalSheetService, TechnicalSheetService>();
         services.AddScoped<ICustomerOrderService, CustomerOrderService>();
+        services.AddScoped<IOvertimePayrollService, OvertimePayrollService>();
         services.AddScoped<IQuotationsService, QuotationsService>();
 
         return services;

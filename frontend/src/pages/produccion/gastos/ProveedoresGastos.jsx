@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Container,
     Paper,
@@ -11,7 +11,7 @@ import {
     Box,
     TextInput,
     Modal,
-    Select,
+    MultiSelect,
     Tooltip
 } from '@mantine/core';
 import {
@@ -27,69 +27,153 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import GastosTabs from '../../../components/GastosTabs';
 import { notifications } from '@mantine/notifications';
+import { toTitleCase, toTitleCaseSaved, normalizeProveedorRubros, formatRubrosLabel, formatNit, isCompleteNit, formatCc, isCompleteCc } from './gastosText';
+import { api } from '../../../utils/api';
 
-const initialProveedores = [
-    { id: 1, name: 'FERRELOPEZ', rubro: 'Mantenimiento', nit: '', telefono: '' },
-    { id: 2, name: 'CALI BANDAS', rubro: 'Repuesto', nit: '900.985.09/9-2', telefono: '3162664451' },
-    { id: 3, name: 'José Ramiro Puerta Gallego', rubro: 'Mantenimiento', nit: '901.442.622', telefono: '' },
-    { id: 4, name: 'Transmisiones y mecánica industrial Ltda.', rubro: 'Mantenimiento', nit: '900.699.864-1', telefono: '3168655273' },
-    { id: 5, name: 'Suministros El Punto S.A.S', rubro: 'Repuesto', nit: '900.123.456-7', telefono: '3001234567' },
-    { id: 6, name: 'Distribuidora Nacional', rubro: 'Materia Prima', nit: '800.555.123-4', telefono: '' },
-];
-
-const RUBROS = ['Mantenimiento', 'Repuesto', 'Materia Prima', 'Refrigerios', 'Horas Extras', 'Prestadores de Servicios', 'Recargo', 'Transporte'];
-
-const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gastos', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
+const ProveedoresGastos = ({
+    titulo = 'Proveedores',
+    subtitulo = 'Control de Gastos',
+    showTabs = false,
+    pathPrefix = '/planeacion/gastos',
+    areaKey = 'produccion',
+}) => {
     const navigate = useNavigate();
-    const [proveedores, setProveedores] = useState(initialProveedores);
+    const [proveedores, setProveedores] = useState([]);
+    const [rubroOptions, setRubroOptions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingProv, setEditingProv] = useState(null);
-    const [form, setForm] = useState({ name: '', rubro: '', nit: '', telefono: '' });
+    const [form, setForm] = useState({ name: '', rubros: [], asesor: '', nit: '', cedula: '', telefono: '' });
+
+    const loadCatalog = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [provData, rubroData] = await Promise.all([
+                api.get(`/gastos/${areaKey}/proveedores`),
+                api.get(`/gastos/${areaKey}/rubros`),
+            ]);
+            setProveedores(Array.isArray(provData) ? provData : []);
+            setRubroOptions(
+                (Array.isArray(rubroData) ? rubroData : [])
+                    .map((r) => r.name)
+                    .filter(Boolean)
+            );
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudo cargar el catálogo',
+                message: error.message || 'Error de red',
+                color: 'red',
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, [areaKey]);
+
+    useEffect(() => {
+        loadCatalog();
+    }, [loadCatalog]);
 
     const handleAdd = () => {
         setEditingProv(null);
-        setForm({ name: '', rubro: '', nit: '', telefono: '' });
+        setForm({ name: '', rubros: [], asesor: '', nit: '', cedula: '', telefono: '' });
         setModalOpen(true);
     };
 
     const handleEdit = (prov) => {
         setEditingProv(prov);
-        setForm({ name: prov.name, rubro: prov.rubro, nit: prov.nit, telefono: prov.telefono });
+        setForm({
+            name: prov.name,
+            rubros: normalizeProveedorRubros(prov),
+            asesor: prov.asesor || '',
+            nit: formatNit(prov.nit || ''),
+            cedula: formatCc(prov.cedula || ''),
+            telefono: prov.telefono || '',
+        });
         setModalOpen(true);
     };
 
-    const handleSave = () => {
-        if (!form.name.trim()) return;
-
-        if (editingProv) {
-            setProveedores(prev => prev.map(p =>
-                p.id === editingProv.id ? { ...p, ...form } : p
-            ));
+    const handleSave = async () => {
+        if (!form.name.trim() || !form.rubros?.length || saving) return;
+        const rubros = form.rubros.map((item) => toTitleCaseSaved(item)).filter(Boolean);
+        if (form.nit && !isCompleteNit(form.nit)) {
             notifications.show({
-                title: 'Proveedor actualizado',
-                message: `"${form.name}" ha sido actualizado correctamente.`,
-                color: 'blue',
+                title: 'NIT incompleto',
+                message: 'Si indica NIT, use el formato 900.123.456-7.',
+                color: 'red',
             });
-        } else {
-            const newId = Math.max(...proveedores.map(p => p.id), 0) + 1;
-            setProveedores(prev => [...prev, { id: newId, ...form }]);
+            return;
+        }
+        if (form.cedula && !isCompleteCc(form.cedula)) {
             notifications.show({
-                title: 'Proveedor creado',
-                message: `"${form.name}" ha sido añadido correctamente.`,
-                color: 'teal',
+                title: 'C.C. incompleta',
+                message: 'Si indica C.C., use el número separado en miles (ej. 1.234.567).',
+                color: 'red',
+            });
+            return;
+        }
+        const payload = {
+            name: toTitleCaseSaved(form.name),
+            rubros,
+            asesor: toTitleCaseSaved(form.asesor),
+            nit: form.nit?.trim() || '',
+            cedula: form.cedula?.trim() || '',
+            telefono: form.telefono?.trim() || '',
+        };
+        setSaving(true);
+        try {
+            if (editingProv) {
+                await api.post(`/gastos/${areaKey}/proveedores/${editingProv.id}`, payload);
+                notifications.show({
+                    title: 'Proveedor actualizado',
+                    message: `"${payload.name}" se guardó en el servidor.`,
+                    color: 'blue',
+                });
+            } else {
+                await api.post(`/gastos/${areaKey}/proveedores`, payload);
+                notifications.show({
+                    title: 'Proveedor creado',
+                    message: `"${payload.name}" se guardó en el servidor.`,
+                    color: 'teal',
+                });
+            }
+            setModalOpen(false);
+            await loadCatalog();
+        } catch (error) {
+            const raw = error.message || 'Error de red';
+            notifications.show({
+                title: 'No se pudo guardar',
+                message: /failed to fetch|network|connection/i.test(raw)
+                    ? 'No hay conexión con el servidor. Reinicie el backend e intente de nuevo.'
+                    : raw,
+                color: 'red',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (prov) => {
+        try {
+            await api.delete(`/gastos/${areaKey}/proveedores/${prov.id}`);
+            notifications.show({
+                title: 'Proveedor eliminado',
+                message: `"${prov.name}" se eliminó del servidor.`,
+                color: 'red',
+            });
+            await loadCatalog();
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudo eliminar',
+                message: error.message || 'Error de red',
+                color: 'red',
             });
         }
-        setModalOpen(false);
     };
 
-    const handleDelete = (prov) => {
-        setProveedores(prev => prev.filter(p => p.id !== prov.id));
-        notifications.show({
-            title: 'Proveedor eliminado',
-            message: `"${prov.name}" ha sido eliminado.`,
-            color: 'red',
-        });
-    };
+    const canSave = Boolean(form.name.trim() && form.rubros?.length)
+        && (!form.nit || isCompleteNit(form.nit))
+        && (!form.cedula || isCompleteCc(form.cedula));
 
     return (
         <Container size="xl" py="xl">
@@ -175,18 +259,27 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                                     <Group justify="space-between" align="flex-start">
                                         <Stack gap={4}>
                                             <Text fw={700} size="md" c="white">
-                                                {prov.name}
+                                                {toTitleCase(prov.name)}
                                             </Text>
                                             <Text size="xs" c="blue.4" fw={500}>
-                                                {prov.rubro}
+                                                {formatRubrosLabel(prov) || 'Sin rubro'}
                                             </Text>
+                                            {prov.asesor && (
+                                                <Text size="xs" c="dimmed">Asesor: {toTitleCase(prov.asesor)}</Text>
+                                            )}
 
                                             {/* NIT + Phone */}
                                             <Group gap="lg" mt={4}>
                                                 {prov.nit && (
                                                     <Group gap={4}>
                                                         <IconId size={14} style={{ color: '#64748b' }} />
-                                                        <Text size="xs" c="gray.4">NIT: {prov.nit}</Text>
+                                                        <Text size="xs" c="gray.4">NIT: {formatNit(prov.nit)}</Text>
+                                                    </Group>
+                                                )}
+                                                {prov.cedula && (
+                                                    <Group gap={4}>
+                                                        <IconId size={14} style={{ color: '#64748b' }} />
+                                                        <Text size="xs" c="gray.4">C.C.: {formatCc(prov.cedula)}</Text>
                                                     </Group>
                                                 )}
                                                 {prov.telefono && (
@@ -224,7 +317,12 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                         ))}
                     </AnimatePresence>
 
-                    {proveedores.length === 0 && (
+                    {loading && (
+                        <Box p="xl" ta="center">
+                            <Text c="dimmed">Cargando proveedores...</Text>
+                        </Box>
+                    )}
+                    {!loading && proveedores.length === 0 && (
                         <Box p="xl" ta="center">
                             <Text c="dimmed">No hay proveedores registrados.</Text>
                         </Box>
@@ -252,7 +350,7 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                         label="Nombre del Proveedor"
                         placeholder="Ej: Suministros S.A.S"
                         value={form.name}
-                        onChange={(e) => setForm(prev => ({ ...prev, name: e.currentTarget.value }))}
+                        onChange={(e) => setForm(prev => ({ ...prev, name: toTitleCase(e.currentTarget.value) }))}
                         styles={{
                             label: { color: '#94a3b8', marginBottom: 4 },
                             input: {
@@ -263,12 +361,14 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                         }}
                         autoFocus
                     />
-                    <Select
-                        label="Rubro"
-                        placeholder="Seleccionar rubro"
-                        data={RUBROS}
-                        value={form.rubro}
-                        onChange={(val) => setForm(prev => ({ ...prev, rubro: val || '' }))}
+                    <MultiSelect
+                        label="Rubros"
+                        placeholder="Seleccione uno o varios rubros"
+                        data={rubroOptions}
+                        value={form.rubros}
+                        onChange={(val) => setForm(prev => ({ ...prev, rubros: val || [] }))}
+                        searchable
+                        required
                         styles={{
                             label: { color: '#94a3b8', marginBottom: 4 },
                             input: {
@@ -279,10 +379,38 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                         }}
                     />
                     <TextInput
-                        label="NIT"
-                        placeholder="Ej: 900.123.456-7"
+                        label="Asesor"
+                        placeholder="Opcional"
+                        value={form.asesor}
+                        onChange={(e) => setForm(prev => ({ ...prev, asesor: toTitleCase(e.currentTarget.value) }))}
+                        styles={{
+                            label: { color: '#94a3b8', marginBottom: 4 },
+                            input: {
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'white',
+                            },
+                        }}
+                    />
+                    <TextInput
+                        label="NIT (opcional)"
+                        placeholder="900.123.456-7"
                         value={form.nit}
-                        onChange={(e) => setForm(prev => ({ ...prev, nit: e.currentTarget.value }))}
+                        onChange={(e) => setForm(prev => ({ ...prev, nit: formatNit(e.currentTarget.value) }))}
+                        styles={{
+                            label: { color: '#94a3b8', marginBottom: 4 },
+                            input: {
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'white',
+                            },
+                        }}
+                    />
+                    <TextInput
+                        label="C.C. (opcional)"
+                        placeholder="1.234.567"
+                        value={form.cedula}
+                        onChange={(e) => setForm(prev => ({ ...prev, cedula: formatCc(e.currentTarget.value) }))}
                         styles={{
                             label: { color: '#94a3b8', marginBottom: 4 },
                             input: {
@@ -310,7 +438,7 @@ const ProveedoresGastos = ({ titulo = 'Proveedores', subtitulo = 'Control de Gas
                         <Button variant="subtle" color="gray" onClick={() => setModalOpen(false)}>
                             Cancelar
                         </Button>
-                        <Button color="teal" onClick={handleSave} disabled={!form.name.trim()}>
+                        <Button color="teal" onClick={handleSave} disabled={!canSave} loading={saving}>
                             {editingProv ? 'Guardar' : 'Crear Proveedor'}
                         </Button>
                     </Group>

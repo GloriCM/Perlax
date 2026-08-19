@@ -57,6 +57,7 @@ export default function GastosSST() {
             rubros={RUBROS_SST}
             initialExpenses={mockExpensesSST}
             presupuestoInicial={0}
+            personnelRoles={[]}
         />
     );
 }

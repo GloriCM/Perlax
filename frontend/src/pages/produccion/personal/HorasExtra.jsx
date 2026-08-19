@@ -42,7 +42,14 @@ const HorasExtra = ({
     expenseHint = 'Las horas extras de operarios y auxiliares se registran en Gastos de Producción.',
 }) => {
     const navigate = useNavigate();
-    const [tipos, setTipos] = useState(initialTipos);
+    const [tipos, setTipos] = useState(() => {
+        try {
+            const stored = JSON.parse(localStorage.getItem('perlax-tipos-hora') || 'null');
+            return Array.isArray(stored) && stored.length ? stored : initialTipos;
+        } catch {
+            return initialTipos;
+        }
+    });
     const [personnel, setPersonnel] = useState([]);
     const [loadingPeople, setLoadingPeople] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
@@ -50,6 +57,9 @@ const HorasExtra = ({
     const [form, setForm] = useState({ name: '', factor: 1.0 });
 
     const rolesKey = (personnelRoles || []).join(',');
+    useEffect(() => {
+        localStorage.setItem('perlax-tipos-hora', JSON.stringify(tipos));
+    }, [tipos]);
     useEffect(() => {
         let cancelled = false;
         (async () => {

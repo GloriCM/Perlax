@@ -6,7 +6,7 @@ import GastosTabs from '../../../components/GastosTabs';
 const GastosPlaneacion = () => {
     return (
         <>
-            <GastosProduccion titulo="Gastos de Planeación" showTabs={true} />
+            <GastosProduccion titulo="Gastos de Planeación" showTabs={true} personnelRoles={['Almacen']} />
         </>
     );
 };

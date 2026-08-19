@@ -18,6 +18,7 @@ export default function GastosMantenimiento() {
             showTabs={true}
             pathPrefix="/mantenimiento/gastos"
             rubros={RUBROS_MANTENIMIENTO}
+            personnelRoles={[]}
         />
     );
 }

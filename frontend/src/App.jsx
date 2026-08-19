@@ -198,9 +198,9 @@ function App() {
             <Route path="/chat" element={<ChatCenter />} />
             <Route path="/gastos/control/captura" element={<GastosProduccion />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
-            <Route path="/gastos/control/rubros" element={<RubrosGastos />} />
+            <Route path="/gastos/control/rubros" element={<RubrosGastos areaKey="produccion" />} />
             <Route path="/gastos/control/cotizaciones" element={<Cotizaciones />} />
-            <Route path="/gastos/control/proveedores" element={<ProveedoresGastos subtitulo="Producción - Control de Gastos" />} />
+            <Route path="/gastos/control/proveedores" element={<ProveedoresGastos subtitulo="Producción - Control de Gastos" areaKey="produccion" />} />
             <Route path="/gastos/personal/horas-extra" element={<HorasExtra />} />
             <Route
                 path="/planeacion/personal/horas-extra"

@@ -3,6 +3,7 @@ import { Container, Paper, Title, Button, Group, Text, Stack, ActionIcon, Select
 import { IconArrowLeft, IconPlus, IconBuildingStore, IconPencil, IconTrash, IconPhone } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import GastosTabs from '../../../components/GastosTabs';
+import { toTitleCase } from '../../produccion/gastos/gastosText';
 
 const PROVEEDORES_DATA = [
     { name: 'ATH MONTACARGAS', type: 'Entrenamiento y reentrenamiento de montacarguistas', phone: '3113729985' },
@@ -52,8 +53,8 @@ export default function ProveedoresSST() {
                     <Paper key={i} p="sm" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <Group justify="space-between">
                             <Stack gap={0}>
-                                <Text fw={600} size="sm" c="white">{item.name}</Text>
-                                <Text size="xs" c="dimmed">Tipo: {item.type}</Text>
+                                <Text fw={600} size="sm" c="white">{toTitleCase(item.name)}</Text>
+                                <Text size="xs" c="dimmed">Tipo: {toTitleCase(item.type)}</Text>
                                 {item.phone && (
                                     <Group gap={4}>
                                         <IconPhone size={12} c="red.6" />

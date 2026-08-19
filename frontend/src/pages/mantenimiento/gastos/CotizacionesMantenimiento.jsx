@@ -27,6 +27,7 @@ import {
   getRubros,
   saveCotizaciones,
 } from './storage';
+import { proveedorBelongsToRubro } from '../../produccion/gastos/gastosText';
 
 const PATH_PREFIX = '/mantenimiento/gastos';
 
@@ -78,7 +79,7 @@ export default function CotizacionesMantenimiento() {
   );
 
   const proveedoresFiltrados = useMemo(
-    () => proveedores.filter((p) => p.rubro === form.rubro).map((p) => ({ value: String(p.id), label: p.nombre })),
+    () => proveedores.filter((p) => proveedorBelongsToRubro(p, form.rubro)).map((p) => ({ value: String(p.id), label: p.nombre })),
     [proveedores, form.rubro]
   );
 

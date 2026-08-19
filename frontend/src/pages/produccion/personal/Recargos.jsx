@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Container,
     Paper,
@@ -32,10 +32,21 @@ const initialRecargos = [
 
 const Recargos = () => {
     const navigate = useNavigate();
-    const [recargos, setRecargos] = useState(initialRecargos);
+    const [recargos, setRecargos] = useState(() => {
+        try {
+            const stored = JSON.parse(localStorage.getItem('perlax-tipos-recargo') || 'null');
+            return Array.isArray(stored) && stored.length ? stored : initialRecargos;
+        } catch {
+            return initialRecargos;
+        }
+    });
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [form, setForm] = useState({ name: '', factor: 0.35 });
+
+    useEffect(() => {
+        localStorage.setItem('perlax-tipos-recargo', JSON.stringify(recargos));
+    }, [recargos]);
 
     const handleAdd = () => {
         setEditingItem(null);

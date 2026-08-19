@@ -60,7 +60,7 @@ public class UsersController : ControllerBase
         var wanted = (roles ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(UserRoles.Normalize)
-            .Where(UserRoles.IsShopFloor)
+            .Where(r => UserRoles.IsShopFloor(r) || UserRoles.IsAdministrative(r))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -72,7 +72,8 @@ public class UsersController : ControllerBase
                 u.Role == UserRoles.Operario
                 || u.Role == UserRoles.Auxiliar
                 || u.Role == UserRoles.Almacen
-                || u.Role == UserRoles.Taller);
+                || u.Role == UserRoles.Taller
+                || u.Role == UserRoles.Administrativo);
 
         var users = await query
             .OrderBy(u => u.Role)

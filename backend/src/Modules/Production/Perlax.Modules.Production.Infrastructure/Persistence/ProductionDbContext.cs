@@ -41,6 +41,8 @@ public class ProductionDbContext : DbContext
     public DbSet<ProductionSession> ProductionSessions => Set<ProductionSession>();
     public DbSet<ProductionActivity> ProductionActivities => Set<ProductionActivity>();
     public DbSet<ProductionWasteEntry> ProductionWasteEntries => Set<ProductionWasteEntry>();
+    public DbSet<AreaExpenseRubro> AreaExpenseRubros => Set<AreaExpenseRubro>();
+    public DbSet<AreaExpenseProveedor> AreaExpenseProveedores => Set<AreaExpenseProveedor>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -537,6 +539,29 @@ public class ProductionDbContext : DbContext
             b.Property(x => x.Observations).HasMaxLength(1000);
             b.HasIndex(x => x.ActivityId);
             b.HasOne(x => x.WasteReason).WithMany().HasForeignKey(x => x.WasteReasonId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<AreaExpenseRubro>(b =>
+        {
+            b.ToTable("AreaExpenseRubros");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Area).IsRequired().HasMaxLength(40);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.HasIndex(x => new { x.Area, x.Name }).IsUnique();
+        });
+
+        modelBuilder.Entity<AreaExpenseProveedor>(b =>
+        {
+            b.ToTable("AreaExpenseProveedores");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Area).IsRequired().HasMaxLength(40);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Nit).HasMaxLength(50);
+            b.Property(x => x.Cedula).HasMaxLength(30);
+            b.Property(x => x.Telefono).HasMaxLength(40);
+            b.Property(x => x.Asesor).HasMaxLength(200);
+            b.Property(x => x.RubrosJson).IsRequired();
+            b.HasIndex(x => new { x.Area, x.Name });
         });
     }
 }

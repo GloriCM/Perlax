@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import GastosTabs from '../../../components/GastosTabs';
 import { notifications } from '@mantine/notifications';
 import { getRubros, saveRubros } from './storage';
+import { toTitleCase, toTitleCaseSaved } from '../../produccion/gastos/gastosText';
 
 const PATH_PREFIX = '/mantenimiento/gastos';
 
@@ -29,7 +30,7 @@ export default function RubrosMantenimiento() {
   const [rubroName, setRubroName] = useState('');
 
   useEffect(() => {
-    setRubros(getRubros());
+    setRubros(getRubros().map((r) => toTitleCase(r)));
   }, []);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function RubrosMantenimiento() {
   };
 
   const handleSave = () => {
-    const value = rubroName.trim();
+    const value = toTitleCaseSaved(rubroName);
     if (!value) return;
 
     const exists = rubros.some((r, i) => i !== editingIndex && r.toLowerCase() === value.toLowerCase());
@@ -139,7 +140,7 @@ export default function RubrosMantenimiento() {
             label="Nombre del Rubro"
             placeholder="Ej: Ferreteria"
             value={rubroName}
-            onChange={(e) => setRubroName(e.currentTarget.value)}
+            onChange={(e) => setRubroName(toTitleCase(e.currentTarget.value))}
             styles={{ label: { color: '#94a3b8', marginBottom: 4 }, input: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' } }}
           />
           <Group justify="flex-end">

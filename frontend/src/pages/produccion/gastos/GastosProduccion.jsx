@@ -37,6 +37,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import GastosTabs from '../../../components/GastosTabs';
+import { notifications } from '@mantine/notifications';
+import { api } from '../../../utils/api';
+import { toTitleCase, toTitleCaseSaved } from './gastosText';
 
 // ── Mock Data ──────────────────────────────────────────────
 const mockExpenses = [
@@ -88,7 +91,7 @@ const MONTHS = [
 const YEARS = ['2024', '2025', '2026', '2027'];
 
 const DEFAULT_RUBROS = [
-    'Todos los Rubros', 'Horas Extras', 'Repuesto', 'Materia Prima',
+    'Todos los Rubros', 'Horas Extras', 'Recargo', 'Repuesto', 'Materia Prima',
     'Servicios', 'Transporte', 'Papeleria', 'Otros'
 ];
 
@@ -104,6 +107,48 @@ const emptyExpenseForm = {
     status: 'pendiente',
 };
 
+const emptyOvertimeForm = {
+    personnelId: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+    op: '',
+    note: '',
+};
+
+const normalizeRubroName = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const IVA_RATE = 0.19;
+
+const computeIva = (base) => Math.round(Number(base || 0) * IVA_RATE);
+
+const isOvertimeOrSurchargeRubro = (category) => {
+    const name = normalizeRubroName(category);
+    return name.includes('hora extra') || name.includes('horas extra') || name.includes('recargo');
+};
+
+const loadHourTypeCatalog = () => {
+    const extras = (() => {
+        try { return JSON.parse(localStorage.getItem('perlax-tipos-hora') || 'null'); } catch { return null; }
+    })();
+    const recargos = (() => {
+        try { return JSON.parse(localStorage.getItem('perlax-tipos-recargo') || 'null'); } catch { return null; }
+    })();
+    const list = [];
+    (Array.isArray(extras) ? extras : [
+        { name: 'Extra Diurna', factor: 1.25 },
+        { name: 'Dominical o Festivo', factor: 1.8 },
+        { name: 'hora extra nocturna', factor: 1.7 },
+    ]).forEach((t) => list.push({ name: t.name, factor: Number(t.factor) }));
+    (Array.isArray(recargos) ? recargos : [
+        { name: 'Recargo Nocturno', factor: 0.35 },
+    ]).forEach((t) => list.push({ name: t.name, factor: Number(t.factor) }));
+    return list.filter((t) => t.name && t.factor > 0);
+};
+
 // ── Format currency ────────────────────────────────────────
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-CO', {
@@ -115,14 +160,16 @@ const formatCurrency = (value) => {
 };
 
 const getExpenseAmounts = (expense) => {
+    const isOvertime = Boolean(expense?.overtimeGroupId || expense?.overtimeInput)
+        || isOvertimeOrSurchargeRubro(expense?.category);
     const explicitTotal = expense?.amount ?? expense?.totalAmount ?? expense?.precioTotal;
     const fallbackTotal = Number(explicitTotal ?? 0);
     const base = Number(expense?.baseAmount ?? expense?.precioBase ?? expense?.subtotal ?? fallbackTotal);
-    const iva = Number(expense?.ivaAmount ?? expense?.iva ?? Math.max(fallbackTotal - base, 0));
-    const total = explicitTotal !== undefined && explicitTotal !== null
-        ? Number(explicitTotal)
-        : base + iva;
-    return { base, iva, total: Number.isFinite(total) ? total : base + iva };
+    if (isOvertime) {
+        return { base, iva: 0, total: base };
+    }
+    const iva = computeIva(base);
+    return { base, iva, total: base + iva };
 };
 
 const buildStorageKey = (title) => `perlax-gastos-${String(title || 'general')
@@ -133,15 +180,15 @@ const buildStorageKey = (title) => `perlax-gastos-${String(title || 'general')
 
 const buildExpenseFromForm = (form, existingExpense) => {
     const baseAmount = Number(form.baseAmount || 0);
-    const ivaAmount = Number(form.ivaAmount || 0);
+    const ivaAmount = computeIva(baseAmount);
     const amount = baseAmount + ivaAmount;
     const invoiceText = form.invoice?.trim();
 
     return {
         ...(existingExpense || {}),
         id: existingExpense?.id || Date.now(),
-        category: form.category || 'Otros',
-        type: form.type?.trim() || 'Sin proveedor',
+        category: toTitleCaseSaved(form.category) || 'Otros',
+        type: toTitleCaseSaved(form.type) || 'Sin Proveedor',
         registeredBy: form.registeredBy?.trim() || 'Sistema',
         details: [
             invoiceText ? { icon: 'file', text: `Factura: ${invoiceText}` } : null,
@@ -177,6 +224,8 @@ const DetailIcon = ({ type }) => {
 const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
     const isPending = expense.status === 'pendiente';
     const amounts = getExpenseAmounts(expense);
+    const hideIva = Boolean(expense.overtimeGroupId || expense.overtimeInput)
+        || isOvertimeOrSurchargeRubro(expense.category);
 
     return (
         <motion.div
@@ -202,7 +251,7 @@ const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
                     <Group gap="sm">
                         {expense.category && (
                             <Text fw={700} size="md" c="white">
-                                {expense.category}
+                                {toTitleCase(expense.category)}
                             </Text>
                         )}
                         {isPending && (
@@ -212,8 +261,12 @@ const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
                         )}
                     </Group>
                     <Stack gap={2} align="flex-end">
-                        <Text size="xs" c="dimmed">Base: {formatCurrency(amounts.base)}</Text>
-                        <Text size="xs" c="dimmed">IVA: {formatCurrency(amounts.iva)}</Text>
+                        {!hideIva && (
+                            <>
+                                <Text size="xs" c="dimmed">Base: {formatCurrency(amounts.base)}</Text>
+                                <Text size="xs" c="dimmed">IVA: {formatCurrency(amounts.iva)}</Text>
+                            </>
+                        )}
                         <Text
                             fw={700}
                             size="lg"
@@ -235,7 +288,7 @@ const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
                 {/* Type + Registered by */}
                 {(expense.type || expense.registeredBy) && (
                     <Text size="sm" c="gray.4" mb="xs">
-                        {expense.type}{expense.type && expense.registeredBy ? ' - ' : ''}
+                        {toTitleCase(expense.type)}{expense.type && expense.registeredBy ? ' - ' : ''}
                         {expense.registeredBy && `Registrado por: ${expense.registeredBy}`}
                     </Text>
                 )}
@@ -313,6 +366,7 @@ const GastosProduccion = ({
     rubros = DEFAULT_RUBROS,
     initialExpenses = mockExpenses,
     presupuestoInicial = 2100000,
+    personnelRoles = ['Operario', 'Auxiliar'],
 }) => {
     const navigate = useNavigate();
     const [year, setYear] = useState('2026');
@@ -323,7 +377,16 @@ const GastosProduccion = ({
     const [modalOpen, setModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState(null);
     const [form, setForm] = useState(emptyExpenseForm);
+    const [overtimeForm, setOvertimeForm] = useState(emptyOvertimeForm);
+    const [personnel, setPersonnel] = useState([]);
+    const [openOps, setOpenOps] = useState([]);
+    const [overtimePreview, setOvertimePreview] = useState(null);
+    const [calculating, setCalculating] = useState(false);
     const storageKey = buildStorageKey(titulo);
+    const overtimeMode = (personnelRoles || []).length > 0 && isOvertimeOrSurchargeRubro(form.category);
+    const rolesKey = (personnelRoles || []).join(',');
+    const isProductionOvertime = (personnelRoles || []).some((role) =>
+        ['Operario', 'Auxiliar'].includes(role));
 
     const presupuesto = presupuestoInicial;
     const gastado = expenses.reduce((sum, e) => sum + getExpenseAmounts(e).total, 0);
@@ -343,6 +406,80 @@ const GastosProduccion = ({
         }
     }, [storageKey, initialExpenses]);
 
+    useEffect(() => {
+        if (!modalOpen || !overtimeMode) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const qs = rolesKey ? `?roles=${encodeURIComponent(rolesKey)}` : '';
+                const people = await api.get(`/users/personnel${qs}`);
+                let ops = [];
+                if (isProductionOvertime) {
+                    ops = await api.get('/production/scheduling/open-orders');
+                }
+                if (cancelled) return;
+                setPersonnel(Array.isArray(people) ? people : []);
+                setOpenOps(Array.isArray(ops) ? ops : []);
+            } catch {
+                if (!cancelled) {
+                    setPersonnel([]);
+                    setOpenOps([]);
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [modalOpen, overtimeMode, rolesKey, isProductionOvertime]);
+
+    useEffect(() => {
+        if (!modalOpen || !overtimeMode) {
+            setOvertimePreview(null);
+            return;
+        }
+        const { personnelId, date, startTime, endTime } = overtimeForm;
+        if (!personnelId || !date || !startTime || !endTime) {
+            setOvertimePreview(null);
+            return;
+        }
+        const person = personnel.find((p) => String(p.id) === String(personnelId));
+        if (!person?.salary) {
+            setOvertimePreview(null);
+            return;
+        }
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+            setCalculating(true);
+            try {
+                const result = await api.post('/production/overtime/calculate', {
+                    userId: person.id,
+                    salary: Number(person.salary),
+                    date,
+                    startTime,
+                    endTime,
+                    role: person.role,
+                    opNumber: overtimeForm.op || null,
+                    note: overtimeForm.note || null,
+                    hourTypes: loadHourTypeCatalog(),
+                });
+                if (!cancelled) setOvertimePreview(result);
+            } catch (err) {
+                if (!cancelled) {
+                    setOvertimePreview(null);
+                    notifications.show({
+                        title: 'No se pudo calcular',
+                        message: err?.message || 'Revise el intervalo y el salario.',
+                        color: 'red',
+                    });
+                }
+            } finally {
+                if (!cancelled) setCalculating(false);
+            }
+        }, 250);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [modalOpen, overtimeMode, overtimeForm.personnelId, overtimeForm.date, overtimeForm.startTime, overtimeForm.endTime, overtimeForm.op, overtimeForm.note, personnel]);
+
     const persistExpenses = (nextExpenses) => {
         setExpenses(nextExpenses);
         localStorage.setItem(storageKey, JSON.stringify(nextExpenses));
@@ -352,6 +489,8 @@ const GastosProduccion = ({
         const firstRubro = rubros.find((item) => item !== 'Todos los Rubros') || 'Otros';
         setEditingExpense(null);
         setForm({ ...emptyExpenseForm, category: rubro !== 'Todos los Rubros' ? rubro : firstRubro });
+        setOvertimeForm(emptyOvertimeForm);
+        setOvertimePreview(null);
         setModalOpen(true);
     };
 
@@ -371,10 +510,103 @@ const GastosProduccion = ({
             ivaAmount: amounts.iva,
             status: expense.status || 'pendiente',
         });
+        setOvertimeForm(expense.overtimeInput
+            ? { ...emptyOvertimeForm, ...expense.overtimeInput }
+            : emptyOvertimeForm);
+        setOvertimePreview(null);
         setModalOpen(true);
     };
 
-    const handleSaveExpense = () => {
+    const handleSaveExpense = async () => {
+        if (overtimeMode) {
+            const person = personnel.find((p) => String(p.id) === String(overtimeForm.personnelId));
+            if (!person) {
+                notifications.show({ title: 'Personal requerido', message: 'Seleccione la persona.', color: 'yellow' });
+                return;
+            }
+            if (!person.salary) {
+                notifications.show({ title: 'Sin salario', message: 'El usuario no tiene salario en su ficha.', color: 'yellow' });
+                return;
+            }
+            if (!overtimeForm.date || !overtimeForm.startTime || !overtimeForm.endTime) {
+                notifications.show({ title: 'Intervalo requerido', message: 'Indique fecha, hora inicio y hora fin.', color: 'yellow' });
+                return;
+            }
+            if (isProductionOvertime && !overtimeForm.op?.trim()) {
+                notifications.show({ title: 'OP requerida', message: 'La OP es obligatoria en horas extras de producción.', color: 'yellow' });
+                return;
+            }
+            if (!isProductionOvertime && !overtimeForm.note?.trim()) {
+                notifications.show({ title: 'Nota requerida', message: 'Indique en la nota qué estuvo haciendo.', color: 'yellow' });
+                return;
+            }
+            try {
+                setCalculating(true);
+                const result = await api.post('/production/overtime/calculate', {
+                    userId: person.id,
+                    salary: Number(person.salary),
+                    date: overtimeForm.date,
+                    startTime: overtimeForm.startTime,
+                    endTime: overtimeForm.endTime,
+                    role: person.role,
+                    opNumber: isProductionOvertime ? overtimeForm.op : null,
+                    note: overtimeForm.note || null,
+                    note: overtimeForm.note || null,
+                    hourTypes: loadHourTypeCatalog(),
+                });
+                const paid = (result.segments || []).filter((s) => s.createsExpense);
+                if (paid.length === 0) {
+                    notifications.show({
+                        title: 'Sin extras ni recargos',
+                        message: 'El intervalo quedó dentro de la jornada ordinaria.',
+                        color: 'blue',
+                    });
+                    return;
+                }
+                const groupId = editingExpense?.overtimeGroupId || `ot-${Date.now()}`;
+                const withoutGroup = expenses.filter((e) => e.overtimeGroupId !== groupId && e.id !== editingExpense?.id);
+                const inputSnapshot = { ...overtimeForm, displayName: person.displayName };
+                const newRows = paid.map((segment, index) => {
+                    const category = segment.category || (segment.isHe ? 'Horas Extras' : 'Recargo');
+                    return {
+                        id: `${groupId}-${index}`,
+                        overtimeGroupId: groupId,
+                        overtimeInput: inputSnapshot,
+                        category,
+                        type: person.displayName,
+                        registeredBy: 'Sistema',
+                        details: [
+                            { icon: 'calendar', text: overtimeForm.date.split('-').reverse().join('/') },
+                            { icon: 'clock', text: `${segment.label} · ${segment.hours} h` },
+                            result.shiftLabel ? { icon: 'clock', text: `Turno ${result.shiftLabel}` } : null,
+                        ].filter(Boolean),
+                        op: isProductionOvertime ? overtimeForm.op : undefined,
+                        description: overtimeForm.note || `${segment.label} ${overtimeForm.startTime}-${overtimeForm.endTime}`,
+                        baseAmount: Number(segment.amount || 0),
+                        ivaAmount: 0,
+                        amount: Number(segment.amount || 0),
+                        status: 'pendiente',
+                        borderColor: '#f59e0b',
+                        bgColor: 'rgba(245, 158, 11, 0.03)',
+                    };
+                });
+                persistExpenses([...newRows, ...withoutGroup]);
+                setModalOpen(false);
+                setEditingExpense(null);
+                setForm(emptyExpenseForm);
+                setOvertimeForm(emptyOvertimeForm);
+            } catch (err) {
+                notifications.show({
+                    title: 'No se pudo guardar',
+                    message: err?.message || 'El backend no pudo recalcular el desglose.',
+                    color: 'red',
+                });
+            } finally {
+                setCalculating(false);
+            }
+            return;
+        }
+
         const nextExpense = buildExpenseFromForm(form, editingExpense);
         const nextExpenses = editingExpense
             ? expenses.map((expense) => expense.id === editingExpense.id ? nextExpense : expense)
@@ -392,7 +624,7 @@ const GastosProduccion = ({
 
     const filteredExpenses = expenses.filter(e => {
         if (pendientesOnly && e.status !== 'pendiente') return false;
-        if (rubro !== 'Todos los Rubros' && e.category !== rubro) return false;
+        if (rubro !== 'Todos los Rubros' && toTitleCase(e.category) !== toTitleCase(rubro)) return false;
         return true;
     });
 
@@ -607,15 +839,110 @@ const GastosProduccion = ({
                 <Stack>
                     <Select
                         label="Rubro"
-                        data={rubros.filter((item) => item !== 'Todos los Rubros')}
+                        data={rubros.filter((item) => item !== 'Todos los Rubros').map((item) => toTitleCase(item))}
                         value={form.category}
-                        onChange={(value) => setForm((prev) => ({ ...prev, category: value || '' }))}
+                        onChange={(value) => {
+                            setForm((prev) => ({ ...prev, category: value || '' }));
+                            setOvertimePreview(null);
+                        }}
                         required
                     />
+                    {overtimeMode ? (
+                        <>
+                            <Select
+                                label="Personal"
+                                placeholder="Seleccione la persona"
+                                searchable
+                                required
+                                data={personnel.map((p) => ({
+                                    value: String(p.id),
+                                    label: `${p.displayName}${p.salary ? ` · ${formatCurrency(p.salary)}` : ' · sin salario'}`,
+                                }))}
+                                value={overtimeForm.personnelId}
+                                onChange={(value) => setOvertimeForm((prev) => ({ ...prev, personnelId: value || '' }))}
+                            />
+                            <TextInput
+                                label="Fecha de la hora extra"
+                                type="date"
+                                required
+                                value={overtimeForm.date}
+                                onChange={(event) => setOvertimeForm((prev) => ({ ...prev, date: event.currentTarget.value }))}
+                            />
+                            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                                <TextInput
+                                    label="Hora inicio del turno"
+                                    type="time"
+                                    required
+                                    value={overtimeForm.startTime}
+                                    onChange={(event) => setOvertimeForm((prev) => ({ ...prev, startTime: event.currentTarget.value }))}
+                                />
+                                <TextInput
+                                    label="Hora fin del turno"
+                                    type="time"
+                                    required
+                                    value={overtimeForm.endTime}
+                                    onChange={(event) => setOvertimeForm((prev) => ({ ...prev, endTime: event.currentTarget.value }))}
+                                />
+                            </SimpleGrid>
+                            {isProductionOvertime && (
+                                <Select
+                                    label="OP"
+                                    placeholder="Seleccione la OP"
+                                    searchable
+                                    required
+                                    data={openOps.map((op) => ({
+                                        value: op.opNumber || op.otNumber || op.id,
+                                        label: [op.opNumber, op.clientName, op.productName].filter(Boolean).join(' · '),
+                                    }))}
+                                    value={overtimeForm.op}
+                                    onChange={(value) => setOvertimeForm((prev) => ({ ...prev, op: value || '' }))}
+                                />
+                            )}
+                            <Textarea
+                                label="Nota"
+                                description={isProductionOvertime ? 'Opcional' : 'Obligatoria: qué estuvo haciendo'}
+                                placeholder={isProductionOvertime ? '' : 'Describa la actividad realizada'}
+                                required={!isProductionOvertime}
+                                value={overtimeForm.note}
+                                onChange={(event) => setOvertimeForm((prev) => ({ ...prev, note: event.currentTarget.value }))}
+                                minRows={2}
+                            />
+                            {calculating && <Text size="sm" c="dimmed">Calculando desglose…</Text>}
+                            {overtimePreview && (
+                                <Paper p="sm" radius="md" withBorder>
+                                    <Text size="sm" fw={700} mb={4}>
+                                        Valor hora: {formatCurrency(overtimePreview.hourValue)} (salario ÷ {overtimePreview.divisor})
+                                    </Text>
+                                    {overtimePreview.shiftLabel && (
+                                        <Text size="xs" c="dimmed" mb="xs">
+                                            Turno {overtimePreview.fromRoster ? 'jornada' : 'horarios'}: {overtimePreview.shiftLabel}
+                                        </Text>
+                                    )}
+                                    <Stack gap={4}>
+                                        {(overtimePreview.segments || []).map((segment, index) => (
+                                            <Group key={`${segment.start}-${index}`} justify="space-between">
+                                                <Text size="xs" c={segment.createsExpense ? 'gray.3' : 'dimmed'}>
+                                                    {segment.label} · {segment.hours} h
+                                                    {segment.createsExpense ? ` × ${segment.factor}` : ''}
+                                                </Text>
+                                                <Text size="xs" fw={600}>
+                                                    {segment.createsExpense ? formatCurrency(segment.amount) : '—'}
+                                                </Text>
+                                            </Group>
+                                        ))}
+                                    </Stack>
+                                    <Text size="sm" fw={800} mt="sm">
+                                        Costo: {formatCurrency(overtimePreview.totalAmount)}
+                                    </Text>
+                                </Paper>
+                            )}
+                        </>
+                    ) : (
+                        <>
                     <TextInput
                         label="Proveedor / Tipo"
                         value={form.type}
-                        onChange={(event) => setForm((prev) => ({ ...prev, type: event.currentTarget.value }))}
+                        onChange={(event) => setForm((prev) => ({ ...prev, type: toTitleCase(event.currentTarget.value) }))}
                     />
                     <TextInput
                         label="Registrado por"
@@ -638,17 +965,23 @@ const GastosProduccion = ({
                             value={form.baseAmount}
                             onChange={(value) => setForm((prev) => ({ ...prev, baseAmount: Number(value || 0) }))}
                             min={0}
+                            decimalScale={0}
+                            thousandSeparator="."
+                            decimalSeparator=","
                         />
                         <NumberInput
-                            label="IVA"
-                            value={form.ivaAmount}
-                            onChange={(value) => setForm((prev) => ({ ...prev, ivaAmount: Number(value || 0) }))}
-                            min={0}
+                            label="IVA (19%)"
+                            value={computeIva(form.baseAmount)}
+                            readOnly
+                            thousandSeparator="."
+                            decimalSeparator=","
                         />
                         <NumberInput
                             label="Total"
-                            value={Number(form.baseAmount || 0) + Number(form.ivaAmount || 0)}
+                            value={Number(form.baseAmount || 0) + computeIva(form.baseAmount)}
                             readOnly
+                            thousandSeparator="."
+                            decimalSeparator=","
                         />
                     </SimpleGrid>
                     <Select
@@ -666,11 +999,13 @@ const GastosProduccion = ({
                         onChange={(event) => setForm((prev) => ({ ...prev, description: event.currentTarget.value }))}
                         minRows={3}
                     />
+                        </>
+                    )}
                     <Group justify="flex-end">
                         <Button variant="subtle" color="gray" onClick={() => setModalOpen(false)}>
                             Cancelar
                         </Button>
-                        <Button onClick={handleSaveExpense}>
+                        <Button onClick={handleSaveExpense} loading={calculating}>
                             Guardar
                         </Button>
                     </Group>

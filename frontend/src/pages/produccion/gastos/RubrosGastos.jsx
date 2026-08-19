@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Container,
     Paper,
@@ -24,22 +24,43 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import GastosTabs from '../../../components/GastosTabs';
 import { notifications } from '@mantine/notifications';
+import { toTitleCase, toTitleCaseSaved } from './gastosText';
+import { api } from '../../../utils/api';
 
-const initialRubros = [
-    { id: 1, name: 'Horas Extras' },
-    { id: 2, name: 'Mantenimiento' },
-    { id: 3, name: 'Repuesto' },
-    { id: 4, name: 'Refrigerios' },
-    { id: 5, name: 'Recargo' },
-    { id: 6, name: 'Prestadores de Servicios' },
-];
-
-const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control de Gastos', showTabs = false, pathPrefix = '/planeacion/gastos' }) => {
+const RubrosGastos = ({
+    titulo = 'Rubros de Producción',
+    subtitulo = 'Control de Gastos',
+    showTabs = false,
+    pathPrefix = '/planeacion/gastos',
+    areaKey = 'produccion',
+}) => {
     const navigate = useNavigate();
-    const [rubros, setRubros] = useState(initialRubros);
+    const [rubros, setRubros] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingRubro, setEditingRubro] = useState(null);
     const [rubroName, setRubroName] = useState('');
+
+    const loadRubros = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await api.get(`/gastos/${areaKey}/rubros`);
+            setRubros(Array.isArray(data) ? data : []);
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudieron cargar los rubros',
+                message: error.message || 'Error de red',
+                color: 'red',
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, [areaKey]);
+
+    useEffect(() => {
+        loadRubros();
+    }, [loadRubros]);
 
     const handleAdd = () => {
         setEditingRubro(null);
@@ -53,37 +74,55 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
         setModalOpen(true);
     };
 
-    const handleSave = () => {
-        if (!rubroName.trim()) return;
-
-        if (editingRubro) {
-            setRubros(prev => prev.map(r =>
-                r.id === editingRubro.id ? { ...r, name: rubroName.trim() } : r
-            ));
+    const handleSave = async () => {
+        if (!rubroName.trim() || saving) return;
+        const name = toTitleCaseSaved(rubroName);
+        setSaving(true);
+        try {
+            if (editingRubro) {
+                await api.post(`/gastos/${areaKey}/rubros/${editingRubro.id}`, { name });
+                notifications.show({
+                    title: 'Rubro actualizado',
+                    message: `"${name}" se guardó en el servidor.`,
+                    color: 'blue',
+                });
+            } else {
+                await api.post(`/gastos/${areaKey}/rubros`, { name });
+                notifications.show({
+                    title: 'Rubro creado',
+                    message: `"${name}" se guardó en el servidor.`,
+                    color: 'teal',
+                });
+            }
+            setModalOpen(false);
+            await loadRubros();
+        } catch (error) {
             notifications.show({
-                title: 'Rubro actualizado',
-                message: `"${rubroName.trim()}" ha sido actualizado correctamente.`,
-                color: 'blue',
+                title: 'No se pudo guardar',
+                message: error.message || 'Error de red',
+                color: 'red',
             });
-        } else {
-            const newId = Math.max(...rubros.map(r => r.id), 0) + 1;
-            setRubros(prev => [...prev, { id: newId, name: rubroName.trim() }]);
-            notifications.show({
-                title: 'Rubro creado',
-                message: `"${rubroName.trim()}" ha sido añadido correctamente.`,
-                color: 'teal',
-            });
+        } finally {
+            setSaving(false);
         }
-        setModalOpen(false);
     };
 
-    const handleDelete = (rubro) => {
-        setRubros(prev => prev.filter(r => r.id !== rubro.id));
-        notifications.show({
-            title: 'Rubro eliminado',
-            message: `"${rubro.name}" ha sido eliminado.`,
-            color: 'red',
-        });
+    const handleDelete = async (rubro) => {
+        try {
+            await api.delete(`/gastos/${areaKey}/rubros/${rubro.id}`);
+            notifications.show({
+                title: 'Rubro eliminado',
+                message: `"${rubro.name}" se eliminó del servidor.`,
+                color: 'red',
+            });
+            await loadRubros();
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudo eliminar',
+                message: error.message || 'Error de red',
+                color: 'red',
+            });
+        }
     };
 
     return (
@@ -169,7 +208,7 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                                 >
                                     <Group justify="space-between">
                                         <Text size="sm" c="gray.3" fw={500}>
-                                            {rubro.name}
+                                            {toTitleCase(rubro.name)}
                                         </Text>
                                         <Group gap="xs">
                                             <Tooltip label="Editar">
@@ -199,7 +238,12 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                         ))}
                     </AnimatePresence>
 
-                    {rubros.length === 0 && (
+                    {loading && (
+                        <Box p="xl" ta="center">
+                            <Text c="dimmed">Cargando rubros...</Text>
+                        </Box>
+                    )}
+                    {!loading && rubros.length === 0 && (
                         <Box p="xl" ta="center">
                             <Text c="dimmed">No hay rubros registrados.</Text>
                         </Box>
@@ -226,7 +270,7 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                         label="Nombre del Rubro"
                         placeholder="Ej: Materia Prima"
                         value={rubroName}
-                        onChange={(e) => setRubroName(e.currentTarget.value)}
+                        onChange={(e) => setRubroName(toTitleCase(e.currentTarget.value))}
                         styles={{
                             label: { color: '#94a3b8', marginBottom: 4 },
                             input: {
@@ -242,7 +286,7 @@ const RubrosGastos = ({ titulo = 'Rubros de Producción', subtitulo = 'Control d
                         <Button variant="subtle" color="gray" onClick={() => setModalOpen(false)}>
                             Cancelar
                         </Button>
-                        <Button color="teal" onClick={handleSave} disabled={!rubroName.trim()}>
+                        <Button color="teal" onClick={handleSave} disabled={!rubroName.trim()} loading={saving}>
                             {editingRubro ? 'Guardar' : 'Crear Rubro'}
                         </Button>
                     </Group>
