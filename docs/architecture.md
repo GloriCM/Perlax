@@ -44,6 +44,7 @@ Hoy concentra varios dominios del menú. **Es aceptable a corto plazo**, pero:
 - Design → `Application/Design` (`IDesignPlannerService`); Chat → `Application/Chat` (`IInternalChatService`).
 - Fichas técnicas → `Application/TechnicalSheets`; Pedidos cliente → `Application/CustomerOrders`; Quotations legado → `Application/Quotations`.
 - Planta / reporte diario → `Application/DailyProduction` (`IDailyProductionService`).
+- Gastos de área (rubros/proveedores) → `Application/AreaExpense` (`IAreaExpenseCatalogService`).
 - No añadir chat/cotizador/diseño nuevos sin evaluar extracción o carpeta Application propia.
 
 ### Users / Budgets — excepción “vertical slice”
@@ -101,6 +102,7 @@ Orden recomendado:
    - ~~Pedidos / OP (`IManufacturingOrderService`) y OT (`IProductionOrderService`).~~
    - ~~Design planner (`IDesignPlannerService`) / Internal chat (`IInternalChatService`).~~
    - ~~TechnicalSheets / CustomerOrders / Quotations.~~
+   - ~~Gastos de área (rubros/proveedores) → `IAreaExpenseCatalogService`.~~
    - **Production.Api sin `ProductionDbContext` en controladores.**
 6. ~~Lookup OP: tests de `IProductionOrderLookup` (`ProductionOrderLookupTests`) + smoke en Almacén.~~
 7. ~~Users: `EnsureCreated` → `MigrateAsync` (migración `InitialUsers` idempotente).~~
@@ -158,4 +160,4 @@ Cubre scheduling (bloques, cruces, urgencia, billing) y lookup OT/OP para Almac�
 7. ~~Tests de reglas de scheduling.~~ ~~Tests del lookup OP (`ProductionOrderLookupTests`).~~
 8. ~~Audit / Users / Almacén con `MigrateAsync` (`InitialUsers`, `InitialAlmacen`).~~
 9. ~~Production.Api: controladores sin `DbContext`.~~
-10. **Siguiente foco:** particionar Production solo si duele (Cotizador / Design / Chat). Migraciones EF unificadas en Host (incl. Almacén).
+10. **Siguiente foco:** particionar Production solo si duele (Cotizador / Design / Chat). Captura de gastos / mantenimiento en frontend aún usa `localStorage` (fuera de esta capa).
