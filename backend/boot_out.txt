@@ -1,0 +1,27 @@
+  Perlax.Modules.Budgets.Domain -> E:\Semillas\Perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Domain\bin\Debug\net9.0\Perlax.Modules.Budgets.Domain.dll
+  Perlax.Modules.Production.Domain -> E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\bin\Debug\net9.0\Perlax.Modules.Production.Domain.dll
+  Perlax.Modules.Audit.Domain -> E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Domain\bin\Debug\net9.0\Perlax.Modules.Audit.Domain.dll
+  Perlax.Modules.Production.Application -> E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Application\bin\Debug\net9.0\Perlax.Modules.Production.Application.dll
+  Perlax.Modules.Users.Domain -> E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Domain\bin\Debug\net9.0\Perlax.Modules.Users.Domain.dll
+  Perlax.Modules.Budgets.Application -> E:\Semillas\Perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Application\bin\Debug\net9.0\Perlax.Modules.Budgets.Application.dll
+  Perlax.Modules.Almacen.Domain -> E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Domain\bin\Debug\net9.0\Perlax.Modules.Almacen.Domain.dll
+  Perlax.Modules.Audit.Application -> E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Application\bin\Debug\net9.0\Perlax.Modules.Audit.Application.dll
+  Perlax.Modules.Budgets.Infrastructure -> E:\Semillas\Perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Infrastructure\bin\Debug\net9.0\Perlax.Modules.Budgets.Infrastructure.dll
+  Perlax.Modules.Production.Infrastructure -> E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Infrastructure\bin\Debug\net9.0\Perlax.Modules.Production.Infrastructure.dll
+  Perlax.Modules.Users.Application -> E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Application\bin\Debug\net9.0\Perlax.Modules.Users.Application.dll
+  Perlax.Modules.Audit.Infrastructure -> E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Infrastructure\bin\Debug\net9.0\Perlax.Modules.Audit.Infrastructure.dll
+  Perlax.Modules.Almacen.Application -> E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Application\bin\Debug\net9.0\Perlax.Modules.Almacen.Application.dll
+  Perlax.Modules.Audit.Api -> E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Api\bin\Debug\net9.0\Perlax.Modules.Audit.Api.dll
+  Perlax.Modules.Almacen.Infrastructure -> E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Infrastructure\bin\Debug\net9.0\Perlax.Modules.Almacen.Infrastructure.dll
+  Perlax.Modules.Budgets.Api -> E:\Semillas\Perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Api\bin\Debug\net9.0\Perlax.Modules.Budgets.Api.dll
+  Perlax.Modules.Users.Infrastructure -> E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Infrastructure\bin\Debug\net9.0\Perlax.Modules.Users.Infrastructure.dll
+  Perlax.Modules.Production.Api -> E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Api\bin\Debug\net9.0\Perlax.Modules.Production.Api.dll
+  Perlax.Modules.Almacen.Api -> E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Api\bin\Debug\net9.0\Perlax.Modules.Almacen.Api.dll
+  Perlax.Modules.Users.Api -> E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Api\bin\Debug\net9.0\Perlax.Modules.Users.Api.dll
+  Perlax.Web -> E:\Semillas\Perlax\backend\src\Host\Perlax.Web\bin\Debug\net9.0\Perlax.Web.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.85
