@@ -1,0 +1,23 @@
+﻿  Determining projects to restore...
+  Restored E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Application\Perlax.Modules.Audit.Application.csproj (in 522 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Domain\Perlax.Modules.Almacen.Domain.csproj (in 521 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Application\Perlax.Modules.Production.Application.csproj (in 521 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Domain\Perlax.Modules.Production.Domain.csproj (in 522 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Domain\Perlax.Modules.Budgets.Domain.csproj (in 522 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Domain\Perlax.Modules.Users.Domain.csproj (in 522 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Domain\Perlax.Modules.Audit.Domain.csproj (in 522 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Application\Perlax.Modules.Almacen.Application.csproj (in 522 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Application\Perlax.Modules.Users.Application.csproj (in 522 ms).
+  Restored E:\Semillas\perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Application\Perlax.Modules.Budgets.Application.csproj (in 522 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Infrastructure\Perlax.Modules.Audit.Infrastructure.csproj (in 777 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Api\Perlax.Modules.Production.Api.csproj (in 783 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Audit\Perlax.Modules.Audit.Api\Perlax.Modules.Audit.Api.csproj (in 778 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Api\Perlax.Modules.Budgets.Api.csproj (in 778 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Api\Perlax.Modules.Users.Api.csproj (in 779 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Api\Perlax.Modules.Almacen.Api.csproj (in 785 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Almacen\Perlax.Modules.Almacen.Infrastructure\Perlax.Modules.Almacen.Infrastructure.csproj (in 821 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Budgets\Perlax.Modules.Budgets.Infrastructure\Perlax.Modules.Budgets.Infrastructure.csproj (in 821 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Infrastructure\Perlax.Modules.Production.Infrastructure.csproj (in 821 ms).
+  Restored E:\Semillas\Perlax\backend\src\Modules\Users\Perlax.Modules.Users.Infrastructure\Perlax.Modules.Users.Infrastructure.csproj (in 821 ms).
+  Restored E:\Semillas\Perlax\backend\src\Host\Perlax.Web\Perlax.Web.csproj (in 824 ms).
+BUILD_EXIT=-1

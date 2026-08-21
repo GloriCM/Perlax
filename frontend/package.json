@@ -4,19 +4,23 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/ensure-utf8.cjs && vite",
+    "build": "node scripts/ensure-utf8.cjs && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:prod": "npm run build && vite preview --host"
   },
   "dependencies": {
     "@mantine/core": "^8.3.15",
     "@mantine/dates": "^8.3.15",
     "@mantine/hooks": "^8.3.15",
     "@mantine/notifications": "^8.3.15",
+    "@microsoft/signalr": "^10.0.0",
     "@tabler/icons-react": "^3.37.1",
     "dayjs": "^1.11.19",
     "framer-motion": "^12.34.3",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1"

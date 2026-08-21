@@ -1,0 +1,165 @@
+.presupuesto-area-page {
+    max-width: 100%;
+    padding: 4px 4px 24px;
+    color: #f8fafc;
+}
+
+.presupuesto-area-icon {
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+.presupuesto-area-title {
+    color: #f8fafc;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    line-height: 1.2;
+}
+
+.presupuesto-area-year-input {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #0f172a !important;
+    font-weight: 600;
+    border: none !important;
+}
+
+.presupuesto-area-kpi,
+.presupuesto-area-card {
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.presupuesto-area-kpi-value {
+    color: #60a5fa;
+}
+
+.presupuesto-area-kpi-accent {
+    color: #34d399;
+}
+
+.presupuesto-area-segment {
+    max-width: 100%;
+}
+
+.presupuesto-area-segment .mantine-SegmentedControl-label {
+    font-size: 13px;
+    padding-inline: 12px;
+}
+
+.presupuesto-area-scroll {
+    border-radius: 12px;
+    overflow: auto;
+}
+
+.presupuesto-area-table {
+    --table-border-color: rgba(255, 255, 255, 0.08);
+    --table-striped-color: rgba(255, 255, 255, 0.02);
+    --table-highlight-on-hover-color: rgba(99, 102, 241, 0.08);
+}
+
+.presupuesto-area-table thead {
+    background: rgba(30, 41, 59, 0.95);
+}
+
+.presupuesto-area-rubro-head,
+.presupuesto-area-month-head,
+.presupuesto-area-subtotal-head,
+.presupuesto-area-total-head {
+    color: #e2e8f0 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    white-space: nowrap;
+    padding: 14px 12px !important;
+}
+
+.presupuesto-area-rubro-head {
+    min-width: 240px;
+    max-width: 320px;
+}
+
+.presupuesto-area-month-head {
+    min-width: 120px;
+    text-align: center !important;
+}
+
+.presupuesto-area-subtotal-head {
+    min-width: 130px;
+    text-align: right !important;
+    background: rgba(51, 65, 85, 0.5) !important;
+}
+
+.presupuesto-area-total-head {
+    min-width: 130px;
+    text-align: right !important;
+    background: rgba(5, 102, 74, 0.35) !important;
+    color: #a7f3d0 !important;
+}
+
+.presupuesto-area-sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: rgba(15, 23, 42, 0.98) !important;
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+}
+
+.presupuesto-area-rubro-cell {
+    min-width: 240px;
+    max-width: 320px;
+    vertical-align: middle !important;
+    padding: 12px 14px !important;
+}
+
+.presupuesto-area-input-cell {
+    padding: 10px 12px !important;
+    vertical-align: middle !important;
+}
+
+.presupuesto-area-subtotal-cell {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+    color: #cbd5e1;
+    padding: 12px 14px !important;
+    background: rgba(30, 41, 59, 0.35);
+}
+
+.presupuesto-area-total-cell {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: #a7f3d0;
+    padding: 12px 14px !important;
+    background: rgba(5, 102, 74, 0.2);
+}
+
+.presupuesto-area-footer-row td {
+    border-top: 2px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(15, 23, 42, 0.85) !important;
+}
+
+.presupuesto-area-save:not(:disabled) {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.presupuesto-area-save:not(:disabled):hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+@media (max-width: 768px) {
+    .presupuesto-area-segment {
+        width: 100%;
+    }
+
+    .presupuesto-area-segment .mantine-SegmentedControl-root {
+        flex-wrap: wrap;
+    }
+
+    .presupuesto-area-rubro-head,
+    .presupuesto-area-rubro-cell {
+        min-width: 180px;
+    }
+
+    .presupuesto-area-month-head,
+    .presupuesto-area-input-cell .mantine-NumberInput-input {
+        min-width: 96px;
+    }
+}

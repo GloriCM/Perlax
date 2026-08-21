@@ -1,0 +1,10 @@
+using System;
+using System.IO;
+using System.Reflection;
+using System.Runtime.Loader;
+
+var infra = @"G:\github\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Infrastructure\bin\Release\net9.0\Perlax.Modules.Production.Infrastructure.dll";
+if (!File.Exists(infra))
+    infra = @"G:\github\Perlax\backend\src\Modules\Production\Perlax.Modules.Production.Infrastructure\bin\Debug\net9.0\Perlax.Modules.Production.Infrastructure.dll";
+
+Console.WriteLine("build first...");

@@ -5,14 +5,21 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Text.Json.Serialization;
 using Perlax.Modules.Users.Api;
 using Perlax.Modules.Audit.Api;
+using Perlax.Modules.Budgets.Api;
+using Perlax.Modules.Almacen.Api;
+using Perlax.Modules.Almacen.Infrastructure.Persistence;
 using Perlax.Modules.Users.Infrastructure.Persistence;
 using Perlax.Modules.Audit.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Perlax.Modules.Production.Api.Hubs;
+using Perlax.Modules.Production.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,7 +45,13 @@ builder.WebHost.ConfigureKestrel(options =>
 // Add services to the container.
 builder.Services.AddProductionModule(builder.Configuration);
 builder.Services.AddUsersModule(builder.Configuration);
+// Los usuarios con rol "Operario" se exponen como operarios de planta
+builder.Services.AddScoped<Perlax.Modules.Production.Application.DailyProduction.IOperatorUserDirectory, Perlax.Web.Services.UsersOperatorDirectory>();
 builder.Services.AddAuditModule(builder.Configuration);
+builder.Services.AddBudgetsModule(builder.Configuration);
+builder.Services.AddAlmacenModule(builder.Configuration);
+// OT/OP abiertas de Production para Almacén (sin acoplar DbContexts entre módulos)
+builder.Services.AddScoped<Perlax.Modules.Almacen.Application.Abstractions.IProductionOrderLookup, Perlax.Web.Services.ProductionOrderLookup>();
 
 // --- JWT AUTHENTICATION ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -63,6 +76,20 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
     options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken)
+                && (path.StartsWithSegments("/hubs/internal-chat") || path.StartsWithSegments("/uploads")))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -78,6 +105,13 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? Array.Empty<string>();
 if (corsOrigins.Length == 0)
@@ -91,13 +125,17 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp",
         policy => policy.WithOrigins(corsOrigins)
                         .AllowAnyHeader()
-                        .AllowAnyMethod());
+                        .AllowAnyMethod()
+                        .AllowCredentials());
 });
 
 builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 104_857_600;
 });
+
+builder.Services.Configure<Perlax.Modules.Production.Api.Controllers.PlantaOptions>(
+    builder.Configuration.GetSection(Perlax.Modules.Production.Api.Controllers.PlantaOptions.SectionName));
 
 builder.Services.AddControllers(options =>
     {
@@ -106,11 +144,17 @@ builder.Services.AddControllers(options =>
                 .RequireAuthenticatedUser()
                 .Build()));
     })
+    .AddApplicationPart(typeof(Perlax.Modules.Production.Api.Controllers.PlantaController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Users.Api.Controllers.AuthController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Audit.Api.Controllers.AuditLogsController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Budgets.Api.Controllers.BudgetsController).Assembly)
+    .AddApplicationPart(typeof(Perlax.Modules.Almacen.Api.Controllers.AlmacenController).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
+builder.Services.AddSignalR();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -122,14 +166,36 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var usersContext = scope.ServiceProvider.GetRequiredService<UsersDbContext>();
-        await UsersDbInitializer.SeedAsync(usersContext);
+        await usersContext.Database.MigrateAsync();
+        await UsersDbInitializer.SeedAsync(usersContext, builder.Configuration, app.Environment.IsDevelopment());
         
         var auditContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
-        await auditContext.Database.EnsureCreatedAsync();
+        await auditContext.Database.MigrateAsync();
         
         // Use MigrateAsync for Production to handle existing migrations
         var productionContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Production.Infrastructure.Persistence.ProductionDbContext>();
-        await productionContext.Database.MigrateAsync();
+        try
+        {
+            await productionContext.Database.MigrateAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Production MigrateAsync failed: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+        }
+        await ProductionDbInitializer.InitializeAsync(productionContext);
+        await Perlax.Modules.Production.Infrastructure.Persistence.CotizadorDbSeeder.SeedAsync(productionContext);
+        await Perlax.Modules.Production.Infrastructure.Persistence.DesignPlannerDbSeeder.SeedAsync(productionContext);
+        await Perlax.Modules.Production.Infrastructure.Persistence.DailyProductionDbSeeder.SeedAsync(productionContext);
+        await Perlax.Modules.Production.Infrastructure.Persistence.OpSchedulingSeeder.SeedAsync(productionContext);
+
+        var budgetsContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbContext>();
+        await budgetsContext.Database.MigrateAsync();
+        await Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbSeeder.SeedAsync(budgetsContext);
+
+        var almacenContext = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
+        await almacenContext.Database.MigrateAsync();
+        await AlmacenDbInitializer.InitializeAsync(almacenContext);
     }
 }
 catch (Exception ex)
@@ -148,11 +214,58 @@ else
     app.UseHsts();
 }
 
+app.UseForwardedHeaders();
+
 app.UseCors("AllowReactApp");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
-var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "uploads");
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.TryAdd("X-Frame-Options", "SAMEORIGIN");
+    context.Response.Headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+    await next();
+});
+
+app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    if (!context.Request.Path.StartsWithSegments("/uploads"))
+    {
+        await next();
+        return;
+    }
+
+    if (context.User?.Identity?.IsAuthenticated != true)
+    {
+        var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(accessToken))
+        {
+            context.Request.Headers["Authorization"] = $"Bearer {accessToken}";
+        }
+
+        var authResult = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
+        if (!authResult.Succeeded)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        context.User = authResult.Principal!;
+    }
+
+    await next();
+});
+
+var webRootPath = string.IsNullOrWhiteSpace(app.Environment.WebRootPath)
+    ? Path.Combine(app.Environment.ContentRootPath, "wwwroot")
+    : app.Environment.WebRootPath;
+var uploadsRoot = Path.Combine(webRootPath, "uploads");
 Directory.CreateDirectory(uploadsRoot);
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -160,9 +273,10 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<InternalChatHub>("/hubs/internal-chat");
+app.MapHub<ProductionFloorHub>(ProductionFloorHub.HubPath);
 
 app.Run();

@@ -14,16 +14,91 @@ import {
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { getCurrentUser, canAccessRoute, getFirstAllowedPath } from '../../utils/permissions';
 import { IconPrinter, IconArrowLeft } from '@tabler/icons-react';
-import { api, getApiOrigin } from '../../utils/api';
+import { api } from '../../utils/api';
+import { resolveUploadUrl } from '../../utils/uploadUrl';
 import { notifications } from '@mantine/notifications';
 
-function absoluteUploadUrl(publicPath) {
-    if (!publicPath || typeof publicPath !== 'string') return '';
-    const trimmed = publicPath.trim();
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    const origin = getApiOrigin();
-    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${origin}${path}`;
+/** Casilla impresión: fondo blanco y ✓ si aplica (p. ej. troquel nuevo). */
+function FichaCheckBox({ checked, boxSize = 16, border = '2px solid black' }) {
+    return (
+        <Box
+            w={boxSize}
+            h={boxSize}
+            style={{
+                border,
+                borderRadius: 3,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#fff',
+                fontSize: boxSize >= 16 ? 11 : 10,
+                fontWeight: 900,
+                lineHeight: 1,
+                color: '#111',
+            }}
+        >
+            {checked ? '\u2713' : ''}
+        </Box>
+    );
+}
+
+const INK_LETTER = {
+    c: '#0097a7',
+    m: '#c2185b',
+    y: '#f9a825',
+    k: '#1a1a1a',
+};
+
+/** Letra CMYK en color + casilla con ✕ si está marcada (fondo blanco). */
+function FichaTintInkMark({ letter, inkKey, checked }) {
+    const color = INK_LETTER[inkKey] ?? '#111';
+    const markColor = inkKey === 'k' ? '#111' : inkKey === 'y' ? '#6d4c00' : color;
+    return (
+        <Group gap={4} align="center" wrap="nowrap">
+            <Text size="xs" fw={800} style={{ color, minWidth: 11 }}>
+                {letter}
+            </Text>
+            <Box
+                w={14}
+                h={14}
+                style={{
+                    border: '1px solid #222',
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#fff',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    color: checked ? markColor : 'transparent',
+                }}
+            >
+                {checked ? '\u2715' : ''}
+            </Box>
+        </Group>
+    );
+}
+
+/** Logo corporativo (`frontend/public/empresa-logo.jpeg`). */
+function EmpresaLogoMark() {
+    return (
+        <Stack align="center" justify="center" gap={0}>
+            <img
+                className="ficha-empresa-logo"
+                src="/empresa-logo.jpeg"
+                alt="aleph impresores"
+                style={{
+                    maxHeight: 72,
+                    maxWidth: '100%',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    display: 'block',
+                }}
+            />
+        </Stack>
+    );
 }
 
 /** Casilla impresión: fondo blanco y ✓ si aplica (p. ej. troquel nuevo). */
@@ -289,10 +364,6 @@ const FichaTecnicaPrint = () => {
                     }
                     .ficha-empresa-logo { max-height: 11mm !important; }
                     .ficha-print-hoja1 { padding: 4px 6px !important; }
-                    .ficha-dimensiones-compact {
-                        padding: 2px 4px !important;
-                        border-color: #adb5bd !important;
-                    }
                     .ficha-print-hoja1 .ficha-dimension-valor {
                         min-height: 10px !important;
                         font-size: 8.5pt !important;
@@ -460,44 +531,20 @@ const FichaTecnicaPrint = () => {
                                     </Grid.Col>
                                 </Grid>
 
-                                <Divider label="DIMENSIONES (cm)" labelPosition="center" my="xs" />
-                                <Grid
-                                    gutter={4}
-                                    className="ficha-dimensiones-compact"
-                                    style={{
-                                        border: '1px solid #ced4da',
-                                        borderRadius: '4px',
-                                        padding: '6px 8px',
-                                        background: '#fff',
-                                    }}
-                                >
-                                    <Grid.Col span={3}>
-                                        <Text className="label">Alto:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.alto}</Text>
-                                    </Grid.Col>
-                                    <Grid.Col span={3}>
-                                        <Text className="label">Largo:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.largo}</Text>
-                                    </Grid.Col>
-                                    <Grid.Col span={3}>
-                                        <Text className="label">Ancho:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.ancho}</Text>
-                                    </Grid.Col>
+                                <Grid gutter="xs" mt={4}>
                                     <Grid.Col span={3}>
                                         <Text className="label">Fuelle:</Text>
-                                        <Text className="value ficha-dimension-valor">{data.medidas.fuelle}</Text>
+                                        <Text className="value">{data.medidas.fuelle ?? '-'}</Text>
                                     </Grid.Col>
-                                </Grid>
-                                <Grid gutter="xs" mt={4}>
-                                    <Grid.Col span={4}>
+                                    <Grid.Col span={3}>
                                         <Text className="label">Cabida:</Text>
                                         <Text className="value">{data.cabida != null && data.cabida !== '' ? data.cabida : '-'}</Text>
                                     </Grid.Col>
-                                    <Grid.Col span={4}>
+                                    <Grid.Col span={3}>
                                         <Text className="label">Alto pliego (cm):</Text>
                                         <Text className="value">{data.altoPliego ?? '-'}</Text>
                                     </Grid.Col>
-                                    <Grid.Col span={4}>
+                                    <Grid.Col span={3}>
                                         <Text className="label">Ancho pliego (cm):</Text>
                                         <Text className="value">{data.anchoPliego ?? '-'}</Text>
                                     </Grid.Col>
@@ -561,7 +608,7 @@ const FichaTecnicaPrint = () => {
                                             <img
                                                 key={`${url}-${i}`}
                                                 className="ficha-ampliacion-img"
-                                                src={absoluteUploadUrl(url)}
+                                                src={resolveUploadUrl(url)}
                                                 alt={`Ampliación ${i + 1}`}
                                                 style={{
                                                     width: '100%',
@@ -690,7 +737,7 @@ const FichaTecnicaPrint = () => {
                                     <img
                                         key={`adj-${url}-${i}`}
                                         className="ficha-adjunto-img"
-                                        src={absoluteUploadUrl(url)}
+                                        src={resolveUploadUrl(url)}
                                         alt={`Adjunto ${i + 1}`}
                                         style={{
                                             maxWidth: '100%',

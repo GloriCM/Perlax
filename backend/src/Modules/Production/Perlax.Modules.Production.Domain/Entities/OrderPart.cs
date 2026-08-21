@@ -75,6 +75,8 @@ public class OrderPart
     public string? Notas { get; set; }
     public string? FabricationProcessesJson { get; set; } // JSON list of machines/processes
     public string? AdjuntosJson { get; set; } // URLs list as JSON string
+    /// <summary>Textos crudos + snapshot parseado al importar OP existente desde PDFs.</summary>
+    public string? LegacyImportJson { get; set; }
 
     // Navigation
     [ForeignKey("ProductionOrderId")]

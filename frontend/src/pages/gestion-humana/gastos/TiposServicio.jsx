@@ -103,7 +103,7 @@ const TiposServicio = ({ titulo = 'Tipos de Servicio', subtitulo = 'Gestión Hum
                         </div>
                     </Group>
                     <Button color="teal" leftSection={<IconPlus size={16} />} radius="md" onClick={handleAdd}>
-                        + Agregar
+                        Agregar
                     </Button>
                 </Group>
             </Paper>

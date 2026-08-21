@@ -1,0 +1,69 @@
+.topbar-root {
+    width: 100%;
+}
+
+.topbar-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 4px;
+}
+
+.topbar-search-group {
+    min-width: 0;
+    justify-self: start;
+}
+
+.topbar-search {
+    flex: 1;
+    min-width: 0;
+    max-width: 420px;
+}
+
+.topbar-date {
+    justify-self: center;
+    white-space: nowrap;
+}
+
+.topbar-actions {
+    justify-self: end;
+}
+
+.topbar-burger {
+    display: none;
+    flex-shrink: 0;
+}
+
+.topbar-burger--visible {
+    display: flex;
+}
+
+@media (max-width: 992px) {
+    .topbar-burger {
+        display: flex;
+    }
+
+    .topbar-grid {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .topbar-search {
+        max-width: none;
+    }
+
+    .topbar-date {
+        display: none;
+    }
+
+    .topbar-actions {
+        gap: 4px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .topbar-root .mantine-Autocomplete-input {
+        font-size: 14px;
+    }
+}

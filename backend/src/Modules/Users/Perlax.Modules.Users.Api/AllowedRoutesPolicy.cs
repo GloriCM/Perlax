@@ -10,10 +10,13 @@ namespace Perlax.Modules.Users.Api;
 public static class AllowedRoutesPolicy
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static bool IsAdminRole(string role) =>
+        string.Equals(role, "Administrador", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
 
     public static string? SerializeForUserRole(string role, string[]? allowedRoutes)
     {
-        if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+        if (IsAdminRole(role))
             return null;
 
         var routes = allowedRoutes ?? Array.Empty<string>();
@@ -30,7 +33,7 @@ public static class AllowedRoutesPolicy
     /// <summary>Para respuestas API y login: null = sin restricción; [] = solo dashboard.</summary>
     public static string[]? DeserializeForResponse(string role, string? json)
     {
-        if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+        if (IsAdminRole(role))
             return null;
 
         if (string.IsNullOrWhiteSpace(json))

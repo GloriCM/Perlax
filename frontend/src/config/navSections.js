@@ -20,7 +20,7 @@ import {
     IconBriefcase,
     IconDoorEnter,
     IconListDetails,
-    IconCalendarTime,
+    IconDatabaseImport,
     IconArchive,
     IconArrowBackUp,
     IconFilePlus,
@@ -65,6 +65,15 @@ export const navSections = [
         items: [
             { label: 'Dashboard', icon: IconChartPie, path: '/' },
             {
+                label: 'Cotizaciones',
+                icon: IconFileText,
+                path: '/cotizador',
+                children: [
+                    { label: 'Nueva cotizacion', icon: IconPencil, path: '/cotizador/nueva' },
+                    { label: 'Guardadas', icon: IconClipboardPlus, path: '/cotizador/guardadas' },
+                ],
+            },
+            {
                 label: 'Ordenes de Trabajo',
                 icon: IconClipboardList,
                 path: '/ordenes',
@@ -81,15 +90,6 @@ export const navSections = [
                 children: [{ label: 'Listado', icon: IconList, path: '/fichas/lista' }],
             },
             {
-                label: 'Cotizaciones',
-                icon: IconFileText,
-                path: '/cotizaciones',
-                children: [
-                    { label: 'Desde OT', icon: IconClipboardPlus, path: '/cotizaciones/desde-ot' },
-                    { label: 'Manual', icon: IconPencil, path: '/cotizaciones/manual' },
-                ],
-            },
-            {
                 label: 'Pedidos',
                 icon: IconBriefcase,
                 path: '/pedidos',
@@ -104,26 +104,28 @@ export const navSections = [
                 path: '/produccion',
                 children: [
                     { label: 'Apertura', icon: IconDoorEnter, path: '/produccion/apertura' },
+                    { label: 'OP existente', icon: IconDatabaseImport, path: '/produccion/op-existente' },
                     { label: 'Estado de Ordenes', icon: IconListDetails, path: '/produccion/estado-ordenes' },
                     {
-                        label: 'Planeación',
-                        icon: IconCalendarTime,
-                        path: '/planeacion',
+                        label: 'Control de Gastos',
+                        icon: IconCoins,
+                        path: '/gastos/control',
                         children: [
-                            { label: 'Panel', icon: IconLayoutDashboard, path: '/produccion/planeacion' },
-                            {
-                                label: 'Gastos',
-                                icon: IconCoins,
-                                path: '/planeacion/gastos',
-                                children: [
-                                    { label: 'Captura de Gastos', icon: IconCash, path: '/planeacion/gastos/captura' },
-                                    { label: 'Gráficas', icon: IconChartBar, path: '/planeacion/gastos/graficas' },
-                                    { label: 'Rubros', icon: IconTags, path: '/planeacion/gastos/rubros' },
-                                    { label: 'Cotizaciones', icon: IconFileDollar, path: '/planeacion/gastos/cotizaciones' },
-                                    { label: 'Proveedores', icon: IconBuildingFactory2, path: '/planeacion/gastos/proveedores' },
-                                    { label: 'Personal', icon: IconUsers, path: '/planeacion/gastos/personal' },
-                                ],
-                            },
+                            { label: 'Captura de Gastos', icon: IconCash, path: '/gastos/control/captura' },
+                            { label: 'Gráficas', icon: IconChartBar, path: '/gastos/control/graficas' },
+                            { label: 'Rubros', icon: IconTags, path: '/gastos/control/rubros' },
+                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/gastos/control/cotizaciones' },
+                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/gastos/control/proveedores' },
+                        ],
+                    },
+                    {
+                        label: 'Control de Personal',
+                        icon: IconUsers,
+                        path: '/gastos/personal',
+                        children: [
+                            { label: 'Horas Extra', icon: IconClock, path: '/gastos/personal/horas-extra' },
+                            { label: 'Recargo', icon: IconPercentage, path: '/gastos/personal/recargo' },
+                            { label: 'Salarios', icon: IconReceipt2, path: '/gastos/personal/salarios' },
                         ],
                     },
                 ],
@@ -132,12 +134,12 @@ export const navSections = [
             {
                 label: 'Compras & Almacén',
                 icon: IconShoppingCart,
-                path: '/compras',
+                path: '/compras/requisicion',
                 children: [
-                    { label: 'Requisición', icon: IconFilePlus, path: '/compras/requisicion' },
-                    { label: 'Compras', icon: IconBuildingStore, path: '/compras/compras' },
-                    { label: 'Consumos', icon: IconStack2, path: '/compras/consumos' },
-                    { label: 'Saldos de Inventario', icon: IconCalculator, path: '/compras/saldos' },
+                    { label: 'Requisición', icon: IconClipboardList, path: '/compras/requisicion' },
+                    { label: 'Pedidos', icon: IconShoppingCart, path: '/compras/pedidos' },
+                    { label: 'Recepción', icon: IconPackage, path: '/compras/recepcion' },
+                    { label: 'Indicadores', icon: IconChartBar, path: '/compras/indicadores' },
                 ],
             },
             {
@@ -214,34 +216,10 @@ export const navSections = [
                             { label: 'Proveedores', icon: IconBuildingFactory2, path: '/diseno/gastos/proveedores' },
                         ],
                     },
-                ],
-            },
-            {
-                label: 'Producción',
-                icon: IconCalculator,
-                path: '/gastos',
-                children: [
                     {
-                        label: 'Control de Gastos',
-                        icon: IconCoins,
-                        path: '/gastos/control',
-                        children: [
-                            { label: 'Captura de Gastos', icon: IconCash, path: '/gastos/control/captura' },
-                            { label: 'Gráficas', icon: IconChartBar, path: '/gastos/control/graficas' },
-                            { label: 'Rubros', icon: IconTags, path: '/gastos/control/rubros' },
-                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/gastos/control/cotizaciones' },
-                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/gastos/control/proveedores' },
-                        ],
-                    },
-                    {
-                        label: 'Control de Personal',
-                        icon: IconUsers,
-                        path: '/gastos/personal',
-                        children: [
-                            { label: 'Horas Extra', icon: IconClock, path: '/gastos/personal/horas-extra' },
-                            { label: 'Recargo', icon: IconPercentage, path: '/gastos/personal/recargo' },
-                            { label: 'Salarios', icon: IconReceipt2, path: '/gastos/personal/salarios' },
-                        ],
+                        label: 'Planeador de Diseño',
+                        icon: IconArtboard,
+                        path: '/diseno/planeador'
                     },
                 ],
             },
@@ -266,7 +244,10 @@ export const navSections = [
                         label: 'Personal',
                         icon: IconUsers,
                         path: '/talleres-gastos/personal',
-                        children: [{ label: 'Salarios', icon: IconReceipt2, path: '/talleres-gastos/personal/salarios' }],
+                        children: [
+                            { label: 'Salarios', icon: IconReceipt2, path: '/talleres-gastos/personal/salarios' },
+                            { label: 'Horas Extra', icon: IconClock, path: '/talleres-gastos/personal/horas-extra' },
+                        ],
                     },
                 ],
             },
@@ -291,12 +272,44 @@ export const navSections = [
                 ],
             },
             {
-                label: 'Mantenimiento de Equipos',
+                label: 'Mantenimiento Maquinaria',
                 icon: IconTools,
                 path: '/mantenimiento',
                 children: [
-                    { label: 'Panel de Control', icon: IconLayoutDashboard, path: '/mantenimiento/panel' },
-                    { label: 'Equipos', icon: IconEngine, path: '/mantenimiento/equipos' },
+                    {
+                        label: 'Hojas de Vida Maquinaria',
+                        icon: IconListDetails,
+                        path: '/mantenimiento/hojas-vida-maquinaria',
+                        children: [
+                            { label: 'Hojas de Vida', icon: IconListDetails, path: '/mantenimiento/hojas-vida-maquinaria/hojas-de-vida' },
+                            { label: 'Cronogramas', icon: IconCalendarMonth, path: '/mantenimiento/hojas-vida-maquinaria/cronogramas' },
+                            { label: 'Tickets de Daño', icon: IconFileAnalytics, path: '/mantenimiento/hojas-vida-maquinaria/tickets-dano' },
+                            { label: 'Mantenimientos', icon: IconTools, path: '/mantenimiento/hojas-vida-maquinaria/mantenimientos' },
+                        ],
+                    },
+                    {
+                        label: 'Gastos de Mantenimiento',
+                        icon: IconCash,
+                        path: '/mantenimiento/gastos',
+                        children: [
+                            { label: 'Captura de Gastos', icon: IconCash, path: '/mantenimiento/gastos/captura' },
+                            { label: 'Gráficas', icon: IconChartBar, path: '/mantenimiento/gastos/graficas' },
+                            { label: 'Rubros', icon: IconTags, path: '/mantenimiento/gastos/rubros' },
+                            { label: 'Productos', icon: IconPackage, path: '/mantenimiento/gastos/productos' },
+                            { label: 'Cotizaciones', icon: IconFileDollar, path: '/mantenimiento/gastos/cotizaciones' },
+                            { label: 'Proveedores', icon: IconBuildingFactory2, path: '/mantenimiento/gastos/proveedores' },
+                        ],
+                    },
+                    { label: 'Inventario Mantenimiento', icon: IconArchive, path: '/mantenimiento/inventario' },
+                ],
+            },
+            {
+                label: 'Mantenimiento Equipos',
+                icon: IconEngine,
+                path: '/mantenimiento-equipos',
+                children: [
+                    { label: 'Panel de Mantenimiento', icon: IconLayoutDashboard, path: '/mantenimiento-equipos/panel' },
+                    { label: 'Mantenimiento de Equipos', icon: IconEngine, path: '/mantenimiento-equipos/equipos' },
                 ],
             },
             {
@@ -304,6 +317,7 @@ export const navSections = [
                 icon: IconReportAnalytics,
                 path: '/planeacion',
                 children: [
+                    { label: 'Programador', icon: IconLayoutDashboard, path: '/planeacion/programador' },
                     {
                         label: 'Cuadro de Gastos',
                         icon: IconCalculator,
@@ -316,7 +330,15 @@ export const navSections = [
                             { label: 'Proveedores', icon: IconBuildingFactory2, path: '/planeacion/gastos/proveedores' },
                         ],
                     },
-                    { label: 'Personal', icon: IconUsers, path: '/planeacion/personal' },
+                    {
+                        label: 'Personal',
+                        icon: IconUsers,
+                        path: '/planeacion/personal',
+                        children: [
+                            { label: 'Almacén', icon: IconUsers, path: '/planeacion/personal' },
+                            { label: 'Horas Extra', icon: IconClock, path: '/planeacion/personal/horas-extra' },
+                        ],
+                    },
                 ],
             },
             {
@@ -324,12 +346,20 @@ export const navSections = [
                 icon: IconWallet,
                 path: '/presupuestos',
                 children: [
-                    { label: 'Producción', icon: IconCube, path: '/presupuestos/produccion' },
-                    { label: 'Talleres', icon: IconTools, path: '/presupuestos/talleres' },
-                    { label: 'G. Humana', icon: IconUsers, path: '/presupuestos/gestion-humana' },
-                    { label: 'Sst', icon: IconShieldCheck, path: '/presupuestos/sst' },
-                    { label: 'Planeación', icon: IconReportAnalytics, path: '/presupuestos/planeacion' },
-                    { label: 'Diseño', icon: IconPalette, path: '/presupuestos/diseno' },
+                    { label: 'Presupuesto General', icon: IconReportAnalytics, path: '/presupuestos' },
+                    {
+                        label: 'Por Área',
+                        icon: IconCube,
+                        path: '/presupuestos/areas',
+                        children: [
+                            { label: 'Producción', icon: IconCube, path: '/presupuestos/produccion' },
+                            { label: 'Talleres', icon: IconTools, path: '/presupuestos/talleres' },
+                            { label: 'G. Humana', icon: IconUsers, path: '/presupuestos/gestion-humana' },
+                            { label: 'Sst', icon: IconShieldCheck, path: '/presupuestos/sst' },
+                            { label: 'Planeación', icon: IconReportAnalytics, path: '/presupuestos/planeacion' },
+                            { label: 'Diseño', icon: IconPalette, path: '/presupuestos/diseno' },
+                        ],
+                    },
                 ],
             },
             {
@@ -360,7 +390,15 @@ export const navSections = [
         items: [
             { label: 'Auditoría', icon: IconHistory, path: '/admin/auditoria' },
             { label: 'Usuarios', icon: IconUserCog, path: '/configuracion/usuarios' },
-            { label: 'Ajustes', icon: IconSettings, path: '/ajustes' },
+            {
+                label: 'Ajustes',
+                icon: IconSettings,
+                path: '/ajustes',
+                children: [
+                    { label: 'Panel de ajustes', icon: IconSettings, path: '/ajustes' },
+                    { label: 'Catálogos cotizador', icon: IconSettings, path: '/ajustes/cotizador-catalogos' },
+                ],
+            },
         ],
     },
 ];

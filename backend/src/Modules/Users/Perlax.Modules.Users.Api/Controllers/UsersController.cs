@@ -11,10 +11,24 @@ namespace Perlax.Modules.Users.Api.Controllers;
 
 [ApiController]
 [Route("api/users")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private const int MaxDetailsLength = 8000;
+    private static readonly HashSet<string> AllowedAreas = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "calidad",
+        "produccion",
+        "talleres",
+        "planeaccion",
+        "diseño",
+        "ti",
+        "mantenimiento",
+        "sst",
+        "gestion humana",
+        "presupuestos",
+        "financiera"
+    };
 
     private readonly UsersDbContext _context;
     private readonly IAuditService _auditService;
@@ -26,6 +40,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetAll(CancellationToken cancellationToken)
     {
         var users = await _context.Users.AsNoTracking()
@@ -35,7 +50,59 @@ public class UsersController : ControllerBase
         return Ok(users.Select(MapToDto));
     }
 
+    /// <summary>Directorio de personal para horas extras (sin datos de acceso).</summary>
+    [HttpGet("personnel")]
+    [Authorize(Roles = "Admin,Administrador,Administrativo")]
+    public async Task<ActionResult<IEnumerable<object>>> GetPersonnel(
+        [FromQuery] string? roles,
+        CancellationToken cancellationToken)
+    {
+        var wanted = (roles ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(UserRoles.Normalize)
+            .Where(r => UserRoles.IsShopFloor(r) || UserRoles.IsAdministrative(r))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var query = _context.Users.AsNoTracking().Where(u => u.IsActive);
+        if (wanted.Count > 0)
+            query = query.Where(u => wanted.Contains(u.Role));
+        else
+            query = query.Where(u =>
+                u.Role == UserRoles.Operario
+                || u.Role == UserRoles.Auxiliar
+                || u.Role == UserRoles.Almacen
+                || u.Role == UserRoles.Taller
+                || u.Role == UserRoles.Administrativo);
+
+        var users = await query
+            .OrderBy(u => u.Role)
+            .ThenBy(u => u.FirstName)
+            .ThenBy(u => u.LastName)
+            .ToListAsync(cancellationToken);
+
+        return Ok(users.Select(u =>
+        {
+            var fullName = $"{u.FirstName} {u.LastName}".Trim();
+            if (string.IsNullOrWhiteSpace(fullName)) fullName = u.Username;
+            return new
+            {
+                id = u.Id,
+                displayName = fullName,
+                documentNumber = u.DocumentNumber,
+                salary = u.Salary,
+                role = u.Role,
+                area = u.Area,
+                hasOvertime = UserRoles.HasOvertime(u.Role),
+                appearsInPlanta = UserRoles.AppearsInPlanta(u.Role),
+                overtimeExpenseArea = UserRoles.OvertimeExpenseArea(u.Role),
+                overtimeExpenseLabel = UserRoles.OvertimeExpenseLabel(u.Role)
+            };
+        }));
+    }
+
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<UserResponseDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
         var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
@@ -44,18 +111,26 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<UserResponseDto>> Create([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
         if (!IsValidRole(request.Role)) return BadRequest("Rol inválido.");
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-            return BadRequest("Usuario y contraseña son obligatorios.");
-        if (string.IsNullOrWhiteSpace(request.Email)) return BadRequest("El correo es obligatorio.");
 
-        var normalizedUser = request.Username.Trim().ToLowerInvariant();
+        var documentNumber = NormalizeDocument(request.DocumentNumber);
+        if (string.IsNullOrWhiteSpace(documentNumber))
+            return BadRequest("La cédula de ciudadanía es obligatoria.");
+
+        // Login y contraseña inicial = cédula (el usuario debe cambiarla al primer ingreso).
+        var normalizedUser = documentNumber;
         if (await _context.Users.AnyAsync(u => u.Username == normalizedUser, cancellationToken))
-            return Conflict("Ya existe un usuario con ese nombre de login.");
+            return Conflict("Ya existe un usuario con esa cédula (login).");
 
-        var email = request.Email.Trim();
+        if (await _context.Users.AnyAsync(u => u.DocumentNumber == documentNumber, cancellationToken))
+            return Conflict("Ya existe un usuario con esa cédula.");
+
+        var email = string.IsNullOrWhiteSpace(request.Email)
+            ? $"{documentNumber}@perlax.local"
+            : request.Email.Trim();
         if (await _context.Users.AnyAsync(u => u.Email == email, cancellationToken))
             return Conflict("Ya existe un usuario con ese correo.");
 
@@ -64,54 +139,95 @@ public class UsersController : ControllerBase
             Id = Guid.NewGuid(),
             Username = normalizedUser,
             Email = email,
-            FirstName = NullIfWhite(request.FirstName),
-            LastName = NullIfWhite(request.LastName),
+            FirstName = ToUpperPersonName(request.FirstName),
+            LastName = ToUpperPersonName(request.LastName),
             Role = NormalizeRole(request.Role),
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            Area = NormalizeArea(request.Area) ?? UserRoles.DefaultArea(NormalizeRole(request.Role)),
+            DocumentNumber = documentNumber,
+            Salary = request.Salary,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(documentNumber),
+            MustChangePassword = true,
             IsSystemUser = false,
             CreatedAt = DateTime.UtcNow,
-            AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(request.Role, request.AllowedRoutes)
+            AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
+                NormalizeRole(request.Role),
+                UserRoles.IsShopFloor(NormalizeRole(request.Role)) ? [] : request.AllowedRoutes)
         };
+
+        var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
+        if (areaValidation is not null) return BadRequest(areaValidation);
 
         _context.Users.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
 
         await LogUserAuditAsync(
             "USER_CREATE",
-            $"Se creó el usuario '{entity.Username}' ({entity.Email}). {DescribeUserPermissions(entity)}");
+            $"Se creó el usuario '{entity.Username}' ({entity.Email}) con login/clave inicial = cédula. {DescribeUserPermissions(entity)}");
 
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapToDto(entity));
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<ActionResult<UserResponseDto>> Update(Guid id, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
     {
         if (!IsValidRole(request.Role)) return BadRequest("Rol inválido.");
-        if (string.IsNullOrWhiteSpace(request.Email)) return BadRequest("El correo es obligatorio.");
 
         var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         if (entity == null) return NotFound();
 
-        var email = request.Email.Trim();
+        var email = string.IsNullOrWhiteSpace(request.Email)
+            ? entity.Email
+            : request.Email.Trim();
         if (await _context.Users.AnyAsync(u => u.Email == email && u.Id != id, cancellationToken))
             return Conflict("Ya existe otro usuario con ese correo.");
+
+        var documentNumber = NormalizeDocument(request.DocumentNumber);
+        if (string.IsNullOrWhiteSpace(documentNumber) && !entity.IsSystemUser)
+            return BadRequest("La cédula de ciudadanía es obligatoria.");
+
+        if (!string.IsNullOrWhiteSpace(documentNumber)
+            && await _context.Users.AnyAsync(u => u.DocumentNumber == documentNumber && u.Id != id, cancellationToken))
+            return Conflict("Ya existe otro usuario con esa cédula.");
 
         var oldFirstName = entity.FirstName;
         var oldLastName = entity.LastName;
         var oldEmail = entity.Email;
         var oldRole = entity.Role;
+        var oldArea = entity.Area;
         var oldRoutesJson = entity.AllowedRoutesJson;
         var passwordWillChange = !string.IsNullOrWhiteSpace(request.Password);
 
-        entity.FirstName = NullIfWhite(request.FirstName);
-        entity.LastName = NullIfWhite(request.LastName);
+        entity.FirstName = ToUpperPersonName(request.FirstName);
+        entity.LastName = ToUpperPersonName(request.LastName);
         entity.Email = email;
         entity.Role = NormalizeRole(request.Role);
-        var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(request.Role, request.AllowedRoutes);
+        entity.Area = NormalizeArea(request.Area) ?? UserRoles.DefaultArea(entity.Role);
+        if (!string.IsNullOrWhiteSpace(documentNumber))
+        {
+            entity.DocumentNumber = documentNumber;
+            // Mantener login = cédula (excepto usuario de sistema).
+            if (!entity.IsSystemUser)
+            {
+                if (await _context.Users.AnyAsync(u => u.Username == documentNumber && u.Id != id, cancellationToken))
+                    return Conflict("Ya existe otro usuario con esa cédula como login.");
+                entity.Username = documentNumber;
+            }
+        }
+        entity.Salary = request.Salary;
+        var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
+            entity.Role,
+            UserRoles.IsShopFloor(entity.Role) ? [] : request.AllowedRoutes);
         entity.AllowedRoutesJson = newRoutesJson;
 
+        var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
+        if (areaValidation is not null) return BadRequest(areaValidation);
+
         if (passwordWillChange)
+        {
             entity.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password!);
+            entity.MustChangePassword = true; // el admin reseteó: el usuario debe cambiarla
+        }
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -133,6 +249,7 @@ public class UsersController : ControllerBase
                 oldLastName,
                 oldEmail,
                 oldRole,
+                oldArea,
                 entity,
                 passwordWillChange);
             await LogUserAuditAsync("USER_UPDATE", details);
@@ -149,21 +266,45 @@ public class UsersController : ControllerBase
         return Ok(MapToDto(entity));
     }
 
+    [HttpPost("{id:guid}/set-active")]
+    [Authorize(Roles = "Admin,Administrador")]
+    public async Task<ActionResult<UserResponseDto>> SetActive(Guid id, [FromBody] SetUserActiveRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        if (entity == null) return NotFound();
+        if (entity.IsSystemUser && !request.IsActive)
+            return BadRequest("No se puede desactivar un usuario del sistema.");
+
+        if (entity.IsActive == request.IsActive)
+            return Ok(MapToDto(entity));
+
+        entity.IsActive = request.IsActive;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await LogUserAuditAsync(
+            request.IsActive ? "USER_ACTIVATE" : "USER_DEACTIVATE",
+            request.IsActive
+                ? $"Se reactivó el usuario '{entity.Username}'."
+                : $"Se desactivó el usuario '{entity.Username}' (ya no trabaja; el historial se conserva).");
+
+        return Ok(MapToDto(entity));
+    }
+
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Administrador")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         if (entity == null) return NotFound();
         if (entity.IsSystemUser) return BadRequest("No se puede eliminar un usuario del sistema.");
 
-        var deletedUsername = entity.Username;
-        var deletedId = entity.Id;
-        _context.Users.Remove(entity);
+        // Preferir desactivar en lugar de borrar (conserva historial y permite reactivar).
+        entity.IsActive = false;
         await _context.SaveChangesAsync(cancellationToken);
 
         await LogUserAuditAsync(
-            "USER_DELETE",
-            $"Se eliminó el usuario '{deletedUsername}' (id {deletedId}).");
+            "USER_DEACTIVATE",
+            $"Se desactivó (en lugar de eliminar) el usuario '{entity.Username}' (id {entity.Id}).");
 
         return NoContent();
     }
@@ -174,21 +315,59 @@ public class UsersController : ControllerBase
         u.Email,
         u.FirstName,
         u.LastName,
+        u.Area,
+        u.DocumentNumber,
+        u.Salary,
         u.Role,
         u.IsSystemUser,
+        u.IsActive,
+        u.MustChangePassword,
         AllowedRoutesPolicy.DeserializeForResponse(u.Role, u.AllowedRoutesJson));
 
-    private static bool IsValidRole(string role) =>
-        string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, "User", StringComparison.OrdinalIgnoreCase);
+    private static string? ToUpperPersonName(string? value) =>
+        Perlax.Modules.Users.Domain.Entities.User.ToUpperName(value);
 
-    private static string NormalizeRole(string role) =>
-        string.Equals(role.Trim(), "Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "User";
-
-    private static string? NullIfWhite(string? s)
+    private static string? NormalizeDocument(string? document)
     {
-        if (string.IsNullOrWhiteSpace(s)) return null;
-        return s.Trim();
+        if (string.IsNullOrWhiteSpace(document)) return null;
+        var digits = new string(document.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digits) ? null : digits;
+    }
+
+    private static bool IsAdminRole(string role) => UserRoles.IsAdmin(role);
+
+    private static bool IsAdministrativeRole(string role) => UserRoles.IsAdministrative(role);
+
+    private static bool IsOperatorRole(string role) => UserRoles.IsOperario(role);
+
+    private static bool IsValidRole(string role) => UserRoles.IsValid(role);
+
+    private static string NormalizeRole(string role) => UserRoles.Normalize(role);
+
+    private static string? NormalizeArea(string? area)
+    {
+        if (string.IsNullOrWhiteSpace(area)) return null;
+        return area.Trim();
+    }
+
+    private static string? ValidateAreaForRole(string role, string? area)
+    {
+        if (IsAdminRole(role))
+            return null;
+
+        if (UserRoles.IsShopFloor(role))
+        {
+            if (string.IsNullOrWhiteSpace(area)) return null;
+            return AllowedAreas.Contains(area) ? null : "El área seleccionada no es válida.";
+        }
+
+        if (string.IsNullOrWhiteSpace(area))
+            return "El área es obligatoria para rol Administrativo.";
+
+        if (!AllowedAreas.Contains(area))
+            return "El área seleccionada no es válida.";
+
+        return null;
     }
 
     private string GetClientIp() =>
@@ -218,7 +397,7 @@ public class UsersController : ControllerBase
 
     private static string DescribeUserPermissions(User u)
     {
-        if (string.Equals(u.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+        if (IsAdminRole(u.Role))
             return "Permisos: administrador (acceso completo).";
 
         var routes = AllowedRoutesPolicy.DeserializeForResponse(u.Role, u.AllowedRoutesJson);
@@ -247,7 +426,7 @@ public class UsersController : ControllerBase
 
     private static string DescribeRoutesSnapshot(string role, string? routesJson)
     {
-        if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+        if (IsAdminRole(role))
             return "admin (completo)";
         var routes = AllowedRoutesPolicy.DeserializeForResponse(role, routesJson);
         if (routes == null) return "sin lista (completo)";
@@ -261,6 +440,7 @@ public class UsersController : ControllerBase
         string? oldLastName,
         string oldEmail,
         string oldRole,
+        string? oldArea,
         User updated,
         bool passwordChanged)
     {
@@ -280,6 +460,9 @@ public class UsersController : ControllerBase
         if (!string.Equals(oldRole, updated.Role, StringComparison.OrdinalIgnoreCase))
             parts.Add($"Rol: {oldRole} → {updated.Role}.");
 
+        if (!string.Equals(oldArea ?? "", updated.Area ?? "", StringComparison.OrdinalIgnoreCase))
+            parts.Add($"Área: {oldArea ?? "—"} → {updated.Area ?? "—"}.");
+
         if (passwordChanged)
             parts.Add("Contraseña: actualizada.");
 
@@ -296,23 +479,36 @@ public record UserResponseDto(
     string Email,
     string? FirstName,
     string? LastName,
+    string? Area,
+    string? DocumentNumber,
+    decimal? Salary,
     string Role,
     bool IsSystemUser,
+    bool IsActive,
+    bool MustChangePassword,
     string[]? AllowedRoutes);
 
 public record CreateUserRequest(
     string? FirstName,
     string? LastName,
-    string Username,
-    string Email,
-    string Password,
+    string? Area,
+    string? DocumentNumber,
+    decimal? Salary,
+    string? Username,
+    string? Email,
+    string? Password,
     string Role,
     string[]? AllowedRoutes);
 
 public record UpdateUserRequest(
     string? FirstName,
     string? LastName,
-    string Email,
+    string? Area,
+    string? DocumentNumber,
+    decimal? Salary,
+    string? Email,
     string? Password,
     string Role,
     string[]? AllowedRoutes);
+
+public record SetUserActiveRequest(bool IsActive);

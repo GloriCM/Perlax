@@ -1,0 +1,104 @@
+/* Layout fijo del wizard: sin scroll; pasos visibles y grilla estable. */
+
+.cotizador-wizard {
+  width: 100%;
+  min-width: 0;
+}
+
+.cotizador-wizard-card {
+  overflow: visible;
+}
+
+.cotizador-wizard-card:hover {
+  transform: none;
+}
+
+/* Stepper en grilla: todos los pasos visibles, sin scroll horizontal. */
+.cotizador-wizard-stepper {
+  width: 100%;
+  overflow: visible;
+}
+
+.cotizador-wizard-stepper .mantine-Stepper-steps {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  align-items: start;
+  width: 100%;
+  min-width: 0 !important;
+  gap: 12px 10px;
+}
+
+.cotizador-wizard-stepper .mantine-Stepper-step {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: none;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.cotizador-wizard-stepper .mantine-Stepper-stepBody {
+  margin-top: 0;
+  min-width: 0;
+}
+
+.cotizador-wizard-stepper .mantine-Stepper-stepLabel {
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.cotizador-wizard-stepper .mantine-Stepper-stepDescription {
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.cotizador-wizard-stepper .mantine-Stepper-separator {
+  display: none !important;
+}
+
+.cotizador-wizard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mantine-spacing-md);
+  width: 100%;
+}
+
+.cotizador-wizard-grid > .mantine-Checkbox-root {
+  min-width: 0;
+}
+
+.cotizador-wizard-grid-qty {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--mantine-spacing-md);
+  width: 100%;
+}
+
+.cotizador-wizard-grid-servicios {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--mantine-spacing-md);
+  width: 100%;
+}
+
+.cotizador-wizard-grid-resultados {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--mantine-spacing-md);
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .cotizador-wizard-stepper .mantine-Stepper-steps {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .cotizador-wizard-grid-qty,
+  .cotizador-wizard-grid-servicios,
+  .cotizador-wizard-grid-resultados {
+    grid-template-columns: 1fr 1fr;
+  }
+}

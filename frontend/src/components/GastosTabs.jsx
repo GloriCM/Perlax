@@ -7,11 +7,23 @@ import {
     IconBuildingFactory2,
     IconUsers,
     IconCategory,
-    IconBrush
+    IconBrush,
+    IconPackage
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const getTabs = (pathPrefix) => {
+    if (pathPrefix.includes('/mantenimiento/gastos')) {
+        return [
+            { id: 'captura', label: 'Captura de Gastos', icon: IconCash, path: `${pathPrefix}/captura` },
+            { id: 'graficas', label: 'Gráficas', icon: IconChartBar, path: `${pathPrefix}/graficas` },
+            { id: 'rubros', label: 'Rubros', icon: IconTags, path: `${pathPrefix}/rubros` },
+            { id: 'productos', label: 'Productos', icon: IconPackage, path: `${pathPrefix}/productos` },
+            { id: 'cotizaciones', label: 'Cotizaciones', icon: IconFileDollar, path: `${pathPrefix}/cotizaciones` },
+            { id: 'proveedores', label: 'Proveedores', icon: IconBuildingFactory2, path: `${pathPrefix}/proveedores` },
+        ];
+    }
+
     const tabs = [
         { id: 'captura', label: 'Captura de Gastos', icon: IconCash, path: `${pathPrefix}/captura` },
         { id: 'cotizaciones', label: 'Cotizaciones', icon: IconFileDollar, path: `${pathPrefix}/cotizaciones` },
@@ -32,7 +44,7 @@ const getTabs = (pathPrefix) => {
     return tabs;
 };
 
-export default function GastosTabs({ pathPrefix = '/planeacion/gastos' }) {
+function GastosTabs({ pathPrefix = '/planeacion/gastos' }) {
     const navigate = useNavigate();
     const location = useLocation();
     const TABS = getTabs(pathPrefix);
@@ -79,3 +91,6 @@ export default function GastosTabs({ pathPrefix = '/planeacion/gastos' }) {
         </Box>
     );
 }
+
+export { GastosTabs };
+export default GastosTabs;

@@ -1,0 +1,258 @@
+.compras-almacen-view .almacen-content {
+    padding: 0;
+}
+
+.compras-almacen-view .almacen-card {
+    overflow: hidden;
+}
+
+.compras-almacen-view .almacen-card.glass-card:hover {
+    transform: none;
+}
+
+.compras-almacen-view .almacen-card__toolbar {
+    padding: 1rem 1.25rem 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.compras-almacen-view .almacen-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.compras-almacen-view .almacen-table-wrap {
+    overflow-x: auto;
+}
+
+.compras-almacen-view .almacen-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.compras-almacen-view .almacen-table th {
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+}
+
+.compras-almacen-view .almacen-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.85);
+    vertical-align: middle;
+}
+
+.compras-almacen-view .almacen-table tr:hover td {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.compras-almacen-view .almacen-table .col-cod {
+    font-weight: 600;
+    color: #a5b4fc;
+}
+
+.compras-almacen-view .almacen-table .col-money {
+    font-weight: 700;
+    color: #fff;
+}
+
+.compras-almacen-view .almacen-table .col-money-sub {
+    font-size: 0.75rem;
+    color: #4ade80;
+}
+
+.compras-almacen-view .almacen-table .col-op {
+    color: #818cf8;
+    font-weight: 500;
+}
+
+.compras-almacen-view .almacen-pagination {
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.compras-almacen-view .almacen-tipo-bar,
+.compras-almacen-view .almacen-tipo-footer {
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.compras-almacen-view .almacen-tipo-footer {
+    margin-top: 1rem;
+    border-bottom: none;
+    padding-top: 0;
+}
+
+.compras-almacen-view .almacen-tipo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.compras-almacen-view .almacen-tipo-chip:hover,
+.compras-almacen-view .almacen-tipo-chip--active {
+    border-color: rgba(99, 102, 241, 0.5);
+    background: rgba(99, 102, 241, 0.12);
+    color: #fff;
+}
+
+.compras-almacen-view .almacen-tipo-chip__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.compras-almacen-view .almacen-tipo-chip__count {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.compras-almacen-view .almacen-filtro-estado {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.compras-almacen-view .almacen-filtro-estado__label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.compras-almacen-view .almacen-filtro-estado__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.compras-almacen-view .almacen-filtro-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+}
+
+.compras-almacen-view .almacen-filtro-pill--active {
+    border-color: transparent;
+    font-weight: 600;
+}
+
+.compras-almacen-view .almacen-filtro-pill__count {
+    min-width: 1.25rem;
+    text-align: center;
+    padding: 0.05rem 0.35rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.compras-almacen-view .almacen-estado-badge {
+    display: inline-block;
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.compras-almacen-view .almacen-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.compras-almacen-view .almacen-kpi-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.compras-almacen-view .almacen-kpi-card__value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #a5b4fc;
+}
+
+.compras-almacen-view .almacen-kpi-card__label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 0.25rem;
+}
+
+.compras-almacen-view .almacen-empty {
+    padding: 2.5rem;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.9rem;
+}
+
+.compras-almacen-view .almacen-comment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.compras-almacen-view .almacen-proveedor-row {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+@media (max-width: 768px) {
+    .compras-almacen-view .almacen-actions {
+        width: 100%;
+    }
+
+    .compras-almacen-view .almacen-actions .mantine-TextInput-root {
+        width: 100% !important;
+    }
+}

@@ -3,6 +3,7 @@ import { Container, Paper, Title, Button, Group, Text, Stack, ActionIcon } from 
 import { IconArrowLeft, IconPlus, IconTags, IconPencil, IconTrash } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import GastosTabs from '../../../components/GastosTabs';
+import { toTitleCase } from '../../produccion/gastos/gastosText';
 
 const RUBROS_DATA = [
     {
@@ -60,7 +61,7 @@ export default function RubrosSST() {
                         <IconTags size={20} color="#94a3b8" />
                         <Title order={5} c="white">Rubros</Title>
                     </Group>
-                    <Button variant="filled" color="blue" size="sm" leftSection={<IconPlus size={18} />}>+ Agregar</Button>
+                    <Button variant="filled" color="blue" size="sm" leftSection={<IconPlus size={18} />}>Agregar</Button>
                 </Group>
             </Paper>
 
@@ -69,9 +70,9 @@ export default function RubrosSST() {
                     <Paper key={section.name} p="md" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <Group justify="space-between" align="flex-start">
                             <Stack gap={4}>
-                                <Text fw={700} c="white">{section.name}</Text>
+                                <Text fw={700} c="white">{toTitleCase(section.name)}</Text>
                                 {section.items.map((item, i) => (
-                                    <Text key={i} size="xs" c="dimmed" pl="md">• {item}</Text>
+                                    <Text key={i} size="xs" c="dimmed" pl="md">• {toTitleCase(item)}</Text>
                                 ))}
                             </Stack>
                             <Group gap="xs">

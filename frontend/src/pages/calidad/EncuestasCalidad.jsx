@@ -107,7 +107,7 @@ const EncuestasCalidad = () => {
 
 
             {/* Filters Row */}
-            <Group gap="md" mb="md" align="flex-end">
+            <Group gap="md" mb="sm" align="flex-end">
                 <Group gap="xs">
                     <Select size="xs" label="Mes" placeholder="Marzo" data={['Enero', 'Febrero', 'Marzo']} defaultValue="Marzo" style={{ width: 110 }} />
                     <Select size="xs" label="Año" placeholder="2026" data={['2025', '2026']} defaultValue="2026" style={{ width: 90 }} />
@@ -122,7 +122,7 @@ const EncuestasCalidad = () => {
             </Group>
 
             {/* Secondary Filters */}
-            <SimpleGrid cols={6} spacing="xs" mb="xl">
+            <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="xs" mb="sm">
                 <Select size="xs" label="Día" placeholder="Todos" data={['Todos', '1', '2']} defaultValue="Todos" />
                 <Select size="xs" label="Máquina" placeholder="Todas" data={['Todas', 'SpeedMaster']} defaultValue="Todas" />
                 <Select size="xs" label="Proceso" placeholder="Todos" data={['Todos', 'Impresión']} defaultValue="Todos" />
@@ -132,45 +132,43 @@ const EncuestasCalidad = () => {
             </SimpleGrid>
 
             {/* Analytics Rows */}
-            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg" mb="xl">
-                <Paper p="md" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-                    <Text size="sm" c="dimmed">Total</Text>
-                    <Text size="xl" fw={800} c="white">43</Text>
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm" mb="sm">
+                <Paper p="sm" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
+                    <Text size="xs" c="dimmed">Total</Text>
+                    <Text size="lg" fw={800} c="white" lh={1.2}>43</Text>
                 </Paper>
-                <Paper p="md" radius="md" style={{ background: 'rgba(255,255,255,0.03)', borderLeft: '4px solid #22c55e', textAlign: 'center' }}>
-                    <Text size="sm" c="dimmed">Calidad OK</Text>
-                    <Text size="xl" fw={800} c="white">6</Text>
+                <Paper p="sm" radius="md" style={{ background: 'rgba(255,255,255,0.03)', borderLeft: '4px solid #22c55e', textAlign: 'center' }}>
+                    <Text size="xs" c="dimmed">Calidad OK</Text>
+                    <Text size="lg" fw={800} c="white" lh={1.2}>6</Text>
                     <Text size="xs" c="dimmed">14.0%</Text>
                 </Paper>
-                <Paper p="md" radius="md" style={{ background: 'rgba(255,255,255,0.03)', borderLeft: '4px solid #ef4444', textAlign: 'center' }}>
-                    <Text size="sm" c="dimmed">Con Defectos</Text>
-                    <Text size="xl" fw={800} c="white">37</Text>
+                <Paper p="sm" radius="md" style={{ background: 'rgba(255,255,255,0.03)', borderLeft: '4px solid #ef4444', textAlign: 'center' }}>
+                    <Text size="xs" c="dimmed">Con Defectos</Text>
+                    <Text size="lg" fw={800} c="white" lh={1.2}>37</Text>
                     <Text size="xs" c="dimmed">86.0%</Text>
                 </Paper>
             </SimpleGrid>
 
             {/* Charts/MiniTables */}
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" mb="xl">
-                <Paper p="md" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <Group justify="space-between" mb="md">
-                        <Title order={5} c="white">Top 5 Defectos Recurrentes</Title>
-                    </Group>
-                    <Stack gap="xs">
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="sm" mb="sm" style={{ alignItems: 'start' }}>
+                <Paper p="sm" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <Title order={6} c="white" mb="xs">Top defectos recurrentes</Title>
+                    <Stack gap={6}>
                         {mockDefectos.map(def => (
                             <Box key={def.name}>
-                                <Group justify="space-between" mb={2}>
+                                <Group justify="space-between" mb={2} gap="xs">
                                     <Text size="xs" c="gray.4">{def.name}</Text>
                                     <Text size="xs" fw={700} c="white">{def.value}</Text>
                                 </Group>
-                                <Progress value={(def.value / 22) * 100} color={def.color} size="sm" radius="xl" />
+                                <Progress value={(def.value / 22) * 100} color={def.color} size="xs" radius="xl" />
                             </Box>
                         ))}
                     </Stack>
                 </Paper>
 
-                <Paper p="md" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <Title order={5} c="white" mb="md">Calidad por Máquina</Title>
-                    <Table verticalSpacing="xs">
+                <Paper p="sm" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <Title order={6} c="white" mb="xs">Calidad por máquina</Title>
+                    <Table verticalSpacing={4} horizontalSpacing="sm">
                         <thead>
                             <tr>
                                 <th style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 500 }}>Máquina</th>
@@ -180,10 +178,10 @@ const EncuestasCalidad = () => {
                         </thead>
                         <tbody>
                             <tr>
-                                <td style={{ color: 'white', fontSize: '13px' }}>6 SpeedMaster</td>
-                                <td style={{ color: 'white', fontSize: '13px' }}>7</td>
-                                <td style={{ color: 'white', fontSize: '13px' }}>
-                                    <Badge color="red.7" variant="filled">7</Badge>
+                                <td style={{ color: 'white', fontSize: '12px' }}>6 SpeedMaster</td>
+                                <td style={{ color: 'white', fontSize: '12px' }}>7</td>
+                                <td style={{ color: 'white', fontSize: '12px' }}>
+                                    <Badge color="red.7" variant="filled" size="xs">7</Badge>
                                 </td>
                             </tr>
                         </tbody>
@@ -193,15 +191,14 @@ const EncuestasCalidad = () => {
 
             {/* Main Table */}
             <Paper p="0" radius="md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                <ScrollArea offsetScrollbars scrollbarSize={10}>
+                <ScrollArea offsetScrollbars scrollbarSize={8}>
                     <Table
-                        verticalSpacing={1}
-                        horizontalSpacing="md"
-                        mih={1000}
+                        verticalSpacing={4}
+                        horizontalSpacing="sm"
                         style={{ tableLayout: 'fixed' }}
                         styles={{
-                            th: { padding: '4px 8px !important', fontSize: '10px' },
-                            td: { padding: '3px 8px !important', fontSize: '11px' }
+                            th: { padding: '6px 8px', fontSize: '10px' },
+                            td: { padding: '5px 8px', fontSize: '11px' }
                         }}
                     >
                         <thead style={{ background: 'rgba(255,255,255,0.05)' }}>

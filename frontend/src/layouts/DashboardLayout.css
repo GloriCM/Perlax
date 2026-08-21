@@ -1,8 +1,12 @@
 .dashboard-layout {
     display: flex;
+    align-items: stretch;
     height: 100vh;
+    height: 100dvh;
     padding: 20px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
     gap: 20px;
+    box-sizing: border-box;
 }
 
 .dashboard-main {
@@ -11,9 +15,36 @@
     flex-direction: column;
     gap: 10px;
     overflow: hidden;
+    min-width: 0;
 }
 
 .dashboard-content {
     padding-right: 8px;
     padding-bottom: 20px;
+}
+
+.dashboard-layout--mobile {
+    display: block;
+    padding: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    gap: 0;
+}
+
+.dashboard-layout--mobile .dashboard-main {
+    width: 100%;
+    max-width: 100%;
+    min-height: calc(100dvh - 16px);
+}
+
+.dashboard-layout--mobile .dashboard-content {
+    padding-right: 0;
+    padding-bottom: 12px;
+}
+
+.dashboard-layout--mobile .dashboard-scroll {
+    -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-layout--sidebar-collapsed {
+    gap: 0;
 }
