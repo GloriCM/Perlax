@@ -116,20 +116,51 @@ public class UsersController : ControllerBase
     {
         if (!IsValidRole(request.Role)) return BadRequest("Rol inválido.");
 
+        var role = NormalizeRole(request.Role);
+        var isAdmin = UserRoles.IsAdmin(role);
         var documentNumber = NormalizeDocument(request.DocumentNumber);
-        if (string.IsNullOrWhiteSpace(documentNumber))
-            return BadRequest("La cédula de ciudadanía es obligatoria.");
 
-        // Login y contraseña inicial = cédula (el usuario debe cambiarla al primer ingreso).
-        var normalizedUser = documentNumber;
+        string normalizedUser;
+        string temporaryPassword;
+        string createAuditDetail;
+
+        if (isAdmin)
+        {
+            // Alta gerencia: login propio, sin exigir cédula ni salario.
+            var requestedUser = (request.Username ?? string.Empty).Trim();
+            if (requestedUser.Length < 3)
+                return BadRequest("El usuario de inicio de sesión es obligatorio (mínimo 3 caracteres) para Administrador.");
+            if (!IsValidAdminUsername(requestedUser))
+                return BadRequest("El usuario de inicio de sesión solo puede contener letras, números, punto, guion o guion bajo.");
+            if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Trim().Length < 6)
+                return BadRequest("Indique una contraseña temporal (mínimo 6 caracteres). El administrador deberá cambiarla en el primer ingreso.");
+
+            normalizedUser = requestedUser;
+            temporaryPassword = request.Password.Trim();
+            createAuditDetail = $"login propio '{normalizedUser}', sin cédula obligatoria";
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(documentNumber))
+                return BadRequest("La cédula de ciudadanía es obligatoria.");
+
+            // Login y contraseña inicial = cédula (el usuario debe cambiarla al primer ingreso).
+            normalizedUser = documentNumber;
+            temporaryPassword = documentNumber;
+            createAuditDetail = "login/clave inicial = cédula";
+        }
+
         if (await _context.Users.AnyAsync(u => u.Username == normalizedUser, cancellationToken))
-            return Conflict("Ya existe un usuario con esa cédula (login).");
+            return Conflict(isAdmin
+                ? "Ya existe un usuario con ese nombre de inicio de sesión."
+                : "Ya existe un usuario con esa cédula (login).");
 
-        if (await _context.Users.AnyAsync(u => u.DocumentNumber == documentNumber, cancellationToken))
+        if (!string.IsNullOrWhiteSpace(documentNumber)
+            && await _context.Users.AnyAsync(u => u.DocumentNumber == documentNumber, cancellationToken))
             return Conflict("Ya existe un usuario con esa cédula.");
 
         var email = string.IsNullOrWhiteSpace(request.Email)
-            ? $"{documentNumber}@perlax.local"
+            ? $"{SanitizeLocalEmailPart(normalizedUser)}@perlax.local"
             : request.Email.Trim();
         if (await _context.Users.AnyAsync(u => u.Email == email, cancellationToken))
             return Conflict("Ya existe un usuario con ese correo.");
@@ -141,17 +172,17 @@ public class UsersController : ControllerBase
             Email = email,
             FirstName = ToUpperPersonName(request.FirstName),
             LastName = ToUpperPersonName(request.LastName),
-            Role = NormalizeRole(request.Role),
-            Area = NormalizeArea(request.Area) ?? UserRoles.DefaultArea(NormalizeRole(request.Role)),
+            Role = role,
+            Area = isAdmin ? null : (NormalizeArea(request.Area) ?? UserRoles.DefaultArea(role)),
             DocumentNumber = documentNumber,
-            Salary = request.Salary,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(documentNumber),
+            Salary = isAdmin ? request.Salary : request.Salary,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(temporaryPassword),
             MustChangePassword = true,
             IsSystemUser = false,
             CreatedAt = DateTime.UtcNow,
             AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
-                NormalizeRole(request.Role),
-                UserRoles.IsShopFloor(NormalizeRole(request.Role)) ? [] : request.AllowedRoutes)
+                role,
+                UserRoles.IsShopFloor(role) ? [] : request.AllowedRoutes)
         };
 
         var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
@@ -162,7 +193,7 @@ public class UsersController : ControllerBase
 
         await LogUserAuditAsync(
             "USER_CREATE",
-            $"Se creó el usuario '{entity.Username}' ({entity.Email}) con login/clave inicial = cédula. {DescribeUserPermissions(entity)}");
+            $"Se creó el usuario '{entity.Username}' ({entity.Email}) con {createAuditDetail}. {DescribeUserPermissions(entity)}");
 
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapToDto(entity));
     }
@@ -183,7 +214,10 @@ public class UsersController : ControllerBase
             return Conflict("Ya existe otro usuario con ese correo.");
 
         var documentNumber = NormalizeDocument(request.DocumentNumber);
-        if (string.IsNullOrWhiteSpace(documentNumber) && !entity.IsSystemUser)
+        var newRole = NormalizeRole(request.Role);
+        var willBeAdmin = UserRoles.IsAdmin(newRole) || entity.IsSystemUser;
+
+        if (string.IsNullOrWhiteSpace(documentNumber) && !willBeAdmin)
             return BadRequest("La cédula de ciudadanía es obligatoria.");
 
         if (!string.IsNullOrWhiteSpace(documentNumber)
@@ -201,18 +235,22 @@ public class UsersController : ControllerBase
         entity.FirstName = ToUpperPersonName(request.FirstName);
         entity.LastName = ToUpperPersonName(request.LastName);
         entity.Email = email;
-        entity.Role = NormalizeRole(request.Role);
-        entity.Area = NormalizeArea(request.Area) ?? UserRoles.DefaultArea(entity.Role);
+        entity.Role = newRole;
+        entity.Area = willBeAdmin ? null : (NormalizeArea(request.Area) ?? UserRoles.DefaultArea(entity.Role));
         if (!string.IsNullOrWhiteSpace(documentNumber))
         {
             entity.DocumentNumber = documentNumber;
-            // Mantener login = cédula (excepto usuario de sistema).
-            if (!entity.IsSystemUser)
+            // Personal operativo/administativo: login = cédula. Alta gerencia conserva su usuario.
+            if (!entity.IsSystemUser && !UserRoles.IsAdmin(entity.Role))
             {
                 if (await _context.Users.AnyAsync(u => u.Username == documentNumber && u.Id != id, cancellationToken))
                     return Conflict("Ya existe otro usuario con esa cédula como login.");
                 entity.Username = documentNumber;
             }
+        }
+        else if (willBeAdmin)
+        {
+            entity.DocumentNumber = null;
         }
         entity.Salary = request.Salary;
         var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
@@ -332,6 +370,21 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(document)) return null;
         var digits = new string(document.Where(char.IsDigit).ToArray());
         return string.IsNullOrWhiteSpace(digits) ? null : digits;
+    }
+
+    private static bool IsValidAdminUsername(string username)
+    {
+        // Letras, números, punto, guion y guion bajo.
+        return username.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_');
+    }
+
+    private static string SanitizeLocalEmailPart(string value)
+    {
+        var cleaned = new string(value
+            .Select(c => char.IsLetterOrDigit(c) ? c : '.')
+            .ToArray())
+            .Trim('.');
+        return string.IsNullOrWhiteSpace(cleaned) ? "admin" : cleaned;
     }
 
     private static bool IsAdminRole(string role) => UserRoles.IsAdmin(role);

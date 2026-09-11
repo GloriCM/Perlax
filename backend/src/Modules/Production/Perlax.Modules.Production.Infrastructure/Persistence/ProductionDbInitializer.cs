@@ -10,6 +10,22 @@ public static class ProductionDbInitializer
 {
     public static async Task InitializeAsync(ProductionDbContext context)
     {
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE IF EXISTS production."DesignPlannerJobs"
+                ADD COLUMN IF NOT EXISTS "Accion" character varying(4000) NOT NULL DEFAULT '';
+                """);
+            await context.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE IF EXISTS production."DesignPlannerJobs"
+                ADD COLUMN IF NOT EXISTS "ProcesoJson" text NOT NULL DEFAULT (chr(123) || chr(125));
+                """);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DesignPlanner column ensure failed: {ex.Message}");
+        }
+
         await context.Database.ExecuteSqlRawAsync("""
             CREATE SCHEMA IF NOT EXISTS production;
 
@@ -438,5 +454,51 @@ public static class ProductionDbInitializer
             ALTER TABLE production."AreaExpenseProveedores"
             ADD COLUMN IF NOT EXISTS "Cedula" character varying(30) NULL;
             """);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS production."AreaExpenseCapturas" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "Area" character varying(40) NOT NULL,
+                "ExpenseDate" date NOT NULL,
+                "RubroId" uuid NULL,
+                "RubroName" character varying(200) NOT NULL,
+                "ProveedorId" uuid NULL,
+                "ProveedorName" character varying(200) NOT NULL DEFAULT '',
+                "Invoice" character varying(120) NULL,
+                "OpNumber" character varying(120) NULL,
+                "Description" text NULL,
+                "BaseAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                "IvaAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                "TotalAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                "Status" character varying(40) NOT NULL DEFAULT 'pendiente',
+                "RegisteredBy" character varying(200) NOT NULL DEFAULT '',
+                "OvertimeGroupId" uuid NULL,
+                "OvertimeJson" text NULL,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "UpdatedAt" timestamp with time zone NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_AreaExpenseCapturas_Area_ExpenseDate"
+                ON production."AreaExpenseCapturas" ("Area", "ExpenseDate");
+            CREATE INDEX IF NOT EXISTS "IX_AreaExpenseCapturas_Area_RubroName"
+                ON production."AreaExpenseCapturas" ("Area", "RubroName");
+            CREATE INDEX IF NOT EXISTS "IX_AreaExpenseCapturas_OvertimeGroupId"
+                ON production."AreaExpenseCapturas" ("OvertimeGroupId");
+            """);
+
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE IF EXISTS production."DesignPlannerJobs"
+                ADD COLUMN IF NOT EXISTS "Accion" character varying(4000) NOT NULL DEFAULT '';
+                """);
+            await context.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE IF EXISTS production."DesignPlannerJobs"
+                ADD COLUMN IF NOT EXISTS "ProcesoJson" text NOT NULL DEFAULT (chr(123) || chr(125));
+                """);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DesignPlanner trailing column ensure failed: {ex.Message}");
+        }
     }
 }

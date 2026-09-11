@@ -1,0 +1,8 @@
+DO
+ table_schema | column_name 
+--------------+-------------
+ production   | Accion
+ production   | ProcesoJson
+(2 rows)
+
+psql_exit=0

@@ -196,7 +196,7 @@ function App() {
             <Route path="/produccion/estado-ordenes" element={<EstadoOrdenesProduccion />} />
             <Route path="/produccion/op/:id" element={<DetalleOpPage />} />
             <Route path="/chat" element={<ChatCenter />} />
-            <Route path="/gastos/control/captura" element={<GastosProduccion />} />
+            <Route path="/gastos/control/captura" element={<GastosProduccion areaKey="produccion" pathPrefix="/gastos/control" />} />
             <Route path="/gastos/control/graficas" element={<GraficasGastos />} />
             <Route path="/gastos/control/rubros" element={<RubrosGastos areaKey="produccion" />} />
             <Route path="/gastos/control/cotizaciones" element={<Cotizaciones />} />

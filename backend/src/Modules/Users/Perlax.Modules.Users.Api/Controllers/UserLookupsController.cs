@@ -28,7 +28,7 @@ public class UserLookupsController : ControllerBase
     {
         var users = await _context.Users
             .AsNoTracking()
-            .Where(u => u.Area != null && u.Area != "")
+            .Where(u => u.IsActive && u.Area != null && u.Area != "")
             .OrderBy(u => u.FirstName)
             .ThenBy(u => u.LastName)
             .ThenBy(u => u.Username)
@@ -43,7 +43,7 @@ public class UserLookupsController : ControllerBase
             .ToListAsync(cancellationToken);
 
         var designers = users
-            .Where(u => NormalizeAreaKey(u.Area) == "diseno")
+            .Where(u => NormalizeAreaKey(u.Area).Contains("diseno") || NormalizeAreaKey(u.Area).Contains("dise"))
             .Select(u => new DesignerLookupDto(
                 u.Id,
                 u.Username,

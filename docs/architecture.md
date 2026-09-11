@@ -45,6 +45,7 @@ Hoy concentra varios dominios del menú. **Es aceptable a corto plazo**, pero:
 - Fichas técnicas → `Application/TechnicalSheets`; Pedidos cliente → `Application/CustomerOrders`; Quotations legado → `Application/Quotations`.
 - Planta / reporte diario → `Application/DailyProduction` (`IDailyProductionService`).
 - Gastos de área (rubros/proveedores) → `Application/AreaExpense` (`IAreaExpenseCatalogService`).
+- Captura de gastos por área → `Application/AreaExpense` (`IAreaExpenseCaptureService`).
 - No añadir chat/cotizador/diseño nuevos sin evaluar extracción o carpeta Application propia.
 
 ### Users / Budgets — excepción “vertical slice”
@@ -103,6 +104,7 @@ Orden recomendado:
    - ~~Design planner (`IDesignPlannerService`) / Internal chat (`IInternalChatService`).~~
    - ~~TechnicalSheets / CustomerOrders / Quotations.~~
    - ~~Gastos de área (rubros/proveedores) → `IAreaExpenseCatalogService`.~~
+   - ~~Captura de gastos por área → `IAreaExpenseCaptureService`.~~
    - **Production.Api sin `ProductionDbContext` en controladores.**
 6. ~~Lookup OP: tests de `IProductionOrderLookup` (`ProductionOrderLookupTests`) + smoke en Almacén.~~
 7. ~~Users: `EnsureCreated` → `MigrateAsync` (migración `InitialUsers` idempotente).~~
@@ -160,4 +162,4 @@ Cubre scheduling (bloques, cruces, urgencia, billing) y lookup OT/OP para Almac�
 7. ~~Tests de reglas de scheduling.~~ ~~Tests del lookup OP (`ProductionOrderLookupTests`).~~
 8. ~~Audit / Users / Almacén con `MigrateAsync` (`InitialUsers`, `InitialAlmacen`).~~
 9. ~~Production.Api: controladores sin `DbContext`.~~
-10. **Siguiente foco:** particionar Production solo si duele (Cotizador / Design / Chat). Captura de gastos / mantenimiento en frontend aún usa `localStorage` (fuera de esta capa).
+10. **Siguiente foco:** particionar Production solo si duele (Cotizador / Design / Chat). Pendiente: tipos de hora/recargo y captura SST aún en `localStorage`; mantenimiento catálogo de productos/cotizaciones en `storage.js`.

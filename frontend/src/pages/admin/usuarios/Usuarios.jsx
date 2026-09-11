@@ -182,23 +182,55 @@ export default function UsuariosConfig() {
         const isAdminRole = form.role === 'Administrador';
         const isShopFloorRole = ['Operario', 'Auxiliar', 'Almacen', 'Taller'].includes(form.role);
         const documentNumber = String(form.documentNumber || '').replace(/[^\d]/g, '');
+        const username = String(form.username || '').trim();
+        const tempPassword = String(form.password || '').trim();
 
-        if (!documentNumber) {
-            notifications.show({
-                title: 'Cédula requerida',
-                message: 'La cédula de ciudadanía es obligatoria. Será el usuario y la contraseña inicial.',
-                color: 'yellow',
-            });
-            return;
+        if (isAdminRole) {
+            if (!editingId) {
+                if (username.length < 3) {
+                    notifications.show({
+                        title: 'Usuario requerido',
+                        message: 'Para Administrador indique un usuario de inicio de sesión (mínimo 3 caracteres).',
+                        color: 'yellow',
+                    });
+                    return;
+                }
+                if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+                    notifications.show({
+                        title: 'Usuario inválido',
+                        message: 'Solo letras, números, punto, guion o guion bajo.',
+                        color: 'yellow',
+                    });
+                    return;
+                }
+                if (tempPassword.length < 6) {
+                    notifications.show({
+                        title: 'Contraseña temporal',
+                        message: 'Indique una contraseña temporal (mínimo 6 caracteres). Se pedirá cambiarla en el primer ingreso.',
+                        color: 'yellow',
+                    });
+                    return;
+                }
+            }
+        } else {
+            if (!documentNumber) {
+                notifications.show({
+                    title: 'Cédula requerida',
+                    message: 'La cédula de ciudadanía es obligatoria. Será el usuario y la contraseña inicial.',
+                    color: 'yellow',
+                });
+                return;
+            }
+            if (form.salary === '' || form.salary === null || form.salary === undefined) {
+                notifications.show({
+                    title: 'Salario requerido',
+                    message: 'Indique el salario del usuario.',
+                    color: 'yellow',
+                });
+                return;
+            }
         }
-        if (form.salary === '' || form.salary === null || form.salary === undefined) {
-            notifications.show({
-                title: 'Salario requerido',
-                message: 'Indique el salario del usuario.',
-                color: 'yellow',
-            });
-            return;
-        }
+
         if (!isAdminRole && !isShopFloorRole && !form.area) {
             notifications.show({
                 title: 'Área requerida',
@@ -207,6 +239,11 @@ export default function UsuariosConfig() {
             });
             return;
         }
+
+        const salaryValue = form.salary === '' || form.salary === null || form.salary === undefined
+            ? null
+            : Number(form.salary);
+
         try {
             setSaving(true);
             if (editingId) {
@@ -216,33 +253,48 @@ export default function UsuariosConfig() {
                     area: isAdminRole ? null : (isShopFloorRole
                         ? (form.role === 'Almacen' ? 'planeaccion' : form.role === 'Taller' ? 'talleres' : 'produccion')
                         : form.area),
-                    documentNumber,
-                    salary: Number(form.salary),
+                    documentNumber: documentNumber || null,
+                    salary: salaryValue,
                     email: form.email?.trim() || null,
                     role: form.role,
                     allowedRoutes: isAdminRole ? null : (isShopFloorRole ? [] : form.allowedRoutes),
                 };
                 if (form.password?.trim()) putPayload.password = form.password;
                 await api.put(`/users/${editingId}`, putPayload);
+            } else if (isAdminRole) {
+                await api.post('/users', {
+                    firstName: form.firstName?.trim().toUpperCase() || null,
+                    lastName: form.lastName?.trim().toUpperCase() || null,
+                    area: null,
+                    documentNumber: documentNumber || null,
+                    salary: salaryValue,
+                    username,
+                    password: tempPassword,
+                    email: form.email?.trim() || null,
+                    role: form.role,
+                    allowedRoutes: null,
+                });
             } else {
                 await api.post('/users', {
                     firstName: form.firstName?.trim().toUpperCase() || null,
                     lastName: form.lastName?.trim().toUpperCase() || null,
-                    area: isAdminRole ? null : (isShopFloorRole
+                    area: isShopFloorRole
                         ? (form.role === 'Almacen' ? 'planeaccion' : form.role === 'Taller' ? 'talleres' : 'produccion')
-                        : form.area),
+                        : form.area,
                     documentNumber,
                     salary: Number(form.salary),
                     email: form.email?.trim() || null,
                     role: form.role,
-                    allowedRoutes: isAdminRole ? null : (isShopFloorRole ? [] : form.allowedRoutes),
+                    allowedRoutes: isShopFloorRole ? [] : form.allowedRoutes,
                 });
             }
             notifications.show({
                 title: 'Listo',
                 message: editingId
                     ? 'Usuario actualizado'
-                    : `Usuario creado. Login y contraseña temporal: ${documentNumber}`,
+                    : isAdminRole
+                        ? `Administrador creado. Login: ${username}. Deberá cambiar la contraseña en el primer ingreso.`
+                        : `Usuario creado. Login y contraseña temporal: ${documentNumber}`,
                 color: 'teal',
             });
             setModalOpen(false);
@@ -425,14 +477,14 @@ export default function UsuariosConfig() {
                     </Group>
                     <Group grow>
                         <TextInput
-                            label="Cédula de ciudadanía"
+                            label={form.role === 'Administrador' ? 'Cédula (opcional)' : 'Cédula de ciudadanía'}
                             value={form.documentNumber}
                             onChange={(e) => setForm({ ...form, documentNumber: e.target.value.replace(/[^\d]/g, '') })}
                             placeholder="Sin puntos ni comas"
-                            required
+                            required={form.role !== 'Administrador'}
                         />
                         <NumberInput
-                            label="Salario"
+                            label={form.role === 'Administrador' ? 'Salario (opcional)' : 'Salario'}
                             value={form.salary}
                             onChange={(v) => setForm({ ...form, salary: v ?? '' })}
                             min={0}
@@ -441,10 +493,33 @@ export default function UsuariosConfig() {
                             decimalSeparator=","
                             prefix="$ "
                             hideControls
-                            required
+                            required={form.role !== 'Administrador'}
                         />
                     </Group>
-                    {!editingId && (
+                    {!editingId && form.role === 'Administrador' && (
+                        <>
+                            <TextInput
+                                label="Usuario de inicio de sesión"
+                                value={form.username}
+                                onChange={(e) => setForm({ ...form, username: e.target.value.trim() })}
+                                placeholder="Ej: gerencia.operaciones"
+                                description="Solo letras, números, punto, guion o guion bajo"
+                                required
+                            />
+                            <PasswordInput
+                                label="Contraseña temporal"
+                                value={form.password}
+                                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                                description="La alta gerencia la cambiará en el primer ingreso"
+                                required
+                            />
+                            <Text size="xs" c="dimmed">
+                                Los administradores del sistema no requieren cédula ni salario. Usan un usuario propio
+                                (no la cédula) y deben cambiar la contraseña al primer ingreso.
+                            </Text>
+                        </>
+                    )}
+                    {!editingId && form.role !== 'Administrador' && (
                         <Text size="xs" c="dimmed">
                             El usuario de inicio de sesión y la contraseña temporal serán la cédula.
                             En el primer ingreso el sistema pedirá cambiar la contraseña.
@@ -454,9 +529,13 @@ export default function UsuariosConfig() {
                         <>
                             <TextInput
                                 label="Usuario (login)"
-                                value={form.documentNumber || form.username}
+                                value={form.role === 'Administrador' ? form.username : (form.documentNumber || form.username)}
                                 disabled
-                                description="Coincide con la cédula"
+                                description={
+                                    form.role === 'Administrador'
+                                        ? 'Usuario de alta gerencia (no depende de cédula)'
+                                        : 'Coincide con la cédula'
+                                }
                             />
                             <TextInput
                                 label="Correo"
@@ -489,6 +568,9 @@ export default function UsuariosConfig() {
                                 role: v || 'Administrativo',
                                 area: v === 'Administrativo' ? form.area : '',
                                 allowedRoutes: v === 'Administrativo' ? form.allowedRoutes : [],
+                                // Al cambiar a Administrador, limpia password de edición accidental en creación.
+                                password: editingId ? form.password : '',
+                                username: v === 'Administrador' ? form.username : '',
                             })
                         }
                     />
@@ -509,7 +591,7 @@ export default function UsuariosConfig() {
                     )}
                     {form.role === 'Administrador' && (
                         <Text size="xs" c="dimmed">
-                            Acceso completo. Este rol no registra horas extras.
+                            Acceso completo. Alta gerencia: no registra horas extras ni exige cédula/salario.
                         </Text>
                     )}
                     {form.role === 'Taller' && (

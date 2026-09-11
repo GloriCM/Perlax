@@ -8,6 +8,20 @@ Write-Host "Use este script para perlax.perla.work via tunel Cloudflare." -Foreg
 Write-Host "NO use npm run dev en produccion: causa pantalla en blanco fuera del servidor." -ForegroundColor Yellow
 Write-Host ""
 
+$cacheRoot = "E:\Semillas\.dotnet-cache"
+$tmpDir = Join-Path $cacheRoot "tmp"
+$npmCache = Join-Path $cacheRoot "npm"
+$viteCache = Join-Path $cacheRoot "vite-perlax"
+New-Item -ItemType Directory -Force -Path $tmpDir, $npmCache, $viteCache | Out-Null
+
+$env:TEMP = $tmpDir
+$env:TMP = $tmpDir
+$env:TMPDIR = $tmpDir
+$env:npm_config_cache = $npmCache
+$env:NPM_CONFIG_CACHE = $npmCache
+$env:VITE_CACHE_DIR = $viteCache
+$env:npm_config_prefer_offline = "true"
+
 function Stop-ViteOnPort5173 {
     $port = 5173
     $pids = @()
@@ -56,7 +70,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "Iniciando vite preview en https://0.0.0.0:5173 ..." -ForegroundColor Green
+Write-Host "Iniciando vite preview en http://0.0.0.0:5173 ..." -ForegroundColor Green
+Write-Host "En Cloudflare el origen debe ser http://127.0.0.1:5173 (no https)." -ForegroundColor Yellow
 Write-Host "Detener con Ctrl+C." -ForegroundColor Yellow
 Write-Host ""
 

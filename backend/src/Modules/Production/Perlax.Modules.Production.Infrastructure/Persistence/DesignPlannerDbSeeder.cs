@@ -27,6 +27,7 @@ public static class DesignPlannerDbSeeder
                 Responsable = "Juan",
                 Estado = "En Desarrollo",
                 CreatedAt = new DateTime(2026, 6, 15, 0, 0, 0, DateTimeKind.Utc),
+                CreatedBy = "Administrador",
                 FechaRecepcion = new DateTime(2026, 6, 15, 0, 0, 0, DateTimeKind.Utc),
                 FechaEntrega = new DateTime(2026, 6, 24, 0, 0, 0, DateTimeKind.Utc),
                 Requerimientos = "Ajuste de línea grafica + pruebas de troquel.",
@@ -42,6 +43,7 @@ public static class DesignPlannerDbSeeder
                 Responsable = "Karen",
                 Estado = "Nuevo Trabajo Pendiente",
                 CreatedAt = new DateTime(2026, 6, 18, 0, 0, 0, DateTimeKind.Utc),
+                CreatedBy = "Administrador",
                 FechaEntrega = new DateTime(2026, 6, 28, 0, 0, 0, DateTimeKind.Utc),
                 HistorialJson = SerializeHistorial(["Trabajo creado y notificado a Diseño."])
             },
@@ -55,6 +57,7 @@ public static class DesignPlannerDbSeeder
                 Responsable = "Juan",
                 Estado = "Aprobación",
                 CreatedAt = new DateTime(2026, 6, 20, 0, 0, 0, DateTimeKind.Utc),
+                CreatedBy = "Administrador",
                 FechaRecepcion = new DateTime(2026, 6, 20, 0, 0, 0, DateTimeKind.Utc),
                 FechaEntrega = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc),
                 Requerimientos = "Validar versión final de ficha técnica.",

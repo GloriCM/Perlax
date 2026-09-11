@@ -43,6 +43,7 @@ public static class ProductionModuleExtensions
         services.AddScoped<ICustomerOrderService, CustomerOrderService>();
         services.AddScoped<IOvertimePayrollService, OvertimePayrollService>();
         services.AddScoped<IAreaExpenseCatalogService, AreaExpenseCatalogService>();
+        services.AddScoped<IAreaExpenseCaptureService, AreaExpenseCaptureService>();
         services.AddScoped<IQuotationsService, QuotationsService>();
 
         return services;

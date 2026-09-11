@@ -25,7 +25,7 @@ public sealed class OvertimePayrollService : IOvertimePayrollService
 
         var workStart = request.Date.ToDateTime(startTime);
         var workEnd = OvertimeCalculator.ResolveEnd(workStart, endTime);
-        var shift = await ResolveShiftAsync(request.UserId, request.Role, request.Date, ct);
+        var shift = await ResolveShiftAsync(request.UserId, request.Role, request.Date, startTime, ct);
         var types = MapTypes(request.HourTypes);
         var breakdown = OvertimeCalculator.Calculate(request.Salary, workStart, workEnd, shift, types);
 
@@ -47,29 +47,21 @@ public sealed class OvertimePayrollService : IOvertimePayrollService
             breakdown.TotalAmount);
     }
 
-    private async Task<OrdinaryShift?> ResolveShiftAsync(Guid? userId, string? role, DateOnly date, CancellationToken ct)
+    private async Task<OrdinaryShift?> ResolveShiftAsync(
+        Guid? userId, string? role, DateOnly date, TimeOnly workStart, CancellationToken ct)
     {
         if (!OvertimeCalculator.IsProductionOvertimeRole(role))
             return OvertimeCalculator.OfficeScheduleFor(date);
-
-        var rosterShift = await TryRosterShiftAsync(userId, date, ct);
-        if (rosterShift is not null)
-            return rosterShift;
 
         var sundayOrHoliday = ColombianHolidays.IsSundayOrHoliday(date);
         var saturday = date.DayOfWeek == DayOfWeek.Saturday;
         if (sundayOrHoliday || saturday)
             return null;
 
-        var fallback = await _db.ProductionShifts.AsNoTracking()
-            .Where(s => s.IsActive)
-            .OrderBy(s => s.SortOrder)
-            .FirstOrDefaultAsync(ct);
-
-        if (fallback is null)
-            return new OrdinaryShift(new TimeOnly(6, 0), new TimeOnly(14, 0), false, false);
-
-        return new OrdinaryShift(fallback.StartTime, fallback.EndTime, fallback.CrossesMidnight, false);
+        // Producción: la jornada ordinaria se ancla al inicio capturado
+        // (07:00 → 16:30; antes de las 07:00 → +8h, p. ej. 06:00-14:00).
+        var roster = await TryRosterShiftAsync(userId, date, ct);
+        return OvertimeCalculator.ProductionShiftFromStart(workStart, fromRoster: roster is not null);
     }
 
     private async Task<OrdinaryShift?> TryRosterShiftAsync(Guid? userId, DateOnly date, CancellationToken ct)

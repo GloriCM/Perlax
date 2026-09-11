@@ -7,15 +7,18 @@ public class DesignPlannerJob
     public string Cliente { get; set; } = string.Empty;
     public string Vendedor { get; set; } = string.Empty;
     public string Trabajo { get; set; } = string.Empty;
+    public string Accion { get; set; } = string.Empty;
     public string Responsable { get; set; } = string.Empty;
     public string Estado { get; set; } = "Nuevo Trabajo Pendiente";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string CreatedBy { get; set; } = string.Empty;
     public DateTime? FechaRecepcion { get; set; }
     public DateTime? FechaEntrega { get; set; }
     public string Requerimientos { get; set; } = string.Empty;
     public bool FichaAprobada { get; set; }
     public DateTime? FechaAprobacion { get; set; }
     public string ComentariosAprobacion { get; set; } = string.Empty;
+    public string ProcesoJson { get; set; } = "{}";
     public string HistorialJson { get; set; } = "[]";
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }

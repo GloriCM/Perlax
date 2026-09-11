@@ -6,45 +6,27 @@
 
 | Modulo | URL | Estado |
 |--------|-----|--------|
-| **Planeador de Diseno** | `/diseno/planeador` | En produccion |
+| **Planeador de Diseño** | `/diseno/planeador` | En produccion — ver guia completa |
 | Cuadro de gastos | `/diseno/gastos/*` | Captura por area |
 
 ---
 
 ## Planeador de Diseño
 
-### Para que sirve?
+Cola de trabajos de diseño: alta, asignacion, proceso (planchas, troquel, muestra, Expertis…), semaforo, avance y aprobacion.
 
-Gestiona la **cola de trabajos de diseño**: preparacion tecnica, actividades, plazos y cierre.
+**Guia completa:** [Planeador de Diseño](planeador-diseno.md)
 
-### Flujo
+Resumen rapido:
 
-1. **Dashboard / Trabajos asignados** con filtros (estado, cliente, vendedor, disenador).
-2. **Anadir trabajo:** cliente, vendedor, nombre, responsable, fecha entrega.
-3. Abrir detalle del trabajo:
-   - **Preparacion tecnica**
-   - **Planeacion:** actividades (Planchas, Troquel, Muestras, Impresion digital, Arte, Expertis)
-   - **Aprobacion y cierre**
-4. Actualice actividades, marque avance, **apruebe** o **finalice**.
-
-### Estados del trabajo
-
-| Estado | Significado |
-|--------|-------------|
-| Nuevo trabajo pendiente | Recien creado |
-| En desarrollo | En ejecucion |
-| Finalizado | Cerrado |
-
-El tablero muestra **semaforo** de retrasos vs fecha entrega.
-
-### Quien lo usa?
-
-- Diseñadores
-- Comercial (alta de trabajos)
+1. Crear trabajo (cliente, vendedor, accion, diseñador, fecha recepcion).
+2. El diseñador actualiza el proceso y guarda.
+3. Semaforo: rojo critico (+15 dias), naranja sin novedades, amarillo con novedades, verde con fecha de aprobacion.
+4. Admin puede eliminar trabajos errados con la herramienta oculta del detalle.
 
 ---
 
-## Cuadro de gastos de diseno
+## Cuadro de gastos de diseño
 
 Misma logica que otras areas: **Captura**, **Graficas**, **Rubros**, **Cotizaciones**, **Proveedores**.
 
@@ -52,5 +34,6 @@ Ver [Gastos por area](README.md).
 
 ## Siguiente lectura
 
+- [Planeador de Diseño](planeador-diseno.md)
 - [Ordenes de trabajo](../flujo-principal/ordenes-trabajo.md)
 - [Cotizador](../flujo-principal/cotizador.md)

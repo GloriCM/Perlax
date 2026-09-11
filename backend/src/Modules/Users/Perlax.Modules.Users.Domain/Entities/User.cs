@@ -21,7 +21,7 @@ public class User
     public bool IsSystemUser { get; set; } = false; // Cannot be deleted
     /// <summary>False = usuario desactivado (ya no trabaja); se conserva el historial.</summary>
     public bool IsActive { get; set; } = true;
-    /// <summary>True cuando el admin creó/resetó la clave (igual a la cédula) y el usuario aún no la cambió.</summary>
+    /// <summary>True cuando el admin creó/resetó la clave temporal y el usuario aún no la cambió.</summary>
     public bool MustChangePassword { get; set; } = false;
     public int AccessFailedCount { get; set; } = 0;
     public DateTime? LockoutEnd { get; set; }

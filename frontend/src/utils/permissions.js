@@ -23,6 +23,62 @@ export function isAdmin(user) {
     return normalized === 'admin' || normalized === 'administrador';
 }
 
+export function normalizePersonKey(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+export function getUserDisplayName(user) {
+    const full = [user?.firstName || user?.FirstName, user?.lastName || user?.LastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    return full || user?.username || user?.Username || user?.displayName || user?.DisplayName || '';
+}
+
+/** true si el registro (diseñador/responsable) está asignado a este usuario. */
+export function isAssignedToCurrentUser(assignedName, user) {
+    const designerKey = normalizePersonKey(assignedName);
+    if (!designerKey) return false;
+
+    const identityKeys = [
+        getUserDisplayName(user),
+        user?.username,
+        user?.Username,
+        user?.displayName,
+        user?.DisplayName,
+        user?.documentNumber,
+        user?.DocumentNumber
+    ]
+        .map(normalizePersonKey)
+        .filter((key) => key.length >= 2);
+    const uniqueIdentities = [...new Set(identityKeys)];
+
+    // Coincidencia exacta con nombre completo, usuario o documento.
+    if (uniqueIdentities.some((key) => key === designerKey)) return true;
+
+    const designerParts = [...new Set(designerKey.split(/\s+/).filter((p) => p.length >= 2))];
+    const fullName = normalizePersonKey(getUserDisplayName(user));
+    if (!fullName) return false;
+    const userParts = [...new Set(fullName.split(/\s+/).filter((p) => p.length >= 2))];
+
+    // Ambos con 2+ palabras distintas: solo si coinciden exactamente como conjunto.
+    // Evita que "DISEÑO" de "DISEÑO PRUEBA" matchee "DISEÑO DISEÑO".
+    if (designerParts.length >= 2 && userParts.length >= 2) {
+        if (
+            designerParts.length === userParts.length
+            && designerParts.every((part) => userParts.includes(part))
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /** Rutas permitidas: undefined (sesión antigua) o null = acceso completo; [] = solo inicio `/`. */
 export function getAllowedRoutes(user) {
     if (!user) return undefined;
@@ -82,6 +138,11 @@ export function canAccessRoute(pathname, user) {
 
     if (/^\/fichas\/imprimir(\/|$)/.test(path)) {
         return set.has('/fichas/lista') || normalizedList.some((r) => r === '/fichas/lista');
+    }
+
+    // Quien tiene Planes de Diseño puede abrir el Planeador (detalle de proceso asignado).
+    if (path === '/diseno/planeador' && set.has('/ordenes/planes-diseno')) {
+        return true;
     }
 
     return false;

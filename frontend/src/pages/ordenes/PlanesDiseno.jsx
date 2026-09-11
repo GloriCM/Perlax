@@ -18,7 +18,6 @@ import {
     Grid,
     Image,
     Paper,
-    FileInput,
     Loader,
     Menu,
     Select
@@ -38,10 +37,12 @@ import { api } from '../../utils/api';
 import { fetchAuthenticatedUploadBlob } from '../../utils/authenticatedUpload';
 import AuthenticatedImage from '../../components/AuthenticatedImage';
 import { notifications } from '@mantine/notifications';
+import { isAdmin, isAssignedToCurrentUser } from '../../utils/permissions';
 
 function mergeOrderPartDetail(order, part) {
     return {
         ...part,
+        productionOrderId: part.productionOrderId ?? part.ProductionOrderId ?? order.id ?? order.Id,
         otNumber: order.otNumber ?? order.OTNumber,
         cliente: order.cliente ?? order.Cliente,
         ejecutivo: order.ejecutivoCuenta ?? order.EjecutivoCuenta,
@@ -127,6 +128,92 @@ function getAttachmentStatusByCategory(adjuntosJson) {
     };
 }
 
+function pickUploadFile(fileOrList) {
+    if (!fileOrList) return null;
+    if (Array.isArray(fileOrList)) return fileOrList[0] || null;
+    return fileOrList;
+}
+
+function extractOtNumbers(value) {
+    return [...String(value || '').matchAll(/(?:ext[\s-]*)?(\d{2,})/gi)].map((m) => m[1]);
+}
+
+function findMatchingPlannerJob(item, jobs) {
+    if (!Array.isArray(jobs) || jobs.length === 0) return null;
+    if (item?.isPlannerJobOnly && item?.plannerJobId) {
+        return jobs.find((job) => String(job.id) === String(item.plannerJobId)) || null;
+    }
+    const itemNums = new Set(extractOtNumbers(item.otNumber));
+    const product = normalizeSearchText(item.productName);
+    const cliente = normalizeSearchText(item.cliente);
+    for (const job of jobs) {
+        const jobNums = extractOtNumbers(job.trabajo);
+        if (jobNums.some((n) => itemNums.has(n))) return job;
+        const trabajo = normalizeSearchText(job.trabajo).replace(/^\d+[\s·.\-]*/, '').trim();
+        if (trabajo.length >= 10 && product.length >= 8 && (product.includes(trabajo) || trabajo.includes(product))) {
+            return job;
+        }
+        // Cliente + trabajo corto (p.ej. "Conos de Helado") cuando no hay número OT en el job.
+        const jobCliente = normalizeSearchText(job.cliente);
+        if (
+            trabajo.length >= 6
+            && product.length >= 6
+            && cliente
+            && jobCliente
+            && (cliente.includes(jobCliente) || jobCliente.includes(cliente))
+            && (product.includes(trabajo) || trabajo.includes(product))
+        ) {
+            return job;
+        }
+    }
+    return null;
+}
+
+function matchesAssignedPlannerJob(item, jobs) {
+    if (item?.isPlannerJobOnly) return true;
+    return !!findMatchingPlannerJob(item, jobs);
+}
+
+function resolvePlannerDesigner(item, jobs) {
+    const existing = String(item?.disenador || item?.Disenador || '').trim();
+    if (existing) return existing;
+    return String(findMatchingPlannerJob(item, jobs)?.responsable || '').trim();
+}
+
+/** Filas sintéticas: trabajos del planeador aún sin OT vinculable. */
+function plannerJobToPlanRow(job) {
+    const jobId = String(job?.id || '').trim();
+    const reception = job?.fechaRecepcion || job?.createdAt || null;
+    return {
+        id: `planner-${jobId}`,
+        isPlannerJobOnly: true,
+        plannerJobId: jobId,
+        productionOrderId: null,
+        otNumber: jobId || 'PJ',
+        partName: 'Sin OT vinculada',
+        cliente: job?.cliente || '',
+        ejecutivo: job?.vendedor || '',
+        productName: job?.trabajo || '',
+        prioridad: 'Normal',
+        disenador: String(job?.responsable || '').trim(),
+        createdAt: reception,
+        estadoFicha: '—',
+        estadoMuestra: '—',
+        estadoAprobacion: job?.fichaAprobada ? 'Aprobado' : 'Pendiente',
+        adjuntosJson: null
+    };
+}
+
+function collectMatchedPlannerJobIds(orderRows, jobs) {
+    const matched = new Set();
+    for (const item of orderRows) {
+        if (item?.isPlannerJobOnly) continue;
+        const job = findMatchingPlannerJob(item, jobs);
+        if (job?.id) matched.add(String(job.id));
+    }
+    return matched;
+}
+
 function normalizeSearchText(value) {
     return String(value || '')
         .normalize('NFD')
@@ -145,8 +232,9 @@ export default function PlanesDiseno() {
             return {};
         }
     }, []);
+    const canSeeAllPlans = isAdmin(currentUser);
     const [search, setSearch] = useState('');
-    const [filterAssignment, setFilterAssignment] = useState('all');
+    const [filterAssignment, setFilterAssignment] = useState(canSeeAllPlans ? 'all' : 'mine');
     const [filterApproval, setFilterApproval] = useState('all');
     const [filterPriority, setFilterPriority] = useState('all');
     const [opened, { open, close }] = useDisclosure(false);
@@ -154,6 +242,7 @@ export default function PlanesDiseno() {
     const [previewUrl, setPreviewUrl] = useState('');
     const [selectedOT, setSelectedOT] = useState(null);
     const [orders, setOrders] = useState([]);
+    const [plannerJobs, setPlannerJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [detailLoading, setDetailLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -179,20 +268,32 @@ export default function PlanesDiseno() {
     const fetchOrders = async () => {
         try {
             setLoading(true);
-            const data = await api.get('/production/orders');
-            // Flatten parts if needed or just show the orders
-            // For Design Plans, we usually want to see each Part as a row
+            const [data, jobs] = await Promise.all([
+                api.get('/production/orders'),
+                api.get('/design/planner/jobs').catch(() => [])
+            ]);
+            setPlannerJobs(Array.isArray(jobs) ? jobs : []);
             const flattened = data.flatMap(order =>
-                order.parts.map(part => ({
+                (order.parts || []).map(part => ({
                     ...part,
-                    otNumber: order.otNumber || order.otNumber || order.OTNumber,
+                    productionOrderId: part.productionOrderId || part.ProductionOrderId || order.id || order.Id,
+                    otNumber: order.otNumber || order.OTNumber,
                     cliente: order.cliente || order.Cliente,
-                    ejecutivo: order.ejecutivoCuenta || order.ejecutivoCuenta || order.EjecutivoCuenta,
-                    productName: order.productName || order.productName || order.ProductName,
+                    ejecutivo: order.ejecutivoCuenta || order.EjecutivoCuenta,
+                    productName: order.productName || order.ProductName,
                     createdAt: order.createdAt || order.CreatedAt
                 }))
             );
-            setOrders(flattened);
+            const jobList = Array.isArray(jobs) ? jobs : [];
+            const orderRows = flattened.map((item) => ({
+                ...item,
+                disenador: resolvePlannerDesigner(item, jobList)
+            }));
+            const matchedJobIds = collectMatchedPlannerJobIds(orderRows, jobList);
+            const orphanPlannerRows = jobList
+                .filter((job) => job?.id && !matchedJobIds.has(String(job.id)))
+                .map(plannerJobToPlanRow);
+            setOrders([...orderRows, ...orphanPlannerRows]);
         } catch (error) {
             console.error('Error fetching design plans:', error);
             notifications.show({
@@ -218,7 +319,9 @@ export default function PlanesDiseno() {
                 if (cancelled) return;
                 const part = (order.parts || []).find((p) => p.id === partId);
                 if (part) {
-                    setSelectedOT(mergeOrderPartDetail(order, part));
+                    const merged = mergeOrderPartDetail(order, part);
+                    merged.disenador = resolvePlannerDesigner(merged, plannerJobs);
+                    setSelectedOT(merged);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -238,12 +341,21 @@ export default function PlanesDiseno() {
         return () => {
             cancelled = true;
         };
-    }, [opened, selectedOT?.id, selectedOT?.productionOrderId]);
+    }, [opened, selectedOT?.id, selectedOT?.productionOrderId, plannerJobs]);
 
-    const handleUploadAttachment = async (file, category) => {
-        if (!file || !selectedOT?.productionOrderId || !selectedOT?.id) return;
-        const orderId = selectedOT.productionOrderId;
-        const partId = selectedOT.id;
+    const handleUploadAttachment = async (fileOrList, category) => {
+        const file = pickUploadFile(fileOrList);
+        const orderId = selectedOT?.productionOrderId || selectedOT?.ProductionOrderId;
+        const partId = selectedOT?.id;
+        if (!file) return;
+        if (!orderId || !partId) {
+            notifications.show({
+                title: 'No se puede subir',
+                message: 'Falta el identificador de la OT o de la pieza.',
+                color: 'yellow'
+            });
+            return;
+        }
         try {
             setUploading(true);
             const fd = new FormData();
@@ -386,6 +498,27 @@ export default function PlanesDiseno() {
     };
 
     const handleViewDetail = (item) => {
+        const matchedJob = item?.isPlannerJobOnly
+            ? { id: item.plannerJobId }
+            : findMatchingPlannerJob(item, plannerJobs);
+        const jobId = String(matchedJob?.id || item?.plannerJobId || '').trim();
+
+        // Los trabajos asignados en el planeador se abren en el modal de proceso (Planchas/Troquel/Muestra...),
+        // no en la ficha OT de "Orden de trabajo".
+        if (jobId) {
+            navigate(`/diseno/planeador?job=${encodeURIComponent(jobId)}`);
+            return;
+        }
+
+        if (!canSeeAllPlans) {
+            notifications.show({
+                title: 'Sin trabajo de planeador',
+                message: 'Este registro no está vinculado a un trabajo del planeador de diseño.',
+                color: 'yellow'
+            });
+            return;
+        }
+
         setSelectedOT(item);
         open();
     };
@@ -422,9 +555,10 @@ export default function PlanesDiseno() {
     };
 
     const searchTerms = normalizeSearchText(search).split(/\s+/).filter(Boolean);
-    const currentUserName = normalizeSearchText(
-        [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim() || currentUser?.username || ''
-    );
+    const assignedPlannerJobs = useMemo(() => {
+        const list = Array.isArray(plannerJobs) ? plannerJobs : [];
+        return list.filter((job) => isAssignedToCurrentUser(job.responsable, currentUser));
+    }, [plannerJobs, currentUser]);
 
     const filteredOrders = useMemo(() => orders.filter((item) => {
         const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
@@ -448,14 +582,23 @@ export default function PlanesDiseno() {
         if (!matchSearch) return false;
 
         const designerRaw = (item.disenador || '').trim();
-        const designerNormalized = normalizeSearchText(designerRaw);
-        const isAssigned = designerNormalized.length > 0;
+        const isAssigned = designerRaw.length > 0;
         const approvalNormalized = normalizeSearchText(item.estadoAprobacion || 'pendiente');
         const priorityNormalized = normalizeSearchText(item.prioridad || 'normal');
 
-        if (filterAssignment === 'mine' && (!isAssigned || designerNormalized !== currentUserName)) return false;
-        if (filterAssignment === 'assigned' && !isAssigned) return false;
-        if (filterAssignment === 'unassigned' && isAssigned) return false;
+        if (!canSeeAllPlans) {
+            if (item.isPlannerJobOnly) {
+                if (!isAssignedToCurrentUser(item.disenador, currentUser)) return false;
+            } else if (!matchesAssignedPlannerJob(item, assignedPlannerJobs)) {
+                return false;
+            }
+        }
+
+        if (canSeeAllPlans) {
+            if (filterAssignment === 'mine' && (!isAssigned || !isAssignedToCurrentUser(item.disenador, currentUser))) return false;
+            if (filterAssignment === 'assigned' && !isAssigned) return false;
+            if (filterAssignment === 'unassigned' && isAssigned) return false;
+        }
 
         if (filterApproval === 'pending' && approvalNormalized !== 'pendiente') return false;
         if (filterApproval === 'approved' && approvalNormalized !== 'aprobado') return false;
@@ -464,16 +607,23 @@ export default function PlanesDiseno() {
         if (filterPriority !== 'all' && priorityNormalized !== filterPriority) return false;
 
         return true;
-    }), [orders, searchTerms, filterAssignment, filterApproval, filterPriority, currentUserName]);
+    }), [orders, searchTerms, filterAssignment, filterApproval, filterPriority, canSeeAllPlans, currentUser, assignedPlannerJobs]);
 
     const rows = filteredOrders.map((item) => (
         <Table.Tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => handleViewDetail(item)}>
             {(() => {
                 const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
-                const designerName = (item.disenador || '').trim();
+                const designerName = resolvePlannerDesigner(item, plannerJobs);
                 return (
                     <>
-            <Table.Td><Text size="xs" fw={700} c="indigo.3">{item.otNumber} / {item.partName}</Text></Table.Td>
+            <Table.Td>
+                <Text size="xs" fw={700} c="indigo.3">
+                    {item.isPlannerJobOnly ? item.otNumber : `${item.otNumber} / ${item.partName}`}
+                </Text>
+                {item.isPlannerJobOnly && (
+                    <Badge size="xs" variant="light" color="yellow" mt={4}>Sin OT</Badge>
+                )}
+            </Table.Td>
             <Table.Td><Text size="xs" truncate>{item.ejecutivo}</Text></Table.Td>
             <Table.Td><Text size="xs" fw={500} truncate>{item.cliente}</Text></Table.Td>
             <Table.Td><Text size="xs" truncate maw={200}>{item.productName}</Text></Table.Td>
@@ -483,7 +633,11 @@ export default function PlanesDiseno() {
                 </Badge>
             </Table.Td>
             <Table.Td><Text size="xs">{designerName || 'No asignado'}</Text></Table.Td>
-            <Table.Td><Text size="xs">{new Date(item.createdAt).toLocaleDateString()}</Text></Table.Td>
+            <Table.Td>
+                <Text size="xs">
+                    {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}
+                </Text>
+            </Table.Td>
             <Table.Td>
                 <Badge size="xs" variant="light" color={attachmentStatus.ampliacionesOk ? 'green' : 'gray'}>
                     {attachmentStatus.ampliacionesOk ? 'OK' : 'Pendiente'}
@@ -517,12 +671,20 @@ export default function PlanesDiseno() {
                         </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
-                        <Menu.Item onClick={() => openQuickEditor(item)}>
-                            Editar prioridad / diseñador
-                        </Menu.Item>
-                        <Menu.Item onClick={() => handleOpenInternalChat(item)}>
-                            Chat interno
-                        </Menu.Item>
+                        {item.isPlannerJobOnly ? (
+                            <Menu.Item onClick={() => navigate('/diseno/planeador')}>
+                                Abrir en Planeador de Diseño
+                            </Menu.Item>
+                        ) : (
+                            <>
+                                <Menu.Item onClick={() => openQuickEditor(item)}>
+                                    Editar prioridad / diseñador
+                                </Menu.Item>
+                                <Menu.Item onClick={() => handleOpenInternalChat(item)}>
+                                    Chat interno
+                                </Menu.Item>
+                            </>
+                        )}
                     </Menu.Dropdown>
                 </Menu>
             </Table.Td>
@@ -535,20 +697,28 @@ export default function PlanesDiseno() {
     useEffect(() => {
         if (!pendingOtToOpen || orders.length === 0 || opened) return;
         const target = pendingOtToOpen.toLowerCase();
-        const firstMatch = orders.find((o) => String(o.otNumber || '').toLowerCase() === target);
+        const firstMatch = orders.find((o) => {
+            if (String(o.otNumber || '').toLowerCase() !== target) return false;
+            if (!canSeeAllPlans && !matchesAssignedPlannerJob(o, assignedPlannerJobs)) return false;
+            return true;
+        });
         if (firstMatch) {
             setSelectedOT(firstMatch);
             open();
         }
         setPendingOtToOpen(null);
-    }, [pendingOtToOpen, orders, opened, open]);
+    }, [pendingOtToOpen, orders, opened, open, canSeeAllPlans, currentUser, assignedPlannerJobs]);
 
     return (
         <Stack gap="lg" p="md">
             <Group justify="space-between" align="flex-end">
                 <Stack gap={4}>
                     <Title order={2} style={{ color: '#fff' }}>Planes de Diseño</Title>
-                    <Text c="dimmed" size="sm">Seguimiento y control de archivos y aprobaciones</Text>
+                    <Text c="dimmed" size="sm">
+                        {canSeeAllPlans
+                            ? 'Seguimiento y control de archivos y aprobaciones'
+                            : 'Tus trabajos del planeador (con OT o pendientes de vincular)'}
+                    </Text>
                 </Stack>
                 <Button
                     variant="light"
@@ -571,7 +741,8 @@ export default function PlanesDiseno() {
                             variant="filled"
                             styles={{ input: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' } }}
                         />
-                        <SimpleGrid cols={{ base: 1, md: 3, lg: 3 }}>
+                        <SimpleGrid cols={{ base: 1, md: canSeeAllPlans ? 3 : 2, lg: canSeeAllPlans ? 3 : 2 }}>
+                            {canSeeAllPlans && (
                             <Select
                                 label="Asignación"
                                 value={filterAssignment}
@@ -584,6 +755,7 @@ export default function PlanesDiseno() {
                                 ]}
                                 variant="filled"
                             />
+                            )}
                             <Select
                                 label="Aprobación"
                                 value={filterApproval}
@@ -644,7 +816,6 @@ export default function PlanesDiseno() {
                 </ScrollArea>
             </Card>
 
-            {/* DETAILED OT MODAL (Replica of Expertis View) */}
             <Modal
                 opened={opened}
                 onClose={() => {
@@ -657,7 +828,6 @@ export default function PlanesDiseno() {
                 overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
                 styles={{ content: { background: '#0f172a', color: '#fff', borderRadius: 16, overflow: 'hidden' } }}
             >
-                {/* Header of Modal */}
                 <Box p="md" style={{ background: 'linear-gradient(90deg, #1e3a8a 0%, #172554 100%)', position: 'relative' }}>
                     <Group justify="space-between">
                         <Group>
@@ -700,26 +870,12 @@ export default function PlanesDiseno() {
                 <ScrollArea.Autosize mah="calc(100vh - 180px)" type="auto">
                     <Box p="lg" pos="relative">
                         {detailLoading && (
-                            <Box
-                                pos="absolute"
-                                top={0}
-                                left={0}
-                                right={0}
-                                bottom={0}
-                                style={{
-                                    zIndex: 10,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: 'rgba(15, 23, 42, 0.55)',
-                                    borderRadius: 8
-                                }}
-                            >
-                                <Loader color="indigo" />
-                            </Box>
+                            <Group gap="xs" mb="sm">
+                                <Loader size="sm" color="indigo" />
+                                <Text size="xs" c="dimmed">Actualizando detalle…</Text>
+                            </Group>
                         )}
                         <Grid gutter="xl">
-                            {/* Section 1: Descripción del Diseño */}
                             <Grid.Col span={8}>
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Descripción del diseño" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
@@ -728,11 +884,9 @@ export default function PlanesDiseno() {
                                         <Grid.Col span={3}><TextInput label="Fecha" value={selectedOT?.createdAt ? new Date(selectedOT.createdAt).toLocaleDateString() : ''} readOnly variant="filled" size="xs" /></Grid.Col>
                                         <Grid.Col span={3}><TextInput label="Nombre Pieza" value={selectedOT?.partName} readOnly variant="filled" size="xs" /></Grid.Col>
                                         <Grid.Col span={3}><TextInput label="Fuelle" value={selectedOT?.fuelle || 0} readOnly variant="filled" size="xs" /></Grid.Col>
-
                                         <Grid.Col span={4}><TextInput label="Cabida" value={selectedOT?.cabida || '1.00'} readOnly variant="filled" size="xs" /></Grid.Col>
                                         <Grid.Col span={4}><TextInput label="Alto Pliego" value={selectedOT?.altoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
                                         <Grid.Col span={4}><TextInput label="Ancho Pliego" value={selectedOT?.anchoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
-
                                         <Grid.Col span={12}>
                                             <Stack gap={2}>
                                                 <Text size="xs" fw={700}>Notas de Diseño</Text>
@@ -745,7 +899,6 @@ export default function PlanesDiseno() {
                                 </Paper>
                             </Grid.Col>
 
-                            {/* Adjuntos Section */}
                             <Grid.Col span={4}>
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" h="100%" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Group justify="space-between" mb="xs">
@@ -753,90 +906,35 @@ export default function PlanesDiseno() {
                                     </Group>
                                     <SimpleGrid cols={2}>
                                         <Stack gap="xs" align="stretch">
-                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">
-                                                Arte 1 (ampliación)
-                                            </Text>
+                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">Arte 1 (ampliación)</Text>
                                             {urlArte1 ? (
-                                                <Box
-                                                    onClick={() => openImagePreview(urlArte1)}
-                                                    style={{
-                                                        cursor: 'zoom-in',
-                                                        borderRadius: 8,
-                                                        overflow: 'hidden',
-                                                        border: '1px solid rgba(255,255,255,0.12)',
-                                                        background: 'rgba(0,0,0,0.2)'
-                                                    }}
-                                                >
-                                                    <AuthenticatedImage
-                                                        publicPath={urlArte1}
-                                                        alt="Ampliación"
-                                                        mah={200}
-                                                        maw="100%"
-                                                        mx="auto"
-                                                        fit="contain"
-                                                        fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen"
-                                                    />
+                                                <Box onClick={() => openImagePreview(urlArte1)} style={{ cursor: 'zoom-in', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)' }}>
+                                                    <AuthenticatedImage publicPath={urlArte1} alt="Ampliación" mah={200} maw="100%" mx="auto" fit="contain" fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen" />
                                                 </Box>
                                             ) : (
-                                                <FileInput
-                                                    placeholder="Subir ampliación"
-                                                    accept="image/*"
-                                                    leftSection={<IconUpload size={14} />}
-                                                    disabled={uploading || detailLoading}
-                                                    size="xs"
-                                                    clearable
-                                                    styles={{
-                                                        input: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }
-                                                    }}
-                                                    onChange={(file) => file && handleUploadAttachment(file, 'ampliaciones')}
-                                                />
+                                                <Button component="label" size="xs" variant="light" leftSection={<IconUpload size={14} />} loading={uploading} disabled={uploading}>
+                                                    Subir ampliación
+                                                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff" hidden onChange={(e) => { const picked = e.currentTarget.files?.[0]; if (picked) handleUploadAttachment(picked, 'ampliaciones'); e.currentTarget.value = ''; }} />
+                                                </Button>
                                             )}
                                         </Stack>
                                         <Stack gap="xs" align="stretch">
-                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">
-                                                Arte 2 (adjunto)
-                                            </Text>
+                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">Arte 2 (adjunto)</Text>
                                             {urlArte2 ? (
-                                                <Box
-                                                    onClick={() => openImagePreview(urlArte2)}
-                                                    style={{
-                                                        cursor: 'zoom-in',
-                                                        borderRadius: 8,
-                                                        overflow: 'hidden',
-                                                        border: '1px solid rgba(255,255,255,0.12)',
-                                                        background: 'rgba(0,0,0,0.2)'
-                                                    }}
-                                                >
-                                                    <AuthenticatedImage
-                                                        publicPath={urlArte2}
-                                                        alt="Adjunto"
-                                                        mah={200}
-                                                        maw="100%"
-                                                        mx="auto"
-                                                        fit="contain"
-                                                        fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen"
-                                                    />
+                                                <Box onClick={() => openImagePreview(urlArte2)} style={{ cursor: 'zoom-in', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)' }}>
+                                                    <AuthenticatedImage publicPath={urlArte2} alt="Adjunto" mah={200} maw="100%" mx="auto" fit="contain" fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen" />
                                                 </Box>
                                             ) : (
-                                                <FileInput
-                                                    placeholder="Subir adjunto"
-                                                    accept="image/*"
-                                                    leftSection={<IconUpload size={14} />}
-                                                    disabled={uploading || detailLoading}
-                                                    size="xs"
-                                                    clearable
-                                                    styles={{
-                                                        input: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }
-                                                    }}
-                                                    onChange={(file) => file && handleUploadAttachment(file, 'adjuntos')}
-                                                />
+                                                <Button component="label" size="xs" variant="light" leftSection={<IconUpload size={14} />} loading={uploading} disabled={uploading}>
+                                                    Subir adjunto
+                                                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff" hidden onChange={(e) => { const picked = e.currentTarget.files?.[0]; if (picked) handleUploadAttachment(picked, 'adjuntos'); e.currentTarget.value = ''; }} />
+                                                </Button>
                                             )}
                                         </Stack>
                                     </SimpleGrid>
                                 </Paper>
                             </Grid.Col>
 
-                            {/* Row 2: Materiales, Troquel, Tintas */}
                             <Grid.Col span={4}>
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Materiales" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
@@ -865,14 +963,11 @@ export default function PlanesDiseno() {
                                         <PlanDisenoTintInkMark letter="M" inkKey="m" checked={!!selectedOT?.tintaM} />
                                         <PlanDisenoTintInkMark letter="Y" inkKey="y" checked={!!selectedOT?.tintaY} />
                                         <PlanDisenoTintInkMark letter="K" inkKey="k" checked={!!selectedOT?.tintaK} />
-                                        <Text size="xs" fw={700}>
-                                            Especial: {selectedOT?.tintasEspeciales || '0'}
-                                        </Text>
+                                        <Text size="xs" fw={700}>Especial: {selectedOT?.tintasEspeciales || '0'}</Text>
                                     </Group>
                                 </Paper>
                             </Grid.Col>
 
-                            {/* Row 3: Proceso y Entrega */}
                             <Grid.Col span={8}>
                                 <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                                     <Divider label="Proceso de Fabricación" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
@@ -942,29 +1037,14 @@ export default function PlanesDiseno() {
             >
                 {previewUrl ? (
                     <Box style={{ textAlign: 'center' }}>
-                        <img
-                            src={previewUrl}
-                            alt="Vista previa"
-                            style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 8 }}
-                        />
+                        <img src={previewUrl} alt="Vista previa" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 8 }} />
                     </Box>
                 ) : null}
             </Modal>
 
-            <Modal
-                opened={editorOpened}
-                onClose={closeEditor}
-                title="Editar prioridad y diseñador"
-                centered
-                size="sm"
-            >
+            <Modal opened={editorOpened} onClose={closeEditor} title="Editar prioridad y diseñador" centered size="sm">
                 <Stack gap="sm">
-                    <Select
-                        label="Prioridad"
-                        data={['Baja', 'Normal', 'Alta', 'Urgente']}
-                        value={editPrioridad}
-                        onChange={(value) => setEditPrioridad(value || 'Normal')}
-                    />
+                    <Select label="Prioridad" data={['Baja', 'Normal', 'Alta', 'Urgente']} value={editPrioridad} onChange={(value) => setEditPrioridad(value || 'Normal')} />
                     <Select
                         label="Diseñador"
                         placeholder="Selecciona diseñador"
@@ -978,20 +1058,11 @@ export default function PlanesDiseno() {
                         clearable
                     />
                     {editDesignerOption === 'Otro' && (
-                        <TextInput
-                            label="Nuevo diseñador"
-                            placeholder="Escribe el nombre"
-                            value={editDesignerCustom}
-                            onChange={(e) => setEditDesignerCustom(e.currentTarget.value)}
-                        />
+                        <TextInput label="Nuevo diseñador" placeholder="Escribe el nombre" value={editDesignerCustom} onChange={(e) => setEditDesignerCustom(e.currentTarget.value)} />
                     )}
                     <Group justify="flex-end" mt="xs">
-                        <Button variant="default" onClick={closeEditor} disabled={editSaving}>
-                            Cancelar
-                        </Button>
-                        <Button onClick={handleSaveQuickEditor} loading={editSaving}>
-                            Guardar cambios
-                        </Button>
+                        <Button variant="default" onClick={closeEditor} disabled={editSaving}>Cancelar</Button>
+                        <Button onClick={handleSaveQuickEditor} loading={editSaving}>Guardar cambios</Button>
                     </Group>
                 </Stack>
             </Modal>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
 using Perlax.Modules.Production.Api;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json.Serialization;
 using Perlax.Modules.Users.Api;
 using Perlax.Modules.Audit.Api;
@@ -17,9 +18,17 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
 using Perlax.Modules.Production.Api.Hubs;
 using Perlax.Modules.Production.Infrastructure.Persistence;
+
+// Esa variable crea Kestrel:Endpoints:Https sin Url y el host falla al llamar UseHttps.
+var kestrelPfxPassword =
+    Environment.GetEnvironmentVariable("KESTREL_PFX_PASSWORD")
+    ?? Environment.GetEnvironmentVariable("Kestrel__Certificate__Password")
+    ?? Environment.GetEnvironmentVariable("Kestrel__Endpoints__Https__Certificate__Password");
+Environment.SetEnvironmentVariable("Kestrel__Endpoints__Https__Certificate__Password", null);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +49,11 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(120);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(2);
     options.Limits.MaxRequestBodySize = 104_857_600;
+
+    // El loader JSON de PFX persiste la clave en el perfil de Windows.
+    // EphemeralKeySet evita el disco, pero Schannel cierra el TLS (ERR_CONNECTION_CLOSED).
+    if (builder.Environment.IsDevelopment())
+        ListenHttpsWithEphemeralCertificate(options, builder, kestrelPfxPassword);
 });
 
 // Add services to the container.
@@ -99,7 +113,8 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-        ClockSkew = TimeSpan.FromMinutes(2)
+        RoleClaimType = ClaimTypes.Role,
+        NameClaimType = ClaimTypes.Name,
     };
 });
 
@@ -183,7 +198,23 @@ try
             Console.WriteLine($"Production MigrateAsync failed: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
         }
-        await ProductionDbInitializer.InitializeAsync(productionContext);
+        try
+        {
+            await DesignPlannerSchemaFixes.ApplyAsync(productionContext);
+            Console.WriteLine("DesignPlannerSchemaFixes applied (Accion, ProcesoJson, CreatedBy).");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DesignPlannerSchemaFixes failed: {ex.Message}");
+        }
+        try
+        {
+            await ProductionDbInitializer.InitializeAsync(productionContext);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ProductionDbInitializer failed: {ex.Message}");
+        }
         await Perlax.Modules.Production.Infrastructure.Persistence.CotizadorDbSeeder.SeedAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.DesignPlannerDbSeeder.SeedAsync(productionContext);
         await Perlax.Modules.Production.Infrastructure.Persistence.DailyProductionDbSeeder.SeedAsync(productionContext);
@@ -280,3 +311,43 @@ app.MapHub<InternalChatHub>("/hubs/internal-chat");
 app.MapHub<ProductionFloorHub>(ProductionFloorHub.HubPath);
 
 app.Run();
+
+static void ListenHttpsWithEphemeralCertificate(
+    KestrelServerOptions options,
+    WebApplicationBuilder builder,
+    string? pfxPassword)
+{
+    var configuredPath = builder.Configuration["Kestrel:Certificate:Path"];
+    var certPath = string.IsNullOrWhiteSpace(configuredPath)
+        ? Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "..", "certs", "perla.pfx")
+        : configuredPath;
+    if (!Path.IsPathRooted(certPath))
+        certPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, certPath));
+
+    var password = pfxPassword
+        ?? builder.Configuration["Kestrel:Certificate:Password"]
+        ?? Environment.GetEnvironmentVariable("KESTREL_PFX_PASSWORD");
+
+    if (!File.Exists(certPath) || string.IsNullOrWhiteSpace(password))
+        return;
+
+    // EphemeralKeySet no escribe en disco, pero Schannel (Windows) cierra el TLS:
+    // net::ERR_CONNECTION_CLOSED en :5263. MachineKeySet guarda la clave en
+    // ProgramData, no en el perfil con cuota llena.
+    X509Certificate2 cert;
+    try
+    {
+        cert = X509CertificateLoader.LoadPkcs12FromFile(
+            certPath,
+            password,
+            X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.Exportable);
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"HTTPS :5263 no se pudo cargar ({ex.Message}). Sigue HTTP :5262.");
+        return;
+    }
+
+    options.ListenAnyIP(5263, listen => listen.UseHttps(cert));
+}
+

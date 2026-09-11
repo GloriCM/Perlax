@@ -1,0 +1,2 @@
+psql:E:/Semillas/Perlax/backend/ensure-design-planner-proceso.sql:20: NOTICE:  column "Accion" of relation "DesignPlannerJobs" already exists, skipping
+psql:E:/Semillas/Perlax/backend/ensure-design-planner-proceso.sql:20: NOTICE:  column "ProcesoJson" of relation "DesignPlannerJobs" already exists, skipping

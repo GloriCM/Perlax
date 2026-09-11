@@ -100,6 +100,37 @@ public class OvertimeCalculatorTests
     }
 
     [Fact]
+    public void Production_start_at_07_ends_ordinary_at_1630_lunch_is_half_hour()
+    {
+        var date = new DateOnly(2026, 8, 11); // martes
+        var start = date.ToDateTime(new TimeOnly(7, 0));
+        var end = date.ToDateTime(new TimeOnly(18, 30));
+        var shift = OvertimeCalculator.ProductionShiftFromStart(new TimeOnly(7, 0));
+
+        Assert.Equal(new TimeOnly(7, 0), shift.Start);
+        Assert.Equal(new TimeOnly(16, 30), shift.End);
+
+        var result = OvertimeCalculator.Calculate(2_100_000m, start, end, shift);
+        var food = result.Segments.Where(s => s.Kind == OvertimeSegmentKind.Food).ToList();
+        Assert.Single(food);
+        Assert.Equal(0.5m, food[0].Hours);
+
+        var extra = result.Segments.Where(s => s.CreatesExpense).ToList();
+        Assert.Single(extra);
+        Assert.Equal(OvertimeSegmentKind.ExtraDiurna, extra[0].Kind);
+        Assert.Equal(2m, extra[0].Hours); // 16:30 → 18:30
+        Assert.Equal(25_000m, extra[0].Amount);
+    }
+
+    [Fact]
+    public void Production_start_at_06_ends_ordinary_at_1400()
+    {
+        var shift = OvertimeCalculator.ProductionShiftFromStart(new TimeOnly(6, 0));
+        Assert.Equal(new TimeOnly(6, 0), shift.Start);
+        Assert.Equal(new TimeOnly(14, 0), shift.End);
+    }
+
+    [Fact]
     public void Operario_is_production_role_almacen_is_not()
     {
         Assert.True(OvertimeCalculator.IsProductionOvertimeRole("Operario"));

@@ -3,8 +3,6 @@
  * Handles base URL, content-type headers, and JWT Authentication
  */
 
-const LOCAL_API_HOSTS = new Set(['localhost', '127.0.0.1', 'perla']);
-
 function resolveApiBaseUrl() {
     const fromEnv = String(import.meta.env.VITE_API_BASE_URL || '').trim();
     if (fromEnv) {
@@ -12,16 +10,13 @@ function resolveApiBaseUrl() {
     }
 
     const host = window.location.hostname;
-    if (LOCAL_API_HOSTS.has(host)) {
-        return `https://${host}:5263/api`;
-    }
-
     // Túnel Cloudflare: la API va por HTTPS en el puerto 443, sin :5263
     if (host === 'perlax.perla.work' || host.endsWith('.perla.work')) {
         return 'https://api-perlax.perla.work/api';
     }
 
-    return `https://${host}:5263/api`;
+    // Local / LAN: mismo origen; Vite proxea /api a http://127.0.0.1:5262
+    return `${window.location.origin}/api`;
 }
 
 const BASE_URL = resolveApiBaseUrl();

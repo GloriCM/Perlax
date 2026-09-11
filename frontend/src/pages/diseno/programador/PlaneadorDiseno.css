@@ -97,6 +97,11 @@
     box-shadow: 0 0 10px rgba(250, 204, 21, 0.55);
 }
 
+.semaforo-naranja {
+    background: #f97316;
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.55);
+}
+
 .semaforo-rojo {
     background: #ef4444;
     box-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
@@ -127,4 +132,9 @@
 
 .planeador-modal {
     background: #0f172a;
+}
+
+.proceso-step-card .mantine-Checkbox-label {
+    font-weight: 700;
+    color: #e2e8f0;
 }

@@ -176,6 +176,12 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Role, user.Role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+        if (!string.IsNullOrWhiteSpace(user.FirstName))
+            claims.Add(new Claim(ClaimTypes.GivenName, user.FirstName.Trim()));
+        if (!string.IsNullOrWhiteSpace(user.LastName))
+            claims.Add(new Claim(ClaimTypes.Surname, user.LastName.Trim()));
+        if (!string.IsNullOrWhiteSpace(user.Area))
+            claims.Add(new Claim("area", user.Area.Trim()));
 
         var token = new JwtSecurityToken(
             issuer: jwtSettings["Issuer"],

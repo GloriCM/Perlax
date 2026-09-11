@@ -19,8 +19,10 @@ Registra la **Orden de Trabajo (OT)** con datos comerciales y tecnicos de diseñ
 |----------|-----|
 | Nueva OT | `/ordenes/nueva` |
 | Lista de OT | `/ordenes/lista` |
-| Planes de diseno | `/ordenes/planes-diseno` |
+| Planes de diseño | `/ordenes/planes-diseno` |
 | Ficha tecnica (impresion) | `/fichas/lista` |
+
+> **Planes de diseño** muestra OT/piezas y trabajos del planeador asignados. Al abrir un trabajo del planeador se abre el detalle en [Planeador de Diseño](../gastos-por-area/planeador-diseno.md).
 
 ## Flujo: crear OT
 
@@ -92,4 +94,4 @@ Menu **Fichas Tecnicas -> Listado**: imprima o revise fichas por pieza. La aprob
 
 - [Cotizador](cotizador.md)
 - [Pedidos de cliente](pedidos-cliente.md)
-- [Planeador de Diseno](../gastos-por-area/diseno.md)
+- [Planeador de Diseño](../gastos-por-area/planeador-diseno.md)

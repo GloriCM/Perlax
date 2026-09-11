@@ -37,8 +37,9 @@ public sealed class DesignPlannerService : IDesignPlannerService
     public async Task<DesignJobDto> CreateJobAsync(CreateDesignJobCommand command, string userName, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(command.Cliente) || string.IsNullOrWhiteSpace(command.Vendedor)
-            || string.IsNullOrWhiteSpace(command.Trabajo) || string.IsNullOrWhiteSpace(command.Responsable))
-            throw new InvalidOperationException("Cliente, vendedor, trabajo y responsable son obligatorios.");
+            || string.IsNullOrWhiteSpace(command.Trabajo) || string.IsNullOrWhiteSpace(command.Accion)
+            || string.IsNullOrWhiteSpace(command.Responsable))
+            throw new InvalidOperationException("Cliente, vendedor, trabajo, acción y responsable son obligatorios.");
 
         var jobNumber = await GenerateNextJobNumberAsync(ct);
         var job = new DesignPlannerJob
@@ -48,11 +49,17 @@ public sealed class DesignPlannerService : IDesignPlannerService
             Cliente = command.Cliente.Trim(),
             Vendedor = command.Vendedor.Trim(),
             Trabajo = command.Trabajo.Trim(),
+            Accion = command.Accion.Trim(),
             Responsable = command.Responsable.Trim(),
             Estado = "Nuevo Trabajo Pendiente",
             CreatedAt = DateTime.UtcNow,
-            FechaEntrega = ParseDate(command.FechaEntrega),
-            HistorialJson = AppendHistorial(null, "Trabajo creado con estado \"Nuevo Trabajo Pendiente\".", "Notificación enviada al area de diseño."),
+            CreatedBy = userName?.Trim() ?? string.Empty,
+            FechaRecepcion = ParseDate(command.FechaRecepcion),
+            ProcesoJson = "{}",
+            HistorialJson = AppendHistorial(
+                null,
+                $"Trabajo creado por {userName} con estado \"Nuevo Trabajo Pendiente\".",
+                "Notificación enviada al area de diseño."),
             UpdatedAt = DateTime.UtcNow,
             UpdatedBy = userName
         };
@@ -60,6 +67,27 @@ public sealed class DesignPlannerService : IDesignPlannerService
         _db.DesignPlannerJobs.Add(job);
         await _db.SaveChangesAsync(ct);
         return MapJob((await FindJobAsync(job.JobNumber, ct))!);
+    }
+
+    public async Task<DesignJobDto> SaveProcesoAsync(string jobNumber, SaveDesignProcesoCommand command, string userName, CancellationToken ct = default)
+    {
+        var job = await _db.DesignPlannerJobs
+            .Include(j => j.Actividades.OrderBy(a => a.SortOrder))
+            .FirstOrDefaultAsync(j => j.JobNumber == jobNumber, ct)
+            ?? throw new KeyNotFoundException("Trabajo de diseno no encontrado.");
+
+        job.ProcesoJson = NormalizeProcesoJson(command.ProcesoJson);
+        if (job.Estado == "Nuevo Trabajo Pendiente") job.Estado = "En Desarrollo";
+        if (ProcesoHasAprobacion(job.ProcesoJson))
+        {
+            job.FichaAprobada = true;
+            job.Estado = "Aprobación";
+        }
+        job.HistorialJson = AppendHistorial(job.HistorialJson, "Proceso de diseño actualizado.");
+        job.UpdatedAt = DateTime.UtcNow;
+        job.UpdatedBy = userName;
+        await _db.SaveChangesAsync(ct);
+        return MapJob(job);
     }
 
     public async Task<DesignJobDto> SaveTechnicalPrepAsync(string jobNumber, TechnicalPrepCommand command, string userName, CancellationToken ct = default)
@@ -170,6 +198,17 @@ public sealed class DesignPlannerService : IDesignPlannerService
         return MapJob(job);
     }
 
+    public async Task DeleteJobAsync(string jobNumber, CancellationToken ct = default)
+    {
+        var job = await _db.DesignPlannerJobs
+            .Include(j => j.Actividades)
+            .FirstOrDefaultAsync(j => j.JobNumber == jobNumber, ct)
+            ?? throw new KeyNotFoundException("Trabajo de diseno no encontrado.");
+
+        _db.DesignPlannerJobs.Remove(job);
+        await _db.SaveChangesAsync(ct);
+    }
+
     private async Task<DesignPlannerJob?> FindJobAsync(string jobNumber, CancellationToken ct) =>
         await _db.DesignPlannerJobs.AsNoTracking()
             .Include(j => j.Actividades.OrderBy(a => a.SortOrder))
@@ -197,15 +236,18 @@ public sealed class DesignPlannerService : IDesignPlannerService
         job.Cliente,
         job.Vendedor,
         job.Trabajo,
+        job.Accion,
         job.Responsable,
         job.Estado,
         job.CreatedAt,
+        job.CreatedBy ?? string.Empty,
         job.FechaRecepcion,
         job.FechaEntrega,
         job.Requerimientos,
         job.FichaAprobada,
         job.FechaAprobacion,
         job.ComentariosAprobacion,
+        job.ProcesoJson ?? "{}",
         ParseHistorial(job.HistorialJson),
         job.Actividades.OrderBy(a => a.SortOrder).Select(a => new DesignActivityDto(
             a.Id,
@@ -221,6 +263,34 @@ public sealed class DesignPlannerService : IDesignPlannerService
         var list = actividades.ToList();
         if (list.Count == 0) return 0;
         return (int)Math.Round((double)list.Count(a => a.Completada) / list.Count * 100);
+    }
+
+    private static string NormalizeProcesoJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "{}";
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind == JsonValueKind.Object ? json : "{}";
+        }
+        catch
+        {
+            return "{}";
+        }
+    }
+
+    private static bool ProcesoHasAprobacion(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+            if (!doc.RootElement.TryGetProperty("fechaAprobacion", out var prop)) return false;
+            return prop.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(prop.GetString());
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static List<string> ParseHistorial(string? json)

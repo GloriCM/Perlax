@@ -5,8 +5,13 @@ public static class OvertimeCalculator
     public const decimal CommercialMonthHours = 210m;
     public static readonly TimeOnly NightStart = new(19, 0);
     public static readonly TimeOnly DayStart = new(6, 0);
+    /// <summary>Almuerzo de media hora (12:00-12:30).</summary>
     public static readonly TimeOnly LunchStart = new(12, 0);
-    public static readonly TimeOnly LunchEnd = new(13, 0);
+    public static readonly TimeOnly LunchEnd = new(12, 30);
+    /// <summary>Duración de jornada si el turno inicia a las 07:00 o después (07:00 → 16:30).</summary>
+    public static readonly TimeSpan LateMorningShiftLength = new(9, 30, 0);
+    /// <summary>Duración de jornada clásica de planta (06:00 → 14:00).</summary>
+    public static readonly TimeSpan EarlyMorningShiftLength = new(8, 0, 0);
 
     public static IReadOnlyList<HourTypeFactor> DefaultHourTypes { get; } =
     [
@@ -34,6 +39,20 @@ public static class OvertimeCalculator
             return new OrdinaryShift(new TimeOnly(7, 0), new TimeOnly(13, 0), false, true);
 
         return new OrdinaryShift(new TimeOnly(7, 0), new TimeOnly(16, 30), false, true);
+    }
+
+    /// <summary>
+    /// Jornada de producción anclada al inicio real del turno:
+    /// 06:xx → +8h (p. ej. 06:00-14:00); desde 07:00 → +9.5h (p. ej. 07:00-16:30).
+    /// </summary>
+    public static OrdinaryShift ProductionShiftFromStart(TimeOnly workStart, bool fromRoster = false)
+    {
+        var length = workStart < new TimeOnly(7, 0)
+            ? EarlyMorningShiftLength
+            : LateMorningShiftLength;
+        var end = workStart.Add(length);
+        var crosses = end <= workStart && length > TimeSpan.Zero;
+        return new OrdinaryShift(workStart, end, crosses, fromRoster);
     }
 
     public static bool IsProductionOvertimeRole(string? role)
@@ -68,10 +87,6 @@ public static class OvertimeCalculator
             segments.Add(Classify(a, b, shift, hourValue, types));
         }
 
-        var food = BuildFoodLine(workStart, workEnd, hourValue);
-        if (food is not null)
-            segments.Add(food);
-
         var paid = segments.Where(s => s.CreatesExpense).Sum(s => s.Amount);
         return new OvertimeBreakdown(salary, divisor, hourValue, shift, segments, paid);
     }
@@ -92,6 +107,8 @@ public static class OvertimeCalculator
             AddIfInside(cuts, start, end, day);
             AddIfInside(cuts, start, end, day.Add(DayStart.ToTimeSpan()));
             AddIfInside(cuts, start, end, day.Add(NightStart.ToTimeSpan()));
+            AddIfInside(cuts, start, end, day.Add(LunchStart.ToTimeSpan()));
+            AddIfInside(cuts, start, end, day.Add(LunchEnd.ToTimeSpan()));
             if (shift is null) continue;
             var shiftStart = day.Add(shift.Start.ToTimeSpan());
             var shiftEnd = day.Add(shift.End.ToTimeSpan());
@@ -118,6 +135,13 @@ public static class OvertimeCalculator
         IReadOnlyList<HourTypeFactor> types)
     {
         var hours = (decimal)(end - start).TotalHours;
+        if (IsInsideLunch(start))
+        {
+            return new OvertimeSegment(
+                start, end, Math.Round(hours, 4, MidpointRounding.AwayFromZero),
+                OvertimeSegmentKind.Food, "COMIDA", "", false, false, 0, 0);
+        }
+
         var day = DateOnly.FromDateTime(start);
         var inShift = shift is not null && IsInsideShift(start, shift);
         var night = IsNight(TimeOnly.FromDateTime(start));
@@ -157,17 +181,10 @@ public static class OvertimeCalculator
             kind, LabelFor(kind), category, creates, isHe, factor, amount);
     }
 
-    private static OvertimeSegment? BuildFoodLine(DateTime workStart, DateTime workEnd, decimal hourValue)
+    public static bool IsInsideLunch(DateTime instant)
     {
-        var lunchStart = workStart.Date.Add(LunchStart.ToTimeSpan());
-        var lunchEnd = workStart.Date.Add(LunchEnd.ToTimeSpan());
-        var a = workStart > lunchStart ? workStart : lunchStart;
-        var b = workEnd < lunchEnd ? workEnd : lunchEnd;
-        if (b <= a) return null;
-        var hours = (decimal)(b - a).TotalHours;
-        return new OvertimeSegment(
-            a, b, Math.Round(hours, 4, MidpointRounding.AwayFromZero),
-            OvertimeSegmentKind.Food, "COMIDA", "", false, false, 0, 0);
+        var tod = TimeOnly.FromDateTime(instant);
+        return tod >= LunchStart && tod < LunchEnd;
     }
 
     public static bool IsNight(TimeOnly time) => time >= NightStart || time < DayStart;

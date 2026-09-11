@@ -41,59 +41,12 @@ import { notifications } from '@mantine/notifications';
 import { api } from '../../../utils/api';
 import { toTitleCase, toTitleCaseSaved } from './gastosText';
 
-// ── Mock Data ──────────────────────────────────────────────
-const mockExpenses = [
-    {
-        id: 1,
-        category: 'Troqueles',
-        type: 'Jeisson Cuervo',
-        registeredBy: 'juan',
-        details: [
-            { icon: 'file', text: 'NIT: 94071111' },
-            { icon: 'file', text: 'Factura:' },
-            { icon: 'calendar', text: '16/3/2026' },
-            { icon: 'clock', text: 'Nuevo' },
-        ],
-        op: 'OP: OP_12460_7481',
-        baseAmount: 0,
-        ivaAmount: 0,
-        amount: 0,
-        status: 'pendiente',
-        borderColor: '#f59e0b',
-        bgColor: 'rgba(245, 158, 11, 0.03)'
-    },
-    {
-        id: 2,
-        category: 'Troqueles',
-        type: 'Jeisson Cuervo',
-        registeredBy: 'karen',
-        details: [
-            { icon: 'file', text: 'NIT: 94071111' },
-            { icon: 'file', text: 'Factura:' },
-            { icon: 'calendar', text: '13/3/2026' },
-            { icon: 'clock', text: 'Nuevo' },
-        ],
-        baseAmount: 0,
-        ivaAmount: 0,
-        amount: 0,
-        status: 'pendiente',
-        borderColor: '#f59e0b',
-        bgColor: 'rgba(245, 158, 11, 0.03)',
-        op: 'TROQUEL LA CHULA X 18-PARA LAS TRES CAJAS'
-    },
-];
-
 const MONTHS = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
 const YEARS = ['2024', '2025', '2026', '2027'];
-
-const DEFAULT_RUBROS = [
-    'Todos los Rubros', 'Horas Extras', 'Recargo', 'Repuesto', 'Materia Prima',
-    'Servicios', 'Transporte', 'Papeleria', 'Otros'
-];
 
 const emptyExpenseForm = {
     category: '',
@@ -105,6 +58,9 @@ const emptyExpenseForm = {
     baseAmount: 0,
     ivaAmount: 0,
     status: 'pendiente',
+    expenseDate: new Date().toISOString().slice(0, 10),
+    rubroId: null,
+    proveedorId: null,
 };
 
 const emptyOvertimeForm = {
@@ -149,7 +105,6 @@ const loadHourTypeCatalog = () => {
     return list.filter((t) => t.name && t.factor > 0);
 };
 
-// ── Format currency ────────────────────────────────────────
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-CO', {
         style: 'currency',
@@ -157,6 +112,14 @@ const formatCurrency = (value) => {
         minimumFractionDigits: value % 1 !== 0 ? 2 : 0,
         maximumFractionDigits: 2
     }).format(value);
+};
+
+const formatDateCo = (value) => {
+    if (!value) return new Date().toLocaleDateString('es-CO');
+    const raw = String(value).slice(0, 10);
+    const [y, m, d] = raw.split('-');
+    if (y && m && d) return `${Number(d)}/${Number(m)}/${y}`;
+    return new Date(value).toLocaleDateString('es-CO');
 };
 
 const getExpenseAmounts = (expense) => {
@@ -168,42 +131,92 @@ const getExpenseAmounts = (expense) => {
     if (isOvertime) {
         return { base, iva: 0, total: base };
     }
-    const iva = computeIva(base);
+    const iva = Number(expense?.ivaAmount ?? computeIva(base));
     return { base, iva, total: base + iva };
 };
 
-const buildStorageKey = (title) => `perlax-gastos-${String(title || 'general')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')}`;
+const parseOvertimeJson = (raw) => {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw); } catch { return null; }
+};
 
-const buildExpenseFromForm = (form, existingExpense) => {
-    const baseAmount = Number(form.baseAmount || 0);
-    const ivaAmount = computeIva(baseAmount);
-    const amount = baseAmount + ivaAmount;
-    const invoiceText = form.invoice?.trim();
-
+const mapCapturaToExpense = (row) => {
+    const overtimeMeta = parseOvertimeJson(row.overtimeJson);
+    const status = row.status || 'pendiente';
     return {
-        ...(existingExpense || {}),
-        id: existingExpense?.id || Date.now(),
-        category: toTitleCaseSaved(form.category) || 'Otros',
-        type: toTitleCaseSaved(form.type) || 'Sin Proveedor',
-        registeredBy: form.registeredBy?.trim() || 'Sistema',
+        id: row.id,
+        category: row.rubroName || '',
+        type: row.proveedorName || 'Sin Proveedor',
+        registeredBy: row.registeredBy || 'Sistema',
+        rubroId: row.rubroId || null,
+        proveedorId: row.proveedorId || null,
+        invoice: row.invoice || '',
+        expenseDate: row.expenseDate,
         details: [
-            invoiceText ? { icon: 'file', text: `Factura: ${invoiceText}` } : null,
-            { icon: 'calendar', text: new Date().toLocaleDateString('es-CO') },
-            { icon: 'clock', text: existingExpense ? 'Editado' : 'Nuevo' },
+            row.invoice ? { icon: 'file', text: `Factura: ${row.invoice}` } : null,
+            { icon: 'calendar', text: formatDateCo(row.expenseDate) },
+            { icon: 'clock', text: row.updatedAt ? 'Editado' : 'Nuevo' },
         ].filter(Boolean),
-        op: form.op?.trim(),
-        description: form.description?.trim(),
-        baseAmount,
-        ivaAmount,
-        amount,
-        status: form.status || 'pendiente',
-        borderColor: form.status === 'gastado' ? '#10b981' : '#f59e0b',
-        bgColor: form.status === 'gastado' ? 'rgba(16, 185, 129, 0.03)' : 'rgba(245, 158, 11, 0.03)',
+        op: row.opNumber || '',
+        description: row.description || '',
+        baseAmount: Number(row.baseAmount || 0),
+        ivaAmount: Number(row.ivaAmount || 0),
+        amount: Number(row.totalAmount || 0),
+        status,
+        overtimeGroupId: row.overtimeGroupId || null,
+        overtimeInput: overtimeMeta?.input || null,
+        borderColor: status === 'gastado' ? '#10b981' : '#f59e0b',
+        bgColor: status === 'gastado' ? 'rgba(16, 185, 129, 0.03)' : 'rgba(245, 158, 11, 0.03)',
     };
+};
+
+/** Un turno con diurna + nocturna crea varias filas; en lista se muestra un solo gasto sumado. */
+const groupExpensesForDisplay = (list) => {
+    const seenGroups = new Set();
+    const result = [];
+    for (const expense of list) {
+        const groupId = expense.overtimeGroupId;
+        if (!groupId) {
+            result.push(expense);
+            continue;
+        }
+        if (seenGroups.has(groupId)) continue;
+        seenGroups.add(groupId);
+        const rows = list.filter((e) => e.overtimeGroupId === groupId);
+        const total = rows.reduce((sum, row) => sum + getExpenseAmounts(row).total, 0);
+        const primary = rows[0];
+        const segmentLines = rows
+            .map((row) => row.description)
+            .filter(Boolean);
+        result.push({
+            ...primary,
+            id: primary.id,
+            amount: total,
+            baseAmount: total,
+            ivaAmount: 0,
+            description: segmentLines.join(' · ') || primary.description,
+            overtimeSegments: rows.map((row) => ({
+                id: row.id,
+                label: row.description,
+                amount: getExpenseAmounts(row).total,
+            })),
+        });
+    }
+    return result;
+};
+
+const readInputValue = (eventOrValue) => {
+    if (eventOrValue == null) return '';
+    if (typeof eventOrValue === 'string' || typeof eventOrValue === 'number') {
+        return String(eventOrValue);
+    }
+    return String(eventOrValue?.currentTarget?.value ?? eventOrValue?.target?.value ?? '');
+};
+
+const monthIndex = (monthName) => {
+    const idx = MONTHS.findIndex((m) => m.toLowerCase() === String(monthName || '').toLowerCase());
+    return idx >= 0 ? idx + 1 : null;
 };
 
 // ── Detail icon resolver ───────────────────────────────────
@@ -313,6 +326,19 @@ const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
                     </Group>
                 )}
 
+                {Array.isArray(expense.overtimeSegments) && expense.overtimeSegments.length > 1 && (
+                    <Stack gap={2} mb="xs">
+                        {expense.overtimeSegments.map((segment) => (
+                            <Group key={segment.id} justify="space-between" gap="md">
+                                <Text size="xs" c="gray.5">{segment.label}</Text>
+                                <Text size="xs" c="gray.4" style={{ fontFamily: 'monospace' }}>
+                                    {formatCurrency(segment.amount)}
+                                </Text>
+                            </Group>
+                        ))}
+                    </Stack>
+                )}
+
                 {/* Action buttons */}
                 <Group justify="flex-end" gap="lg" mt="sm">
                     {isPending && (
@@ -348,7 +374,7 @@ const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
                         color="red"
                         size="xs"
                         leftSection={<IconTrash size={14} />}
-                        onClick={() => onDelete(expense.id)}
+                        onClick={() => onDelete(expense)}
                     >
                         Eliminar
                     </Button>
@@ -362,18 +388,23 @@ const ExpenseCard = ({ expense, index, onEdit, onDelete }) => {
 const GastosProduccion = ({
     titulo = 'Gastos de Producción',
     showTabs = false,
-    pathPrefix = '/planeacion/gastos',
-    rubros = DEFAULT_RUBROS,
-    initialExpenses = mockExpenses,
+    pathPrefix = '/gastos/control',
+    areaKey = 'produccion',
+    persistRemote = true,
     presupuestoInicial = 2100000,
     personnelRoles = ['Operario', 'Auxiliar'],
 }) => {
     const navigate = useNavigate();
-    const [year, setYear] = useState('2026');
-    const [month, setMonth] = useState('Marzo');
+    const [year, setYear] = useState(String(new Date().getFullYear()));
+    const [month, setMonth] = useState(MONTHS[new Date().getMonth()]);
     const [rubro, setRubro] = useState('Todos los Rubros');
     const [pendientesOnly, setPendientesOnly] = useState(false);
+    const [rubros, setRubros] = useState(['Todos los Rubros']);
+    const [rubroCatalog, setRubroCatalog] = useState([]);
+    const [proveedores, setProveedores] = useState([]);
     const [expenses, setExpenses] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState(null);
     const [form, setForm] = useState(emptyExpenseForm);
@@ -382,7 +413,6 @@ const GastosProduccion = ({
     const [openOps, setOpenOps] = useState([]);
     const [overtimePreview, setOvertimePreview] = useState(null);
     const [calculating, setCalculating] = useState(false);
-    const storageKey = buildStorageKey(titulo);
     const overtimeMode = (personnelRoles || []).length > 0 && isOvertimeOrSurchargeRubro(form.category);
     const rolesKey = (personnelRoles || []).join(',');
     const isProductionOvertime = (personnelRoles || []).some((role) =>
@@ -392,19 +422,75 @@ const GastosProduccion = ({
     const gastado = expenses.reduce((sum, e) => sum + getExpenseAmounts(e).total, 0);
     const restante = presupuesto - gastado;
 
-    useEffect(() => {
-        const stored = localStorage.getItem(storageKey);
-        if (!stored) {
-            setExpenses(initialExpenses);
+    const storageKey = `perlax-gastos-${String(titulo || 'general')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')}`;
+
+    const loadCatalog = async () => {
+        if (!persistRemote) return;
+        try {
+            const [rubroData, proveedorData] = await Promise.all([
+                api.get(`/gastos/${areaKey}/rubros`),
+                api.get(`/gastos/${areaKey}/proveedores`),
+            ]);
+            const names = (Array.isArray(rubroData) ? rubroData : []).map((r) => r.name).filter(Boolean);
+            setRubroCatalog(Array.isArray(rubroData) ? rubroData : []);
+            setRubros(['Todos los Rubros', ...names]);
+            setProveedores(Array.isArray(proveedorData) ? proveedorData : []);
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudo cargar el catálogo',
+                message: error.message || 'Error de red',
+                color: 'red',
+            });
+        }
+    };
+
+    const loadCapturas = async () => {
+        if (!persistRemote) {
+            setLoading(true);
+            try {
+                const stored = localStorage.getItem(storageKey);
+                setExpenses(stored ? JSON.parse(stored) : []);
+            } catch {
+                setExpenses([]);
+            } finally {
+                setLoading(false);
+            }
             return;
         }
-
+        setLoading(true);
         try {
-            setExpenses(JSON.parse(stored));
-        } catch {
-            setExpenses(initialExpenses);
+            const params = new URLSearchParams();
+            if (year) params.set('year', year);
+            const m = monthIndex(month);
+            if (m) params.set('month', String(m));
+            if (rubro && rubro !== 'Todos los Rubros') params.set('rubro', rubro);
+            if (pendientesOnly) params.set('status', 'pendiente');
+            const qs = params.toString();
+            const data = await api.get(`/gastos/${areaKey}/capturas${qs ? `?${qs}` : ''}`);
+            setExpenses((Array.isArray(data) ? data : []).map(mapCapturaToExpense));
+        } catch (error) {
+            setExpenses([]);
+            notifications.show({
+                title: 'No se pudieron cargar los gastos',
+                message: error.message || 'Error de red',
+                color: 'red',
+            });
+        } finally {
+            setLoading(false);
         }
-    }, [storageKey, initialExpenses]);
+    };
+
+    useEffect(() => {
+        loadCatalog();
+    }, [areaKey, persistRemote]);
+
+    useEffect(() => {
+        loadCapturas();
+    }, [areaKey, year, month, rubro, pendientesOnly, persistRemote]);
 
     useEffect(() => {
         if (!modalOpen || !overtimeMode) return;
@@ -480,15 +566,14 @@ const GastosProduccion = ({
         };
     }, [modalOpen, overtimeMode, overtimeForm.personnelId, overtimeForm.date, overtimeForm.startTime, overtimeForm.endTime, overtimeForm.op, overtimeForm.note, personnel]);
 
-    const persistExpenses = (nextExpenses) => {
-        setExpenses(nextExpenses);
-        localStorage.setItem(storageKey, JSON.stringify(nextExpenses));
-    };
-
     const openAddModal = () => {
-        const firstRubro = rubros.find((item) => item !== 'Todos los Rubros') || 'Otros';
+        const firstRubro = rubros.find((item) => item !== 'Todos los Rubros') || '';
         setEditingExpense(null);
-        setForm({ ...emptyExpenseForm, category: rubro !== 'Todos los Rubros' ? rubro : firstRubro });
+        setForm({
+            ...emptyExpenseForm,
+            category: rubro !== 'Todos los Rubros' ? rubro : firstRubro,
+            expenseDate: new Date().toISOString().slice(0, 10),
+        });
         setOvertimeForm(emptyOvertimeForm);
         setOvertimePreview(null);
         setModalOpen(true);
@@ -496,19 +581,22 @@ const GastosProduccion = ({
 
     const openEditModal = (expense) => {
         const amounts = getExpenseAmounts(expense);
-        const invoiceDetail = expense.details?.find((detail) => detail.text?.toLowerCase().startsWith('factura:'));
-
         setEditingExpense(expense);
         setForm({
             category: expense.category || '',
             type: expense.type || '',
             registeredBy: expense.registeredBy || '',
-            invoice: invoiceDetail?.text?.replace(/^Factura:\s*/i, '') || '',
+            invoice: expense.invoice || '',
             op: expense.op || '',
             description: expense.description || '',
             baseAmount: amounts.base,
             ivaAmount: amounts.iva,
             status: expense.status || 'pendiente',
+            expenseDate: expense.expenseDate
+                ? String(expense.expenseDate).slice(0, 10)
+                : new Date().toISOString().slice(0, 10),
+            rubroId: expense.rubroId || null,
+            proveedorId: expense.proveedorId || null,
         });
         setOvertimeForm(expense.overtimeInput
             ? { ...emptyOvertimeForm, ...expense.overtimeInput }
@@ -518,6 +606,63 @@ const GastosProduccion = ({
     };
 
     const handleSaveExpense = async () => {
+        if (saving) return;
+
+        if (!persistRemote) {
+            // SST y áreas aún sin API de captura
+            const next = editingExpense
+                ? expenses.map((e) => (e.id === editingExpense.id
+                    ? {
+                        ...e,
+                        category: form.category,
+                        type: form.type || 'Sin Proveedor',
+                        registeredBy: form.registeredBy || 'Sistema',
+                        invoice: form.invoice,
+                        op: form.op,
+                        description: form.description,
+                        baseAmount: Number(form.baseAmount || 0),
+                        ivaAmount: computeIva(form.baseAmount),
+                        amount: Number(form.baseAmount || 0) + computeIva(form.baseAmount),
+                        status: form.status || 'pendiente',
+                        expenseDate: form.expenseDate,
+                        details: [
+                            form.invoice ? { icon: 'file', text: `Factura: ${form.invoice}` } : null,
+                            { icon: 'calendar', text: formatDateCo(form.expenseDate) },
+                            { icon: 'clock', text: 'Editado' },
+                        ].filter(Boolean),
+                        borderColor: form.status === 'gastado' ? '#10b981' : '#f59e0b',
+                        bgColor: form.status === 'gastado' ? 'rgba(16, 185, 129, 0.03)' : 'rgba(245, 158, 11, 0.03)',
+                    }
+                    : e))
+                : [{
+                    id: Date.now(),
+                    category: form.category,
+                    type: form.type || 'Sin Proveedor',
+                    registeredBy: form.registeredBy || 'Sistema',
+                    invoice: form.invoice,
+                    op: form.op,
+                    description: form.description,
+                    baseAmount: Number(form.baseAmount || 0),
+                    ivaAmount: computeIva(form.baseAmount),
+                    amount: Number(form.baseAmount || 0) + computeIva(form.baseAmount),
+                    status: form.status || 'pendiente',
+                    expenseDate: form.expenseDate,
+                    details: [
+                        form.invoice ? { icon: 'file', text: `Factura: ${form.invoice}` } : null,
+                        { icon: 'calendar', text: formatDateCo(form.expenseDate) },
+                        { icon: 'clock', text: 'Nuevo' },
+                    ].filter(Boolean),
+                    borderColor: form.status === 'gastado' ? '#10b981' : '#f59e0b',
+                    bgColor: form.status === 'gastado' ? 'rgba(16, 185, 129, 0.03)' : 'rgba(245, 158, 11, 0.03)',
+                }, ...expenses];
+            setExpenses(next);
+            localStorage.setItem(storageKey, JSON.stringify(next));
+            setModalOpen(false);
+            setEditingExpense(null);
+            setForm(emptyExpenseForm);
+            return;
+        }
+
         if (overtimeMode) {
             const person = personnel.find((p) => String(p.id) === String(overtimeForm.personnelId));
             if (!person) {
@@ -542,6 +687,7 @@ const GastosProduccion = ({
             }
             try {
                 setCalculating(true);
+                setSaving(true);
                 const result = await api.post('/production/overtime/calculate', {
                     userId: person.id,
                     salary: Number(person.salary),
@@ -550,7 +696,6 @@ const GastosProduccion = ({
                     endTime: overtimeForm.endTime,
                     role: person.role,
                     opNumber: isProductionOvertime ? overtimeForm.op : null,
-                    note: overtimeForm.note || null,
                     note: overtimeForm.note || null,
                     hourTypes: loadHourTypeCatalog(),
                 });
@@ -563,75 +708,129 @@ const GastosProduccion = ({
                     });
                     return;
                 }
-                const groupId = editingExpense?.overtimeGroupId || `ot-${Date.now()}`;
-                const withoutGroup = expenses.filter((e) => e.overtimeGroupId !== groupId && e.id !== editingExpense?.id);
-                const inputSnapshot = { ...overtimeForm, displayName: person.displayName };
-                const newRows = paid.map((segment, index) => {
-                    const category = segment.category || (segment.isHe ? 'Horas Extras' : 'Recargo');
-                    return {
-                        id: `${groupId}-${index}`,
-                        overtimeGroupId: groupId,
-                        overtimeInput: inputSnapshot,
-                        category,
-                        type: person.displayName,
-                        registeredBy: 'Sistema',
-                        details: [
-                            { icon: 'calendar', text: overtimeForm.date.split('-').reverse().join('/') },
-                            { icon: 'clock', text: `${segment.label} · ${segment.hours} h` },
-                            result.shiftLabel ? { icon: 'clock', text: `Turno ${result.shiftLabel}` } : null,
-                        ].filter(Boolean),
-                        op: isProductionOvertime ? overtimeForm.op : undefined,
-                        description: overtimeForm.note || `${segment.label} ${overtimeForm.startTime}-${overtimeForm.endTime}`,
-                        baseAmount: Number(segment.amount || 0),
-                        ivaAmount: 0,
-                        amount: Number(segment.amount || 0),
-                        status: 'pendiente',
-                        borderColor: '#f59e0b',
-                        bgColor: 'rgba(245, 158, 11, 0.03)',
-                    };
+                const groupId = editingExpense?.overtimeGroupId || undefined;
+                await api.post(`/gastos/${areaKey}/capturas/overtime-batch`, {
+                    expenseDate: overtimeForm.date,
+                    registeredBy: 'Sistema',
+                    status: 'pendiente',
+                    opNumber: isProductionOvertime ? overtimeForm.op : null,
+                    note: overtimeForm.note || null,
+                    displayName: person.displayName,
+                    overtimeGroupId: groupId || null,
+                    overtimeInput: { ...overtimeForm, displayName: person.displayName },
+                    segments: paid.map((segment) => ({
+                        category: segment.category || (segment.isHe ? 'Horas Extras' : 'Recargo'),
+                        label: segment.label,
+                        hours: segment.hours,
+                        amount: segment.amount,
+                        isHe: segment.isHe,
+                        createsExpense: true,
+                    })),
                 });
-                persistExpenses([...newRows, ...withoutGroup]);
                 setModalOpen(false);
                 setEditingExpense(null);
                 setForm(emptyExpenseForm);
                 setOvertimeForm(emptyOvertimeForm);
+                await loadCapturas();
             } catch (err) {
                 notifications.show({
                     title: 'No se pudo guardar',
-                    message: err?.message || 'El backend no pudo recalcular el desglose.',
+                    message: err?.message || 'El backend no pudo guardar el desglose.',
                     color: 'red',
                 });
             } finally {
                 setCalculating(false);
+                setSaving(false);
             }
             return;
         }
 
-        const nextExpense = buildExpenseFromForm(form, editingExpense);
-        const nextExpenses = editingExpense
-            ? expenses.map((expense) => expense.id === editingExpense.id ? nextExpense : expense)
-            : [nextExpense, ...expenses];
+        if (!form.category?.trim()) {
+            notifications.show({ title: 'Rubro requerido', message: 'Seleccione un rubro.', color: 'yellow' });
+            return;
+        }
 
-        persistExpenses(nextExpenses);
-        setModalOpen(false);
-        setEditingExpense(null);
-        setForm(emptyExpenseForm);
+        const matchedProveedor = proveedores.find(
+            (p) => toTitleCase(p.name) === toTitleCase(form.type)
+        );
+        const matchedRubro = rubroCatalog.find(
+            (r) => toTitleCase(r.name) === toTitleCase(form.category)
+        );
+
+        const payload = {
+            expenseDate: form.expenseDate || new Date().toISOString().slice(0, 10),
+            rubroId: form.rubroId || matchedRubro?.id || null,
+            rubroName: toTitleCaseSaved(form.category),
+            proveedorId: matchedProveedor?.id || form.proveedorId || null,
+            proveedorName: toTitleCaseSaved(form.type) || 'Sin Proveedor',
+            invoice: form.invoice?.trim() || null,
+            opNumber: form.op?.trim() || null,
+            description: form.description?.trim() || null,
+            baseAmount: Number(form.baseAmount || 0),
+            status: form.status || 'pendiente',
+            registeredBy: form.registeredBy?.trim() || 'Sistema',
+        };
+
+        try {
+            setSaving(true);
+            if (editingExpense?.id) {
+                await api.put(`/gastos/${areaKey}/capturas/${editingExpense.id}`, payload);
+            } else {
+                await api.post(`/gastos/${areaKey}/capturas`, payload);
+            }
+            setModalOpen(false);
+            setEditingExpense(null);
+            setForm(emptyExpenseForm);
+            await loadCapturas();
+        } catch (err) {
+            notifications.show({
+                title: 'No se pudo guardar',
+                message: err?.message || 'Error al persistir el gasto.',
+                color: 'red',
+            });
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const handleDeleteExpense = (expenseId) => {
-        persistExpenses(expenses.filter((expense) => expense.id !== expenseId));
+    const handleDeleteExpense = async (expenseOrId) => {
+        const expenseId = typeof expenseOrId === 'object' ? expenseOrId?.id : expenseOrId;
+        const target = typeof expenseOrId === 'object'
+            ? expenseOrId
+            : expenses.find((e) => e.id === expenseId);
+        if (!persistRemote) {
+            const next = expenses.filter((expense) => {
+                if (target?.overtimeGroupId) {
+                    return expense.overtimeGroupId !== target.overtimeGroupId;
+                }
+                return expense.id !== expenseId;
+            });
+            setExpenses(next);
+            localStorage.setItem(storageKey, JSON.stringify(next));
+            return;
+        }
+        if (!target) return;
+        try {
+            if (target.overtimeGroupId) {
+                await api.delete(`/gastos/${areaKey}/capturas/overtime-group/${target.overtimeGroupId}`);
+            } else {
+                await api.delete(`/gastos/${areaKey}/capturas/${target.id || expenseId}`);
+            }
+            await loadCapturas();
+        } catch (err) {
+            notifications.show({
+                title: 'No se pudo eliminar',
+                message: err?.message || 'Error al borrar el gasto.',
+                color: 'red',
+            });
+        }
     };
 
-    const filteredExpenses = expenses.filter(e => {
-        if (pendientesOnly && e.status !== 'pendiente') return false;
-        if (rubro !== 'Todos los Rubros' && toTitleCase(e.category) !== toTitleCase(rubro)) return false;
-        return true;
-    });
-
+    const filteredExpenses = groupExpensesForDisplay(expenses);
     const summaryCards = [
         { label: 'Presupuesto', value: presupuesto, gradient: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)', glow: 'rgba(37, 99, 235, 0.3)' },
         { label: 'Gastado', value: gastado, gradient: 'linear-gradient(135deg, #5c1e1e 0%, #dc2626 100%)', glow: 'rgba(220, 38, 38, 0.3)' },
-        { label: 'Exceso', value: gastado, gradient: 'linear-gradient(135deg, #5c1e1e 0%, #dc2626 100%)', glow: 'rgba(220, 38, 38, 0.3)' },
+        { label: 'Restante', value: restante, gradient: 'linear-gradient(135deg, #14532d 0%, #16a34a 100%)', glow: 'rgba(22, 163, 74, 0.3)' },
     ];
 
     return (
@@ -688,7 +887,8 @@ const GastosProduccion = ({
                         <Select
                             data={YEARS}
                             value={year}
-                            onChange={setYear}
+                            onChange={(value) => setYear(value || String(new Date().getFullYear()))}
+                            allowDeselect={false}
                             w={100}
                             size="sm"
                             styles={{
@@ -702,7 +902,8 @@ const GastosProduccion = ({
                         <Select
                             data={MONTHS}
                             value={month}
-                            onChange={setMonth}
+                            onChange={(value) => setMonth(value || MONTHS[new Date().getMonth()])}
+                            allowDeselect={false}
                             w={140}
                             size="sm"
                             styles={{
@@ -716,9 +917,10 @@ const GastosProduccion = ({
                     </Group>
                     <Group gap="sm">
                         <Select
-                            data={rubros}
+                            data={rubros.filter(Boolean)}
                             value={rubro}
-                            onChange={setRubro}
+                            onChange={(value) => setRubro(value || 'Todos los Rubros')}
+                            allowDeselect={false}
                             w={180}
                             size="sm"
                             styles={{
@@ -732,7 +934,7 @@ const GastosProduccion = ({
                         <Switch
                             label="Ver solo Pendientes"
                             checked={pendientesOnly}
-                            onChange={(e) => setPendientesOnly(e.currentTarget.checked)}
+                            onChange={(e) => setPendientesOnly(Boolean(e?.currentTarget?.checked))}
                             color="orange"
                             size="sm"
                             styles={{
@@ -805,7 +1007,7 @@ const GastosProduccion = ({
                 <AnimatePresence>
                     {filteredExpenses.map((expense, index) => (
                         <ExpenseCard
-                            key={expense.id}
+                            key={expense.overtimeGroupId || expense.id}
                             expense={expense}
                             index={index}
                             onEdit={openEditModal}
@@ -835,6 +1037,7 @@ const GastosProduccion = ({
                 title={editingExpense ? 'Editar gasto' : 'Registrar gasto'}
                 size="lg"
                 centered
+                keepMounted={false}
             >
                 <Stack>
                     <Select
@@ -842,7 +1045,12 @@ const GastosProduccion = ({
                         data={rubros.filter((item) => item !== 'Todos los Rubros').map((item) => toTitleCase(item))}
                         value={form.category}
                         onChange={(value) => {
-                            setForm((prev) => ({ ...prev, category: value || '' }));
+                            const match = rubroCatalog.find((r) => toTitleCase(r.name) === toTitleCase(value));
+                            setForm((prev) => ({
+                                ...prev,
+                                category: value || '',
+                                rubroId: match?.id || null,
+                            }));
                             setOvertimePreview(null);
                         }}
                         required
@@ -854,59 +1062,67 @@ const GastosProduccion = ({
                                 placeholder="Seleccione la persona"
                                 searchable
                                 required
-                                data={personnel.map((p) => ({
-                                    value: String(p.id),
-                                    label: `${p.displayName}${p.salary ? ` · ${formatCurrency(p.salary)}` : ' · sin salario'}`,
-                                }))}
-                                value={overtimeForm.personnelId}
-                                onChange={(value) => setOvertimeForm((prev) => ({ ...prev, personnelId: value || '' }))}
-                            />
-                            <TextInput
-                                label="Fecha de la hora extra"
-                                type="date"
-                                required
-                                value={overtimeForm.date}
-                                onChange={(event) => setOvertimeForm((prev) => ({ ...prev, date: event.currentTarget.value }))}
-                            />
-                            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                                <TextInput
-                                    label="Hora inicio del turno"
-                                    type="time"
-                                    required
-                                    value={overtimeForm.startTime}
-                                    onChange={(event) => setOvertimeForm((prev) => ({ ...prev, startTime: event.currentTarget.value }))}
+                                    data={personnel
+                                        .filter((p) => p && p.id != null)
+                                        .map((p) => ({
+                                            value: String(p.id),
+                                            label: `${p.displayName || 'Sin nombre'}${p.salary ? ` · ${formatCurrency(p.salary)}` : ' · sin salario'}`,
+                                        }))}
+                                    value={overtimeForm.personnelId || null}
+                                    onChange={(value) => setOvertimeForm((prev) => ({ ...prev, personnelId: value || '' }))}
                                 />
                                 <TextInput
-                                    label="Hora fin del turno"
-                                    type="time"
+                                    label="Fecha de la hora extra"
+                                    type="date"
                                     required
-                                    value={overtimeForm.endTime}
-                                    onChange={(event) => setOvertimeForm((prev) => ({ ...prev, endTime: event.currentTarget.value }))}
+                                    value={overtimeForm.date || ''}
+                                    onChange={(event) => setOvertimeForm((prev) => ({ ...prev, date: readInputValue(event) }))}
                                 />
-                            </SimpleGrid>
-                            {isProductionOvertime && (
-                                <Select
-                                    label="OP"
-                                    placeholder="Seleccione la OP"
-                                    searchable
-                                    required
-                                    data={openOps.map((op) => ({
-                                        value: op.opNumber || op.otNumber || op.id,
-                                        label: [op.opNumber, op.clientName, op.productName].filter(Boolean).join(' · '),
-                                    }))}
-                                    value={overtimeForm.op}
-                                    onChange={(value) => setOvertimeForm((prev) => ({ ...prev, op: value || '' }))}
+                                <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                                    <TextInput
+                                        label="Hora inicio del turno"
+                                        type="time"
+                                        required
+                                        value={overtimeForm.startTime || ''}
+                                        onChange={(event) => setOvertimeForm((prev) => ({ ...prev, startTime: readInputValue(event) }))}
+                                    />
+                                    <TextInput
+                                        label="Hora fin del turno"
+                                        type="time"
+                                        required
+                                        value={overtimeForm.endTime || ''}
+                                        onChange={(event) => setOvertimeForm((prev) => ({ ...prev, endTime: readInputValue(event) }))}
+                                    />
+                                </SimpleGrid>
+                                {isProductionOvertime && (
+                                    <Select
+                                        label="OP"
+                                        placeholder="Seleccione la OP"
+                                        searchable
+                                        required
+                                        data={openOps
+                                            .map((op) => {
+                                                const value = op?.opNumber || op?.otNumber || op?.id;
+                                                if (value == null || value === '') return null;
+                                                return {
+                                                    value: String(value),
+                                                    label: [op.opNumber, op.clientName, op.productName].filter(Boolean).join(' · ') || String(value),
+                                                };
+                                            })
+                                            .filter(Boolean)}
+                                        value={overtimeForm.op || null}
+                                        onChange={(value) => setOvertimeForm((prev) => ({ ...prev, op: value || '' }))}
+                                    />
+                                )}
+                                <Textarea
+                                    label="Nota"
+                                    description={isProductionOvertime ? 'Opcional' : 'Obligatoria: qué estuvo haciendo'}
+                                    placeholder={isProductionOvertime ? '' : 'Describa la actividad realizada'}
+                                    required={!isProductionOvertime}
+                                    value={overtimeForm.note || ''}
+                                    onChange={(event) => setOvertimeForm((prev) => ({ ...prev, note: readInputValue(event) }))}
+                                    minRows={2}
                                 />
-                            )}
-                            <Textarea
-                                label="Nota"
-                                description={isProductionOvertime ? 'Opcional' : 'Obligatoria: qué estuvo haciendo'}
-                                placeholder={isProductionOvertime ? '' : 'Describa la actividad realizada'}
-                                required={!isProductionOvertime}
-                                value={overtimeForm.note}
-                                onChange={(event) => setOvertimeForm((prev) => ({ ...prev, note: event.currentTarget.value }))}
-                                minRows={2}
-                            />
                             {calculating && <Text size="sm" c="dimmed">Calculando desglose…</Text>}
                             {overtimePreview && (
                                 <Paper p="sm" radius="md" withBorder>
@@ -940,24 +1156,53 @@ const GastosProduccion = ({
                     ) : (
                         <>
                     <TextInput
+                        label="Fecha del gasto"
+                        type="date"
+                        required
+                        value={form.expenseDate || ''}
+                        onChange={(event) => setForm((prev) => ({ ...prev, expenseDate: readInputValue(event) }))}
+                    />
+                    <Select
+                        label="Proveedor (catálogo)"
+                        searchable
+                        clearable
+                        data={proveedores
+                            .filter((p) => p?.name)
+                            .map((p) => ({ value: p.name, label: p.name }))}
+                        value={proveedores.some((p) => p.name === form.type) ? form.type : null}
+                        onChange={(value) => {
+                            const match = proveedores.find((p) => p.name === value);
+                            setForm((prev) => ({
+                                ...prev,
+                                type: value || '',
+                                proveedorId: match?.id || null,
+                            }));
+                        }}
+                        nothingFoundMessage="Sin proveedores"
+                    />
+                    <TextInput
                         label="Proveedor / Tipo"
-                        value={form.type}
-                        onChange={(event) => setForm((prev) => ({ ...prev, type: toTitleCase(event.currentTarget.value) }))}
+                        value={form.type || ''}
+                        onChange={(event) => setForm((prev) => ({
+                            ...prev,
+                            type: toTitleCase(readInputValue(event)),
+                            proveedorId: null,
+                        }))}
                     />
                     <TextInput
                         label="Registrado por"
-                        value={form.registeredBy}
-                        onChange={(event) => setForm((prev) => ({ ...prev, registeredBy: event.currentTarget.value }))}
+                        value={form.registeredBy || ''}
+                        onChange={(event) => setForm((prev) => ({ ...prev, registeredBy: readInputValue(event) }))}
                     />
                     <TextInput
                         label="Factura"
-                        value={form.invoice}
-                        onChange={(event) => setForm((prev) => ({ ...prev, invoice: event.currentTarget.value }))}
+                        value={form.invoice || ''}
+                        onChange={(event) => setForm((prev) => ({ ...prev, invoice: readInputValue(event) }))}
                     />
                     <TextInput
                         label="OP / Referencia"
-                        value={form.op}
-                        onChange={(event) => setForm((prev) => ({ ...prev, op: event.currentTarget.value }))}
+                        value={form.op || ''}
+                        onChange={(event) => setForm((prev) => ({ ...prev, op: readInputValue(event) }))}
                     />
                     <SimpleGrid cols={{ base: 1, sm: 3 }}>
                         <NumberInput
@@ -995,8 +1240,8 @@ const GastosProduccion = ({
                     />
                     <Textarea
                         label="Descripción"
-                        value={form.description}
-                        onChange={(event) => setForm((prev) => ({ ...prev, description: event.currentTarget.value }))}
+                        value={form.description || ''}
+                        onChange={(event) => setForm((prev) => ({ ...prev, description: readInputValue(event) }))}
                         minRows={3}
                     />
                         </>
@@ -1005,7 +1250,7 @@ const GastosProduccion = ({
                         <Button variant="subtle" color="gray" onClick={() => setModalOpen(false)}>
                             Cancelar
                         </Button>
-                        <Button onClick={handleSaveExpense} loading={calculating}>
+                        <Button onClick={handleSaveExpense} loading={saving || calculating}>
                             Guardar
                         </Button>
                     </Group>

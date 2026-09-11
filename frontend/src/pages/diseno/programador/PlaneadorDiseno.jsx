@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../../utils/api';
+import { isAdmin, getCurrentUser, getUserDisplayName, isAssignedToCurrentUser } from '../../../utils/permissions';
 import {
     Alert,
     Badge,
     Box,
     Button,
     Card,
+    Checkbox,
     Group,
     Modal,
     Progress,
@@ -21,17 +24,17 @@ import {
     Title
 } from '@mantine/core';
 import { DateInput, DatesProvider } from '@mantine/dates';
+import { notifications } from '@mantine/notifications';
 import {
     IconAlertTriangle,
     IconBriefcase,
     IconCheck,
     IconChevronLeft,
     IconChevronRight,
-    IconClipboardList,
     IconFilter,
     IconLayoutDashboard,
     IconPlus,
-    IconTimeline
+    IconTrash
 } from '@tabler/icons-react';
 import '@mantine/dates/styles.css';
 import './PlaneadorDiseno.css';
@@ -99,7 +102,113 @@ function PlaneadorDateInput(props) {
     );
 }
 
-const ACTIVITY_OPTIONS = ['Planchas', 'Troquel', 'Muestras', 'Impresión digital', 'Arte', 'Expertis'];
+const VENDEDORES_STORAGE_KEY = 'perlax-diseno-vendedores-v2';
+
+function emptyProceso() {
+    return {
+        planchas: { aplica: false, fechaEnvio: null, fechaRecibido: null, repeticion: null },
+        troquel: { aplica: false, fechaEnvio: null, fechaRecibido: null },
+        muestra: { aplica: false, fechaEnvioImpDigi: null, fechaRecibidoImpDigi: null, fechaEntrega: null },
+        presentacion: { aplica: false, fechaEntrega: null },
+        arteYFicha: { aplica: false, fechaEntrega: null },
+        expertis: { aplica: false, encontradoEnPlataforma: false, fecha: null },
+        fechaAprobacion: null,
+        pendientes: ''
+    };
+}
+
+function parseDateValue(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeProceso(raw) {
+    const base = emptyProceso();
+    const src = raw && typeof raw === 'object' ? raw : {};
+    return {
+        planchas: {
+            ...base.planchas,
+            ...(src.planchas || {}),
+            fechaEnvio: parseDateValue(src.planchas?.fechaEnvio),
+            fechaRecibido: parseDateValue(src.planchas?.fechaRecibido),
+            repeticion: src.planchas?.repeticion === true || src.planchas?.repeticion === 'si' || src.planchas?.repeticion === 'Sí'
+                ? true
+                : src.planchas?.repeticion === false || src.planchas?.repeticion === 'no' || src.planchas?.repeticion === 'No'
+                    ? false
+                    : null
+        },
+        troquel: {
+            ...base.troquel,
+            ...(src.troquel || {}),
+            fechaEnvio: parseDateValue(src.troquel?.fechaEnvio),
+            fechaRecibido: parseDateValue(src.troquel?.fechaRecibido)
+        },
+        muestra: {
+            ...base.muestra,
+            ...(src.muestra || {}),
+            fechaEnvioImpDigi: parseDateValue(src.muestra?.fechaEnvioImpDigi),
+            fechaRecibidoImpDigi: parseDateValue(src.muestra?.fechaRecibidoImpDigi),
+            fechaEntrega: parseDateValue(src.muestra?.fechaEntrega)
+        },
+        presentacion: {
+            ...base.presentacion,
+            ...(src.presentacion || {}),
+            fechaEntrega: parseDateValue(src.presentacion?.fechaEntrega)
+        },
+        arteYFicha: {
+            ...base.arteYFicha,
+            ...(src.arteYFicha || {}),
+            fechaEntrega: parseDateValue(src.arteYFicha?.fechaEntrega)
+        },
+        expertis: {
+            ...base.expertis,
+            ...(src.expertis || {}),
+            encontradoEnPlataforma: !!(src.expertis?.encontradoEnPlataforma),
+            fecha: parseDateValue(src.expertis?.fecha)
+        },
+        fechaAprobacion: parseDateValue(src.fechaAprobacion),
+        pendientes: src.pendientes || ''
+    };
+}
+
+function serializeProceso(proceso) {
+    const toDate = (value) => formatDateOnlyForApi(value);
+    return {
+        planchas: {
+            aplica: !!proceso.planchas?.aplica,
+            fechaEnvio: toDate(proceso.planchas?.fechaEnvio),
+            fechaRecibido: toDate(proceso.planchas?.fechaRecibido),
+            repeticion: proceso.planchas?.repeticion
+        },
+        troquel: {
+            aplica: !!proceso.troquel?.aplica,
+            fechaEnvio: toDate(proceso.troquel?.fechaEnvio),
+            fechaRecibido: toDate(proceso.troquel?.fechaRecibido)
+        },
+        muestra: {
+            aplica: !!proceso.muestra?.aplica,
+            fechaEnvioImpDigi: toDate(proceso.muestra?.fechaEnvioImpDigi),
+            fechaRecibidoImpDigi: toDate(proceso.muestra?.fechaRecibidoImpDigi),
+            fechaEntrega: toDate(proceso.muestra?.fechaEntrega)
+        },
+        presentacion: {
+            aplica: !!proceso.presentacion?.aplica,
+            fechaEntrega: toDate(proceso.presentacion?.fechaEntrega)
+        },
+        arteYFicha: {
+            aplica: !!proceso.arteYFicha?.aplica,
+            fechaEntrega: toDate(proceso.arteYFicha?.fechaEntrega)
+        },
+        expertis: {
+            aplica: !!proceso.expertis?.aplica,
+            encontradoEnPlataforma: !!proceso.expertis?.encontradoEnPlataforma,
+            fecha: toDate(proceso.expertis?.fecha)
+        },
+        fechaAprobacion: toDate(proceso.fechaAprobacion),
+        pendientes: proceso.pendientes || ''
+    };
+}
 
 function parseWorkFromApi(work) {
     return {
@@ -108,6 +217,7 @@ function parseWorkFromApi(work) {
         fechaRecepcion: work.fechaRecepcion ? new Date(work.fechaRecepcion) : null,
         fechaEntrega: work.fechaEntrega ? new Date(work.fechaEntrega) : null,
         fechaAprobacion: work.fechaAprobacion ? new Date(work.fechaAprobacion) : null,
+        proceso: normalizeProceso(work.proceso),
         actividades: work.actividades || [],
         historial: work.historial || []
     };
@@ -132,25 +242,121 @@ function formatDate(dateValue) {
     return new Date(dateValue).toLocaleDateString('es-CO');
 }
 
-function getProgress(actividades) {
-    if (!actividades?.length) return 0;
-    const done = actividades.filter((item) => item.completada).length;
-    return Math.round((done / actividades.length) * 100);
+function formatDateTime(dateValue) {
+    if (!dateValue) return '-';
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('es-CO', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
+function isProcessStepComplete(key, step) {
+    if (!step?.aplica) return false;
+    if (key === 'planchas' || key === 'troquel') return !!(step.fechaEnvio || step.fechaRecibido);
+    if (key === 'muestra') return !!(step.fechaEnvioImpDigi || step.fechaRecibidoImpDigi || step.fechaEntrega);
+    if (key === 'presentacion' || key === 'arteYFicha') return !!step.fechaEntrega;
+    if (key === 'expertis') return !!(step.encontradoEnPlataforma || step.fecha);
+    return false;
+}
+
+function getProgress(work) {
+    const proceso = work?.proceso || emptyProceso();
+    const keys = ['planchas', 'troquel', 'muestra', 'presentacion', 'arteYFicha', 'expertis'];
+    const applied = keys.filter((key) => proceso[key]?.aplica);
+    if (applied.length === 0 && !proceso.fechaAprobacion) return 0;
+    const completed = applied.filter((key) => isProcessStepComplete(key, proceso[key])).length;
+    const total = applied.length + 1;
+    const done = completed + (proceso.fechaAprobacion ? 1 : 0);
+    return Math.round((done / total) * 100);
+}
+
+function ProcesoStepCard({ title, aplica, disabled, onAplicaChange, children }) {
+    return (
+        <Card className="detail-mini-card proceso-step-card" padding="md">
+            <Checkbox
+                label={`Aplica: ${title}`}
+                checked={!!aplica}
+                disabled={disabled}
+                onChange={(event) => onAplicaChange(event.currentTarget.checked)}
+            />
+            {aplica ? <Box mt="sm">{children}</Box> : (
+                <Text size="xs" c="dimmed" mt={8}>No aplica</Text>
+            )}
+        </Card>
+    );
+}
+
+function daysSinceReception(work) {
+    if (!work?.fechaRecepcion) return null;
+    const reception = new Date(work.fechaRecepcion);
+    if (Number.isNaN(reception.getTime())) return null;
+    const start = new Date(reception.getFullYear(), reception.getMonth(), reception.getDate());
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.floor((today.getTime() - start.getTime()) / 86_400_000);
+}
+
+function stepHasNovedad(step) {
+    if (!step || typeof step !== 'object') return false;
+    if (step.aplica) return true;
+    return Object.entries(step).some(([key, value]) => {
+        if (key === 'aplica') return false;
+        if (value == null) return false;
+        if (typeof value === 'boolean') return value;
+        return String(value).trim().length > 0;
+    });
+}
+
+/** Hay novedad en el proceso si marcó algún paso, fechas o pendientes. */
+function hasProcesoNovedades(work) {
+    const proceso = work?.proceso || emptyProceso();
+    const keys = ['planchas', 'troquel', 'muestra', 'presentacion', 'arteYFicha', 'expertis'];
+    if (keys.some((key) => stepHasNovedad(proceso[key]))) return true;
+    return String(proceso.pendientes || '').trim().length > 0;
+}
+
+/** Crítico: +15 días desde fecha de recepción, sin fecha de aprobación. */
+function isCritico(work) {
+    if (!work) return false;
+    if (work.proceso?.fechaAprobacion) return false;
+    const days = daysSinceReception(work);
+    return days != null && days >= 15;
+}
+
+/**
+ * Semáforo:
+ * - verde: tiene fecha de aprobación
+ * - rojo: crítico (+15 días desde recepción)
+ * - amarillo: ya tiene novedades en el proceso
+ * - naranja: aún sin novedades en el proceso
+ */
 function getSemaforo(work) {
-    if (work.estado === 'Finalizado') return 'verde';
-    if (work.fichaAprobada && getProgress(work.actividades) >= 80) return 'verde';
-    if (work.fechaEntrega && new Date(work.fechaEntrega) < new Date()) return 'rojo';
-    if (getProgress(work.actividades) >= 40) return 'amarillo';
-    return 'rojo';
+    if (work?.proceso?.fechaAprobacion) return 'verde';
+    if (isCritico(work)) return 'rojo';
+    if (hasProcesoNovedades(work)) return 'amarillo';
+    return 'naranja';
 }
 
-function isDesignUser(user) {
-    const role = String(user?.role || user?.Role || '').toLowerCase();
-    const area = String(user?.area || user?.Area || '').toLowerCase();
-    const dept = String(user?.department || user?.Department || '').toLowerCase();
-    return role.includes('dise') || area.includes('dise') || dept.includes('dise') || role.includes('admin');
+const SEMAFORO_LABEL = {
+    verde: 'Aprobado',
+    rojo: 'Crítico (+15 días)',
+    amarillo: 'Con novedades',
+    naranja: 'Sin novedades'
+};
+
+function isDesignAreaUser(user) {
+    const area = normalizeText(user?.area || user?.Area);
+    return area.includes('dise');
+}
+
+function canUserSeeAllDesignJobs(user) {
+    // Solo admin ve todos. Resto: únicamente los asignados a su usuario.
+    return isAdmin(user);
 }
 
 function createInitialForm() {
@@ -158,12 +364,43 @@ function createInitialForm() {
         cliente: '',
         vendedor: '',
         trabajo: '',
+        accion: '',
         responsable: '',
-        fechaEntrega: null
+        fechaRecepcion: null
     };
 }
 
+function uniqueSorted(values) {
+    const seen = new Set();
+    const result = [];
+    for (const raw of values) {
+        const value = String(raw || '').trim();
+        if (!value) continue;
+        const key = normalizeText(value);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push(value);
+    }
+    return result.sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function loadStoredVendedores() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(VENDEDORES_STORAGE_KEY) || '[]');
+        return uniqueSorted(Array.isArray(raw) ? raw : []);
+    } catch {
+        return [];
+    }
+}
+
+function saveStoredVendedores(values) {
+    const next = uniqueSorted(values);
+    localStorage.setItem(VENDEDORES_STORAGE_KEY, JSON.stringify(next));
+    return next;
+}
+
 export default function PlaneadorDiseno() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [works, setWorks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
@@ -180,13 +417,14 @@ export default function PlaneadorDiseno() {
     const [designerFilter, setDesignerFilter] = useState('');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [mainTab, setMainTab] = useState('dashboard');
-    const [activityDraft, setActivityDraft] = useState({
-        nombre: '',
-        fechaEnvio: null,
-        fechaRecepcion: null,
-        repeticiones: 1,
-        observaciones: ''
-    });
+    const [savingProceso, setSavingProceso] = useState(false);
+    const [deletingJob, setDeletingJob] = useState(false);
+    const [adminToolsOpen, setAdminToolsOpen] = useState(false);
+    const [designerOptions, setDesignerOptions] = useState([]);
+    const [openOps, setOpenOps] = useState([]);
+    const [vendedorCatalog, setVendedorCatalog] = useState(() => loadStoredVendedores());
+    const [addingVendedor, setAddingVendedor] = useState(false);
+    const [newVendedorName, setNewVendedorName] = useState('');
 
     useEffect(() => {
         let cancelled = false;
@@ -216,22 +454,53 @@ export default function PlaneadorDiseno() {
         };
     }, []);
 
-    const currentUser = useMemo(() => {
-        try {
-            return JSON.parse(localStorage.getItem('user') || '{}');
-        } catch {
-            return {};
-        }
-    }, []);
+    useEffect(() => {
+        if (!newJobOpened) return undefined;
+        let cancelled = false;
+        (async () => {
+            try {
+                const [designers, ops] = await Promise.all([
+                    api.get('/users/designers'),
+                    api.get('/production/scheduling/open-orders'),
+                ]);
+                if (cancelled) return;
+                setDesignerOptions(
+                    (Array.isArray(designers) ? designers : [])
+                        .map((u) => {
+                            const username = (u.username || u.Username || '').trim();
+                            const display = (u.displayName || u.DisplayName || username).trim();
+                            if (!username && !display) return null;
+                            const value = username || display;
+                            const label = display && username && normalizeText(display) !== normalizeText(username)
+                                ? `${display} (${username})`
+                                : (display || username);
+                            return { value, label };
+                        })
+                        .filter(Boolean)
+                );
+                setOpenOps(Array.isArray(ops) ? ops : []);
+            } catch {
+                if (!cancelled) {
+                    setDesignerOptions([]);
+                    setOpenOps([]);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [newJobOpened]);
 
-    const selectedWork = useMemo(() => works.find((item) => item.id === selectedId) || null, [works, selectedId]);
+    const currentUser = useMemo(() => getCurrentUser() || {}, []);
+    const canSeeAllJobs = canUserSeeAllDesignJobs(currentUser);
+    const currentUserName = useMemo(() => getUserDisplayName(currentUser), [currentUser]);
 
-    const currentUserName = useMemo(() => {
-        return [currentUser?.firstName, currentUser?.lastName]
-            .filter(Boolean)
-            .join(' ')
-            .trim() || currentUser?.username || currentUser?.Username || '';
-    }, [currentUser]);
+    const scopedWorks = useMemo(() => works, [works]);
+
+    const selectedWork = useMemo(
+        () => scopedWorks.find((item) => item.id === selectedId) || null,
+        [scopedWorks, selectedId]
+    );
 
     const filteredWorks = useMemo(() => {
         const matches = (value, filter) => {
@@ -239,15 +508,16 @@ export default function PlaneadorDiseno() {
             return normalizeText(value).includes(normalizeText(filter));
         };
 
-        return works.filter((item) => {
+        return scopedWorks.filter((item) => {
+            if (!canSeeAllJobs && !isAssignedToCurrentUser(item.responsable, currentUser)) return false;
             if (statusFilter !== 'all' && item.estado !== statusFilter) return false;
             if (!matches(item.cliente, clientFilter)) return false;
             if (!matches(item.vendedor, vendedorFilter)) return false;
             if (!matches(item.trabajo, trabajoFilter)) return false;
-            if (!matches(item.responsable, designerFilter)) return false;
+            if (canSeeAllJobs && !matches(item.responsable, designerFilter)) return false;
             return true;
         });
-    }, [works, statusFilter, clientFilter, vendedorFilter, trabajoFilter, designerFilter]);
+    }, [scopedWorks, statusFilter, clientFilter, vendedorFilter, trabajoFilter, designerFilter, canSeeAllJobs, currentUser]);
 
     const hasActiveFilters = statusFilter !== 'all'
         || clientFilter.trim()
@@ -256,50 +526,75 @@ export default function PlaneadorDiseno() {
         || designerFilter.trim();
 
     const assignedWorks = useMemo(() => {
-        const userKey = normalizeText(currentUserName);
-        if (!userKey) return [];
-        return filteredWorks.filter((item) => {
-            const designerKey = normalizeText(item.responsable);
-            return designerKey === userKey || designerKey.includes(userKey) || userKey.includes(designerKey);
-        });
-    }, [filteredWorks, currentUserName]);
+        return filteredWorks.filter((item) => isAssignedToCurrentUser(item.responsable, currentUser));
+    }, [filteredWorks, currentUser]);
 
     const assignedKpis = useMemo(() => {
         const total = assignedWorks.length;
         const enEspera = assignedWorks.filter((w) => w.estado === 'Nuevo Trabajo Pendiente').length;
         const enDesarrollo = assignedWorks.filter((w) => w.estado === 'En Desarrollo').length;
-        const criticos = assignedWorks.filter((w) => getSemaforo(w) === 'rojo').length;
+        const criticos = assignedWorks.filter((w) => isCritico(w)).length;
         return { total, enEspera, enDesarrollo, criticos };
     }, [assignedWorks]);
 
     const kpis = useMemo(() => {
-        const total = works.length;
-        const enEspera = works.filter((w) => w.estado === 'Nuevo Trabajo Pendiente').length;
-        const enDesarrollo = works.filter((w) => w.estado === 'En Desarrollo').length;
-        const criticos = works.filter((w) => getSemaforo(w) === 'rojo').length;
+        const source = canSeeAllJobs
+            ? works
+            : works.filter((w) => isAssignedToCurrentUser(w.responsable, currentUser));
+        const total = source.length;
+        const enEspera = source.filter((w) => w.estado === 'Nuevo Trabajo Pendiente').length;
+        const enDesarrollo = source.filter((w) => w.estado === 'En Desarrollo').length;
+        const criticos = source.filter((w) => isCritico(w)).length;
         return { total, enEspera, enDesarrollo, criticos };
-    }, [works]);
+    }, [works, canSeeAllJobs, currentUser]);
 
     const clientOptions = useMemo(() => {
-        return Array.from(new Set(works.map((w) => w.cliente))).map((cliente) => ({
+        const fromJobs = works.map((w) => w.cliente);
+        const fromOps = openOps.map((op) => op.clientName);
+        return uniqueSorted([...fromJobs, ...fromOps]).map((cliente) => ({
             value: cliente,
             label: cliente
         }));
-    }, [works]);
+    }, [works, openOps]);
 
-    const hasDesignPermissions = isDesignUser(currentUser);
+    const vendedorOptions = useMemo(
+        () => uniqueSorted(vendedorCatalog).map((name) => ({ value: name, label: name })),
+        [vendedorCatalog]
+    );
+
+    const hasDesignPermissions = isDesignAreaUser(currentUser);
+    const canEditSelectedProceso = !!(
+        selectedWork
+        && hasDesignPermissions
+        && (!canSeeAllJobs || isAssignedToCurrentUser(selectedWork.responsable, currentUser))
+    );
 
     const resetCreationForm = () => {
         setCreationForm(createInitialForm());
         setCreationErrors({});
+        setAddingVendedor(false);
+        setNewVendedorName('');
+    };
+
+    const handleAddVendedor = () => {
+        const name = newVendedorName.trim();
+        if (!name) return;
+        const next = saveStoredVendedores([...vendedorCatalog, name]);
+        setVendedorCatalog(next);
+        setCreationForm((prev) => ({ ...prev, vendedor: name }));
+        setCreationErrors((prev) => ({ ...prev, vendedor: undefined }));
+        setNewVendedorName('');
+        setAddingVendedor(false);
     };
 
     const handleCreateJob = async () => {
         const errors = {};
         if (!creationForm.cliente.trim()) errors.cliente = 'El cliente es obligatorio.';
         if (!creationForm.vendedor.trim()) errors.vendedor = 'El vendedor es obligatorio.';
-        if (!creationForm.trabajo.trim()) errors.trabajo = 'El nombre del trabajo es obligatorio.';
+        if (!creationForm.trabajo.trim()) errors.trabajo = 'El trabajo es obligatorio.';
+        if (!creationForm.accion.trim()) errors.accion = 'La acción es obligatoria.';
         if (!creationForm.responsable.trim()) errors.responsable = 'El encargado responsable es obligatorio.';
+        if (!creationForm.fechaRecepcion) errors.fechaRecepcion = 'La fecha de recepción es obligatoria.';
         setCreationErrors(errors);
         if (Object.keys(errors).length > 0) return;
 
@@ -308,8 +603,9 @@ export default function PlaneadorDiseno() {
                 cliente: creationForm.cliente.trim(),
                 vendedor: creationForm.vendedor.trim(),
                 trabajo: creationForm.trabajo.trim(),
+                accion: creationForm.accion.trim(),
                 responsable: creationForm.responsable.trim(),
-                fechaEntrega: formatDateForApi(creationForm.fechaEntrega)
+                fechaRecepcion: formatDateForApi(creationForm.fechaRecepcion)
             });
 
             setWorks((prev) => [parseWorkFromApi(created), ...prev]);
@@ -325,123 +621,132 @@ export default function PlaneadorDiseno() {
         setSelectedId(id);
         setDetailOpened(true);
         setSystemAlert('');
+        setAdminToolsOpen(false);
     };
+
+    // Deep-link desde Planes de Diseño: /diseno/planeador?job=PJ-2026-00X
+    useEffect(() => {
+        if (loading) return;
+        const jobId = String(searchParams.get('job') || '').trim();
+        if (!jobId) return;
+        const exists = works.some((w) => String(w.id) === jobId);
+        if (!exists) {
+            setSystemAlert(`No se encontró el trabajo ${jobId} en tus asignaciones.`);
+            return;
+        }
+        openDetail(jobId);
+        const next = new URLSearchParams(searchParams);
+        next.delete('job');
+        setSearchParams(next, { replace: true });
+    }, [loading, works, searchParams, setSearchParams]);
 
     const updateSelectedWork = (updater) => {
         setWorks((prev) => prev.map((item) => (item.id === selectedId ? updater(item) : item)));
     };
 
-    const handleTechnicalSave = async () => {
-        if (!hasDesignPermissions) {
-            setSystemAlert('Solo usuarios del área de diseño pueden diligenciar la preparación técnica.');
+    const updateProceso = (updater) => {
+        updateSelectedWork((current) => ({
+            ...current,
+            proceso: updater(current.proceso || emptyProceso())
+        }));
+    };
+
+    const patchStep = (key, patch) => {
+        updateProceso((current) => ({
+            ...current,
+            [key]: { ...(current[key] || {}), ...patch }
+        }));
+    };
+
+    const handleSaveProceso = async () => {
+        if (!canEditSelectedProceso) {
+            setSystemAlert('Solo el diseñador asignado puede actualizar el proceso.');
+            notifications.show({
+                title: 'Sin permiso',
+                message: 'Solo el diseñador asignado puede actualizar el proceso.',
+                color: 'yellow'
+            });
             return;
         }
         if (!selectedWork) return;
-
+        const jobLabel = `${selectedWork.id} · ${selectedWork.trabajo}`;
         try {
-            const updated = await api.put(`/design/planner/jobs/${selectedId}/technical-prep`, {
-                fechaRecepcion: formatDateForApi(selectedWork.fechaRecepcion),
-                requerimientos: selectedWork.requerimientos
+            setSavingProceso(true);
+            const updated = await api.put(`/design/planner/jobs/${selectedId}/proceso`, {
+                procesoJson: JSON.stringify(serializeProceso(selectedWork.proceso || emptyProceso()))
             });
             setWorks((prev) => prev.map((item) => (item.id === selectedId ? parseWorkFromApi(updated) : item)));
-            setSystemAlert('Preparación técnica guardada. Estado actualizado a "En Desarrollo".');
+            setSystemAlert('');
+            notifications.show({
+                id: `proceso-saved-${selectedId}`,
+                title: 'Proceso guardado',
+                message: `${jobLabel} se actualizó correctamente.`,
+                color: 'green',
+                icon: <IconCheck size={18} />,
+                autoClose: 4000
+            });
+            setDetailOpened(false);
+            setSelectedId('');
         } catch (error) {
-            setSystemAlert(error.message || 'No se pudo guardar la preparación técnica.');
+            const message = error.message || 'No se pudo guardar el proceso.';
+            setSystemAlert(message);
+            notifications.show({
+                title: 'Error al guardar',
+                message,
+                color: 'red',
+                autoClose: 6000
+            });
+        } finally {
+            setSavingProceso(false);
         }
     };
 
-    const handleAddActivity = async () => {
-        if (!selectedWork) return;
-        if (!activityDraft.nombre) {
-            setSystemAlert('Selecciona una actividad para agregarla al cronograma.');
-            return;
-        }
-        if (!activityDraft.fechaEnvio) {
-            setSystemAlert('La fecha de envío es obligatoria.');
-            return;
-        }
-        if (activityDraft.fechaRecepcion && new Date(activityDraft.fechaRecepcion) < new Date(activityDraft.fechaEnvio)) {
-            setSystemAlert('La fecha de recepción no puede ser anterior a la fecha de envío.');
-            return;
-        }
-
-        try {
-            const updated = await api.post(`/design/planner/jobs/${selectedId}/activities`, {
-                nombre: activityDraft.nombre,
-                fechaEnvio: formatDateOnlyForApi(activityDraft.fechaEnvio),
-                fechaRecepcion: formatDateOnlyForApi(activityDraft.fechaRecepcion),
-                repeticiones: Number(activityDraft.repeticiones) || 1,
-                observaciones: activityDraft.observaciones.trim()
+    const handleDeleteJob = async () => {
+        if (!canSeeAllJobs || !selectedWork?.id) return;
+        const jobId = selectedWork.id;
+        const ok = window.confirm(
+            `¿Eliminar permanentemente ${jobId} · ${selectedWork.trabajo}?\n\nEsta acción no se puede deshacer.`
+        );
+        if (!ok) return;
+        const typed = window.prompt(`Para confirmar, escribe el código del trabajo:\n${jobId}`);
+        if (String(typed || '').trim().toUpperCase() !== String(jobId).trim().toUpperCase()) {
+            notifications.show({
+                title: 'Eliminación cancelada',
+                message: 'El código no coincide.',
+                color: 'yellow'
             });
-
-            setWorks((prev) => prev.map((item) => (item.id === selectedId ? parseWorkFromApi(updated) : item)));
-            setActivityDraft({
-                nombre: '',
-                fechaEnvio: null,
-                fechaRecepcion: null,
-                repeticiones: 1,
-                observaciones: ''
-            });
-            setSystemAlert('Actividad agregada y cronograma recalculado.');
-        } catch (error) {
-            setSystemAlert(error.message || 'No se pudo agregar la actividad.');
-        }
-    };
-
-    const toggleActivityDone = async (activityId) => {
-        if (!selectedWork) return;
-        const activity = selectedWork.actividades.find((item) => item.id === activityId);
-        if (!activity) return;
-
-        try {
-            const updated = await api.put(`/design/planner/jobs/${selectedId}/activities/${activityId}`, {
-                completada: !activity.completada
-            });
-            setWorks((prev) => prev.map((item) => (item.id === selectedId ? parseWorkFromApi(updated) : item)));
-        } catch (error) {
-            setSystemAlert(error.message || 'No se pudo actualizar la actividad.');
-        }
-    };
-
-    const handleApprove = async () => {
-        if (!selectedWork) return;
-        if (!selectedWork.fechaAprobacion) {
-            setSystemAlert('Debes registrar la fecha de aprobación final.');
             return;
         }
-
         try {
-            const updated = await api.put(`/design/planner/jobs/${selectedId}/approve`, {
-                fechaAprobacion: formatDateForApi(selectedWork.fechaAprobacion),
-                comentariosAprobacion: selectedWork.comentariosAprobacion
+            setDeletingJob(true);
+            await api.delete(`/design/planner/jobs/${encodeURIComponent(jobId)}`);
+            setWorks((prev) => prev.filter((item) => item.id !== jobId));
+            setDetailOpened(false);
+            setSelectedId('');
+            setAdminToolsOpen(false);
+            notifications.show({
+                title: 'Trabajo eliminado',
+                message: `${jobId} se eliminó correctamente.`,
+                color: 'green',
+                icon: <IconCheck size={18} />,
+                autoClose: 4000
             });
-            setWorks((prev) => prev.map((item) => (item.id === selectedId ? parseWorkFromApi(updated) : item)));
-            setSystemAlert('Aprobación registrada y notificaciones enviadas.');
         } catch (error) {
-            setSystemAlert(error.message || 'No se pudo registrar la aprobación.');
-        }
-    };
-
-    const handleFinish = async () => {
-        if (!selectedWork) return;
-        if (!selectedWork.fichaAprobada) {
-            setSystemAlert('No se puede finalizar sin la aprobación de la ficha técnica.');
-            return;
-        }
-
-        try {
-            const updated = await api.put(`/design/planner/jobs/${selectedId}/finish`);
-            setWorks((prev) => prev.map((item) => (item.id === selectedId ? parseWorkFromApi(updated) : item)));
-            setSystemAlert('Trabajo finalizado correctamente.');
-        } catch (error) {
-            setSystemAlert(error.message || 'No se pudo finalizar el trabajo.');
+            notifications.show({
+                title: 'No se pudo eliminar',
+                message: error.message || 'Error al eliminar el trabajo.',
+                color: 'red',
+                autoClose: 6000
+            });
+        } finally {
+            setDeletingJob(false);
         }
     };
 
     const renderWorksTable = (rows, emptyMessage) => (
         <Card className="planeador-table-card">
             <Group justify="space-between" mb="sm">
-                <Text fw={700}>Mostrando {rows.length} de {works.length} registros</Text>
+                <Text fw={700}>Mostrando {rows.length} de {(canSeeAllJobs ? scopedWorks : filteredWorks).length} registros</Text>
             </Group>
             {rows.length === 0 ? (
                 <Text c="dimmed" ta="center" py="xl">{emptyMessage}</Text>
@@ -453,9 +758,12 @@ export default function PlaneadorDiseno() {
                                 <Table.Th>Cliente</Table.Th>
                                 <Table.Th>Vendedor</Table.Th>
                                 <Table.Th>Trabajo</Table.Th>
+                                <Table.Th>Acción</Table.Th>
                                 <Table.Th>Diseñador</Table.Th>
+                                <Table.Th>Montado por</Table.Th>
+                                <Table.Th>Fecha montaje</Table.Th>
                                 <Table.Th>Recepción</Table.Th>
-                                <Table.Th>Entrega</Table.Th>
+                                <Table.Th>Aprobación</Table.Th>
                                 <Table.Th>Semáforo</Table.Th>
                                 <Table.Th>Estado</Table.Th>
                             </Table.Tr>
@@ -471,11 +779,23 @@ export default function PlaneadorDiseno() {
                                             <Text fw={600}>{work.trabajo}</Text>
                                             <Text size="xs" c="dimmed">{work.id}</Text>
                                         </Table.Td>
-                                        <Table.Td>{work.responsable}</Table.Td>
-                                        <Table.Td>{formatDate(work.fechaRecepcion)}</Table.Td>
-                                        <Table.Td>{formatDate(work.fechaEntrega)}</Table.Td>
                                         <Table.Td>
-                                            <span className={`semaforo semaforo-${semaforo}`} title={semaforo} />
+                                            <Text size="sm" lineClamp={2}>{work.accion || '-'}</Text>
+                                        </Table.Td>
+                                        <Table.Td>{work.responsable}</Table.Td>
+                                        <Table.Td>
+                                            <Text size="sm">{work.createdBy || '—'}</Text>
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Text size="sm">{formatDateTime(work.createdAt)}</Text>
+                                        </Table.Td>
+                                        <Table.Td>{formatDate(work.fechaRecepcion)}</Table.Td>
+                                        <Table.Td>{formatDate(work.proceso?.fechaAprobacion)}</Table.Td>
+                                        <Table.Td>
+                                            <span
+                                                className={`semaforo semaforo-${semaforo}`}
+                                                title={SEMAFORO_LABEL[semaforo] || semaforo}
+                                            />
                                         </Table.Td>
                                         <Table.Td>
                                             <Badge variant="light" className="planeador-status-badge">{work.estado}</Badge>
@@ -505,7 +825,7 @@ export default function PlaneadorDiseno() {
                 <Title order={3}>{stats.total} Trabajos</Title>
             </Card>
             <Card className="planeador-kpi planeador-kpi-critical" padding="lg">
-                <Text className="planeador-kpi-label">Crítico (pendientes)</Text>
+                <Text className="planeador-kpi-label">Crítico (+15 días)</Text>
                 <Title order={3}>{stats.criticos} Retrasos</Title>
             </Card>
         </SimpleGrid>
@@ -546,12 +866,14 @@ export default function PlaneadorDiseno() {
                     value={trabajoFilter}
                     onChange={(event) => setTrabajoFilter(event.currentTarget.value)}
                 />
+                {canSeeAllJobs && (
                 <TextInput
                     label="Diseñador"
                     placeholder="Filtrar diseñador"
                     value={designerFilter}
                     onChange={(event) => setDesignerFilter(event.currentTarget.value)}
                 />
+                )}
             </SimpleGrid>
         </Card>
     );
@@ -564,7 +886,14 @@ export default function PlaneadorDiseno() {
                     <Box>
                         <Title order={1} className="planeador-title">Planeador de Diseño</Title>
                         <Text className="planeador-subtitle">
-                            Gestión centralizada de cola de diseño, seguimiento de aprobaciones y control de entregas.
+                            {canSeeAllJobs
+                                ? 'Registra el trabajo, asígnalo a Diseño y consulta el proceso. Después de asignar, solo Diseño actualiza fechas.'
+                                : 'Tus trabajos asignados: marca qué aplica y registra las fechas del proceso.'}
+                        </Text>
+                        <Text size="sm" c="dimmed" mt={6}>
+                            {canSeeAllJobs
+                                ? 'Vista de administrador: todos los trabajos.'
+                                : `Vista de diseño: solo asignados a ${currentUserName || 'tu usuario'}.`}
                         </Text>
                     </Box>
                     <Group>
@@ -576,6 +905,7 @@ export default function PlaneadorDiseno() {
                         >
                             Filtrar
                         </Button>
+                        {canSeeAllJobs && (
                         <Button
                             leftSection={<IconPlus size={17} />}
                             color="indigo"
@@ -583,6 +913,7 @@ export default function PlaneadorDiseno() {
                         >
                             Añadir Trabajo
                         </Button>
+                        )}
                     </Group>
                 </Group>
 
@@ -593,10 +924,15 @@ export default function PlaneadorDiseno() {
                         {loadError}
                     </Alert>
                 )}
+                {systemAlert && !detailOpened && (
+                    <Alert icon={<IconAlertTriangle size={16} />} color="indigo" variant="light">
+                        {systemAlert}
+                    </Alert>
+                )}
 
                 {loading ? (
                     <Text c="dimmed" ta="center" py="xl">Cargando trabajos de diseño...</Text>
-                ) : (
+                ) : canSeeAllJobs ? (
                 <Tabs
                     value={mainTab}
                     onChange={setMainTab}
@@ -636,6 +972,18 @@ export default function PlaneadorDiseno() {
                         </Stack>
                     </Tabs.Panel>
                 </Tabs>
+                ) : (
+                    <Stack gap="lg">
+                        <Text size="sm" c="dimmed">
+                            Trabajos asignados a{' '}
+                            <Text span fw={600} c="indigo.3">{currentUserName || 'tu usuario'}</Text>
+                        </Text>
+                        {renderKpiCards(kpis)}
+                        {renderWorksTable(
+                            filteredWorks,
+                            'No tienes trabajos asignados.'
+                        )}
+                    </Stack>
                 )}
             </Stack>
 
@@ -660,32 +1008,86 @@ export default function PlaneadorDiseno() {
                             onChange={(value) => setCreationForm((prev) => ({ ...prev, cliente: value || '' }))}
                             error={creationErrors.cliente}
                         />
-                        <TextInput
-                            label="Vendedor"
-                            placeholder="Asignar vendedor"
-                            value={creationForm.vendedor}
-                            onChange={(event) => setCreationForm((prev) => ({ ...prev, vendedor: event.currentTarget.value }))}
-                            error={creationErrors.vendedor}
-                        />
+                        <Stack gap={6}>
+                            <Select
+                                label="Vendedor"
+                                placeholder="Selecciona vendedor"
+                                searchable
+                                clearable
+                                nothingFoundMessage="No hay vendedores. Añade uno con el botón."
+                                data={vendedorOptions}
+                                value={creationForm.vendedor || null}
+                                onChange={(value) => setCreationForm((prev) => ({ ...prev, vendedor: value || '' }))}
+                                error={creationErrors.vendedor}
+                            />
+                            {addingVendedor ? (
+                                <Group gap="xs" align="flex-end" wrap="nowrap">
+                                    <TextInput
+                                        placeholder="Nombre del vendedor"
+                                        value={newVendedorName}
+                                        onChange={(event) => setNewVendedorName(event.currentTarget.value)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter') {
+                                                event.preventDefault();
+                                                handleAddVendedor();
+                                            }
+                                        }}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <Button color="indigo" onClick={handleAddVendedor}>Guardar</Button>
+                                    <Button
+                                        variant="default"
+                                        onClick={() => {
+                                            setAddingVendedor(false);
+                                            setNewVendedorName('');
+                                        }}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                </Group>
+                            ) : (
+                                <Button
+                                    variant="subtle"
+                                    size="compact-sm"
+                                    leftSection={<IconPlus size={14} />}
+                                    onClick={() => setAddingVendedor(true)}
+                                >
+                                    Añadir vendedor
+                                </Button>
+                            )}
+                        </Stack>
                     </SimpleGrid>
                     <TextInput
-                        label="Nombre del trabajo"
+                        label="Trabajo"
                         placeholder="Nombre del trabajo"
                         value={creationForm.trabajo}
                         onChange={(event) => setCreationForm((prev) => ({ ...prev, trabajo: event.currentTarget.value }))}
                         error={creationErrors.trabajo}
                     />
-                    <TextInput
+                    <Textarea
+                        label="Acción"
+                        placeholder="Describe lo que necesita el encargado de diseño"
+                        minRows={3}
+                        value={creationForm.accion}
+                        onChange={(event) => setCreationForm((prev) => ({ ...prev, accion: event.currentTarget.value }))}
+                        error={creationErrors.accion}
+                    />
+                    <Select
                         label="Encargado responsable"
-                        placeholder="Responsable del trabajo"
-                        value={creationForm.responsable}
-                        onChange={(event) => setCreationForm((prev) => ({ ...prev, responsable: event.currentTarget.value }))}
+                        placeholder="Usuario de Diseño"
+                        searchable
+                        clearable
+                        nothingFoundMessage="No hay usuarios del área Diseño"
+                        data={designerOptions}
+                        value={creationForm.responsable || null}
+                        onChange={(value) => setCreationForm((prev) => ({ ...prev, responsable: value || '' }))}
                         error={creationErrors.responsable}
                     />
                     <PlaneadorDateInput
-                        label="Fecha de entrega esperada"
-                        value={creationForm.fechaEntrega}
-                        onChange={(value) => setCreationForm((prev) => ({ ...prev, fechaEntrega: value }))}
+                        label="Fecha de Recepción"
+                        value={creationForm.fechaRecepcion}
+                        onChange={(value) => setCreationForm((prev) => ({ ...prev, fechaRecepcion: value }))}
+                        error={creationErrors.fechaRecepcion}
                     />
                     <Group justify="flex-end">
                         <Button variant="default" onClick={() => setNewJobOpened(false)}>Cancelar</Button>
@@ -696,7 +1098,10 @@ export default function PlaneadorDiseno() {
 
             <Modal
                 opened={detailOpened}
-                onClose={() => setDetailOpened(false)}
+                onClose={() => {
+                    setDetailOpened(false);
+                    setAdminToolsOpen(false);
+                }}
                 size="85%"
                 title={selectedWork ? `${selectedWork.id} · ${selectedWork.trabajo}` : 'Detalle del trabajo'}
             >
@@ -705,175 +1110,284 @@ export default function PlaneadorDiseno() {
                         {systemAlert && (
                             <Alert
                                 icon={<IconAlertTriangle size={16} />}
-                                color="indigo"
+                                color="red"
                                 variant="light"
                             >
                                 {systemAlert}
                             </Alert>
                         )}
 
+                        <Alert color={canEditSelectedProceso ? 'indigo' : 'gray'} variant="light">
+                            {canEditSelectedProceso
+                                ? 'Marca qué aplica en este trabajo y registra las fechas del proceso. El vendedor solo podrá consultar lo que guardes.'
+                                : 'Consulta del proceso. Solo el diseñador asignado puede actualizar estas fechas.'}
+                        </Alert>
+
                         <SimpleGrid cols={{ base: 1, md: 4 }}>
+                            <Card className="detail-mini-card">
+                                <Text size="xs" c="dimmed">Cliente</Text>
+                                <Text fw={700}>{selectedWork.cliente}</Text>
+                            </Card>
+                            <Card className="detail-mini-card">
+                                <Text size="xs" c="dimmed">Vendedor</Text>
+                                <Text fw={700}>{selectedWork.vendedor}</Text>
+                            </Card>
+                            <Card className="detail-mini-card">
+                                <Text size="xs" c="dimmed">Encargado</Text>
+                                <Text fw={700}>{selectedWork.responsable}</Text>
+                            </Card>
+                            <Card className="detail-mini-card">
+                                <Text size="xs" c="dimmed">Fecha de Recepción</Text>
+                                <Text fw={700}>{formatDate(selectedWork.fechaRecepcion)}</Text>
+                            </Card>
+                        </SimpleGrid>
+
+                        <SimpleGrid cols={{ base: 1, md: 2 }}>
+                            <Card className="detail-mini-card">
+                                <Text size="xs" c="dimmed">Montado por</Text>
+                                <Text fw={700}>{selectedWork.createdBy || '—'}</Text>
+                            </Card>
+                            <Card className="detail-mini-card">
+                                <Text size="xs" c="dimmed">Fecha y hora de montaje</Text>
+                                <Text fw={700}>{formatDateTime(selectedWork.createdAt)}</Text>
+                            </Card>
+                        </SimpleGrid>
+
+                        <SimpleGrid cols={{ base: 1, md: 3 }}>
                             <Card className="detail-mini-card">
                                 <Text size="xs" c="dimmed">Estado</Text>
                                 <Text fw={700}>{selectedWork.estado}</Text>
                             </Card>
                             <Card className="detail-mini-card">
                                 <Text size="xs" c="dimmed">Avance</Text>
-                                <Text fw={700}>{getProgress(selectedWork.actividades)}%</Text>
-                                <Progress value={getProgress(selectedWork.actividades)} mt={6} />
+                                <Text fw={700}>{getProgress(selectedWork)}%</Text>
+                                <Progress value={getProgress(selectedWork)} mt={6} />
                             </Card>
                             <Card className="detail-mini-card">
-                                <Text size="xs" c="dimmed">Entrega</Text>
-                                <Text fw={700}>{formatDate(selectedWork.fechaEntrega)}</Text>
-                            </Card>
-                            <Card className="detail-mini-card">
-                                <Text size="xs" c="dimmed">Ficha técnica</Text>
-                                <Badge color={selectedWork.fichaAprobada ? 'green' : 'yellow'}>
-                                    {selectedWork.fichaAprobada ? 'Aprobada' : 'Pendiente'}
-                                </Badge>
+                                <Text size="xs" c="dimmed">Acción solicitada</Text>
+                                <Text fw={600}>{selectedWork.accion || '-'}</Text>
                             </Card>
                         </SimpleGrid>
 
-                        <Tabs defaultValue="tecnica" variant="outline">
-                            <Tabs.List>
-                                <Tabs.Tab value="tecnica" leftSection={<IconClipboardList size={14} />}>Preparación técnica</Tabs.Tab>
-                                <Tabs.Tab value="planeacion" leftSection={<IconTimeline size={14} />}>Planeación</Tabs.Tab>
-                                <Tabs.Tab value="aprobacion" leftSection={<IconCheck size={14} />}>Aprobación y cierre</Tabs.Tab>
-                            </Tabs.List>
-
-                            <Tabs.Panel value="tecnica" pt="md">
-                                <Stack>
+                        <Text fw={700}>Proceso de diseño</Text>
+                        <SimpleGrid cols={{ base: 1, md: 2 }}>
+                            <ProcesoStepCard
+                                title="Planchas"
+                                aplica={!!selectedWork.proceso?.planchas?.aplica}
+                                disabled={!canEditSelectedProceso}
+                                onAplicaChange={(aplica) => patchStep('planchas', { aplica })}
+                            >
+                                <SimpleGrid cols={{ base: 1, sm: 3 }}>
                                     <PlaneadorDateInput
-                                        label="Fecha de recepción"
-                                        value={selectedWork.fechaRecepcion}
-                                        onChange={(value) =>
-                                            updateSelectedWork((current) => ({ ...current, fechaRecepcion: value }))
-                                        }
+                                        label="Fecha de Envío"
+                                        value={selectedWork.proceso?.planchas?.fechaEnvio}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('planchas', { fechaEnvio: value })}
                                     />
-                                    <Textarea
-                                        label="Requerimientos técnicos iniciales"
-                                        minRows={3}
-                                        value={selectedWork.requerimientos}
-                                        onChange={(event) =>
-                                            updateSelectedWork((current) => ({
-                                                ...current,
-                                                requerimientos: event.currentTarget.value
-                                            }))
-                                        }
+                                    <PlaneadorDateInput
+                                        label="Fecha de Recibido"
+                                        value={selectedWork.proceso?.planchas?.fechaRecibido}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('planchas', { fechaRecibido: value })}
                                     />
-                                    <Button color="indigo" onClick={handleTechnicalSave}>Guardar preparación técnica</Button>
-                                    {!hasDesignPermissions && (
-                                        <Text size="xs" c="red">
-                                            Tu usuario no pertenece al área de diseño: esta fase está restringida.
+                                    <Select
+                                        label="Repetición"
+                                        placeholder="Selecciona"
+                                        data={[
+                                            { value: 'si', label: 'Sí' },
+                                            { value: 'no', label: 'No' }
+                                        ]}
+                                        value={selectedWork.proceso?.planchas?.repeticion === true
+                                            ? 'si'
+                                            : selectedWork.proceso?.planchas?.repeticion === false
+                                                ? 'no'
+                                                : null}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('planchas', {
+                                            repeticion: value === 'si' ? true : value === 'no' ? false : null
+                                        })}
+                                    />
+                                </SimpleGrid>
+                            </ProcesoStepCard>
+
+                            <ProcesoStepCard
+                                title="Troquel"
+                                aplica={!!selectedWork.proceso?.troquel?.aplica}
+                                disabled={!canEditSelectedProceso}
+                                onAplicaChange={(aplica) => patchStep('troquel', { aplica })}
+                            >
+                                <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                                    <PlaneadorDateInput
+                                        label="Fecha de Envío"
+                                        value={selectedWork.proceso?.troquel?.fechaEnvio}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('troquel', { fechaEnvio: value })}
+                                    />
+                                    <PlaneadorDateInput
+                                        label="Fecha de Recibido"
+                                        value={selectedWork.proceso?.troquel?.fechaRecibido}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('troquel', { fechaRecibido: value })}
+                                    />
+                                </SimpleGrid>
+                            </ProcesoStepCard>
+
+                            <ProcesoStepCard
+                                title="Muestra"
+                                aplica={!!selectedWork.proceso?.muestra?.aplica}
+                                disabled={!canEditSelectedProceso}
+                                onAplicaChange={(aplica) => patchStep('muestra', { aplica })}
+                            >
+                                <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                                    <PlaneadorDateInput
+                                        label="Fecha de Envío IMP.DIGI"
+                                        value={selectedWork.proceso?.muestra?.fechaEnvioImpDigi}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('muestra', { fechaEnvioImpDigi: value })}
+                                    />
+                                    <PlaneadorDateInput
+                                        label="Fecha de Recibido IMP.DIGI"
+                                        value={selectedWork.proceso?.muestra?.fechaRecibidoImpDigi}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('muestra', { fechaRecibidoImpDigi: value })}
+                                    />
+                                    <PlaneadorDateInput
+                                        label="Fecha de Entrega"
+                                        value={selectedWork.proceso?.muestra?.fechaEntrega}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('muestra', { fechaEntrega: value })}
+                                    />
+                                </SimpleGrid>
+                            </ProcesoStepCard>
+
+                            <ProcesoStepCard
+                                title="Presentación"
+                                aplica={!!selectedWork.proceso?.presentacion?.aplica}
+                                disabled={!canEditSelectedProceso}
+                                onAplicaChange={(aplica) => patchStep('presentacion', { aplica })}
+                            >
+                                <PlaneadorDateInput
+                                    label="Fecha de Entrega"
+                                    value={selectedWork.proceso?.presentacion?.fechaEntrega}
+                                    disabled={!canEditSelectedProceso}
+                                    onChange={(value) => patchStep('presentacion', { fechaEntrega: value })}
+                                />
+                            </ProcesoStepCard>
+
+                            <ProcesoStepCard
+                                title="Arte y Ficha"
+                                aplica={!!selectedWork.proceso?.arteYFicha?.aplica}
+                                disabled={!canEditSelectedProceso}
+                                onAplicaChange={(aplica) => patchStep('arteYFicha', { aplica })}
+                            >
+                                <PlaneadorDateInput
+                                    label="Fecha de Entrega"
+                                    value={selectedWork.proceso?.arteYFicha?.fechaEntrega}
+                                    disabled={!canEditSelectedProceso}
+                                    onChange={(value) => patchStep('arteYFicha', { fechaEntrega: value })}
+                                />
+                            </ProcesoStepCard>
+
+                            <ProcesoStepCard
+                                title="Expertis"
+                                aplica={!!selectedWork.proceso?.expertis?.aplica}
+                                disabled={!canEditSelectedProceso}
+                                onAplicaChange={(aplica) => patchStep('expertis', { aplica })}
+                            >
+                                <Stack gap="sm">
+                                    <Checkbox
+                                        label="Se encuentra en la plataforma Expertis"
+                                        checked={!!selectedWork.proceso?.expertis?.encontradoEnPlataforma}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(event) => patchStep('expertis', {
+                                            encontradoEnPlataforma: event.currentTarget.checked
+                                        })}
+                                    />
+                                    <PlaneadorDateInput
+                                        label="Fecha en Expertis"
+                                        value={selectedWork.proceso?.expertis?.fecha}
+                                        disabled={!canEditSelectedProceso}
+                                        onChange={(value) => patchStep('expertis', { fecha: value })}
+                                    />
+                                </Stack>
+                            </ProcesoStepCard>
+                        </SimpleGrid>
+
+                        <SimpleGrid cols={{ base: 1, md: 2 }}>
+                            <Card className="detail-mini-card" padding="md">
+                                <PlaneadorDateInput
+                                    label="Fecha de Aprobación"
+                                    value={selectedWork.proceso?.fechaAprobacion}
+                                    disabled={!canEditSelectedProceso}
+                                    onChange={(value) => updateProceso((current) => ({ ...current, fechaAprobacion: value }))}
+                                />
+                            </Card>
+                            <Card className="detail-mini-card" padding="md">
+                                <Textarea
+                                    label="Pendientes"
+                                    minRows={3}
+                                    value={selectedWork.proceso?.pendientes || ''}
+                                    disabled={!canEditSelectedProceso}
+                                    onChange={(event) => updateProceso((current) => ({
+                                        ...current,
+                                        pendientes: event.currentTarget.value
+                                    }))}
+                                />
+                            </Card>
+                        </SimpleGrid>
+
+                        <Group justify="space-between" align="center" wrap="wrap">
+                            {canSeeAllJobs ? (
+                                <Box>
+                                    {!adminToolsOpen ? (
+                                        <Text
+                                            size="xs"
+                                            c="dimmed"
+                                            style={{ opacity: 0.28, cursor: 'pointer', userSelect: 'none' }}
+                                            onClick={() => setAdminToolsOpen(true)}
+                                            title="Herramientas admin"
+                                        >
+                                            ···
                                         </Text>
-                                    )}
-                                </Stack>
-                            </Tabs.Panel>
-
-                            <Tabs.Panel value="planeacion" pt="md">
-                                <Stack>
-                                    <SimpleGrid cols={{ base: 1, md: 2 }}>
-                                        <Select
-                                            label="Actividad"
-                                            data={ACTIVITY_OPTIONS}
-                                            value={activityDraft.nombre}
-                                            onChange={(value) => setActivityDraft((prev) => ({ ...prev, nombre: value || '' }))}
-                                        />
-                                        <TextInput
-                                            label="Repeticiones"
-                                            value={String(activityDraft.repeticiones)}
-                                            onChange={(event) => setActivityDraft((prev) => ({ ...prev, repeticiones: event.currentTarget.value }))}
-                                        />
-                                        <PlaneadorDateInput
-                                            label="Fecha de envío"
-                                            value={activityDraft.fechaEnvio}
-                                            onChange={(value) => setActivityDraft((prev) => ({ ...prev, fechaEnvio: value }))}
-                                        />
-                                        <PlaneadorDateInput
-                                            label="Fecha de recepción"
-                                            value={activityDraft.fechaRecepcion}
-                                            onChange={(value) => setActivityDraft((prev) => ({ ...prev, fechaRecepcion: value }))}
-                                        />
-                                    </SimpleGrid>
-                                    <Textarea
-                                        label="Observaciones"
-                                        value={activityDraft.observaciones}
-                                        onChange={(event) => setActivityDraft((prev) => ({ ...prev, observaciones: event.currentTarget.value }))}
-                                    />
-                                    <Group justify="flex-end">
-                                        <Button color="indigo" onClick={handleAddActivity}>Agregar actividad</Button>
-                                    </Group>
-
-                                    <Table>
-                                        <Table.Thead>
-                                            <Table.Tr>
-                                                <Table.Th>Actividad</Table.Th>
-                                                <Table.Th>Envío</Table.Th>
-                                                <Table.Th>Recepción</Table.Th>
-                                                <Table.Th>Repeticiones</Table.Th>
-                                                <Table.Th>Estado</Table.Th>
-                                            </Table.Tr>
-                                        </Table.Thead>
-                                        <Table.Tbody>
-                                            {selectedWork.actividades.map((item) => (
-                                                <Table.Tr key={item.id || `${item.nombre}-${item.fechaEnvio}`}>
-                                                    <Table.Td>{item.nombre}</Table.Td>
-                                                    <Table.Td>{formatDate(item.fechaEnvio)}</Table.Td>
-                                                    <Table.Td>{formatDate(item.fechaRecepcion)}</Table.Td>
-                                                    <Table.Td>{item.repeticiones}</Table.Td>
-                                                    <Table.Td>
-                                                        <Button
-                                                            size="compact-xs"
-                                                            variant={item.completada ? 'light' : 'default'}
-                                                            onClick={() => toggleActivityDone(item.id)}
-                                                            disabled={!item.id}
-                                                        >
-                                                            {item.completada ? 'Completada' : 'Marcar completa'}
-                                                        </Button>
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            ))}
-                                        </Table.Tbody>
-                                    </Table>
-                                </Stack>
-                            </Tabs.Panel>
-
-                            <Tabs.Panel value="aprobacion" pt="md">
-                                <Stack>
-                                    <PlaneadorDateInput
-                                        label="Fecha de aprobación final"
-                                        value={selectedWork.fechaAprobacion}
-                                        onChange={(value) =>
-                                            updateSelectedWork((current) => ({ ...current, fechaAprobacion: value }))
-                                        }
-                                    />
-                                    <Textarea
-                                        label="Comentarios de aprobación"
-                                        value={selectedWork.comentariosAprobacion}
-                                        onChange={(event) =>
-                                            updateSelectedWork((current) => ({
-                                                ...current,
-                                                comentariosAprobacion: event.currentTarget.value
-                                            }))
-                                        }
-                                    />
-                                    <Group>
-                                        <Button color="indigo" onClick={handleApprove}>Registrar aprobación</Button>
-                                        <Button variant="light" color="green" onClick={handleFinish}>
-                                            Finalizar trabajo
+                                    ) : (
+                                        <Button
+                                            variant="subtle"
+                                            color="red"
+                                            size="compact-xs"
+                                            leftSection={<IconTrash size={14} />}
+                                            loading={deletingJob}
+                                            onClick={handleDeleteJob}
+                                            style={{ opacity: 0.85 }}
+                                        >
+                                            Eliminar trabajo
                                         </Button>
-                                    </Group>
-                                    <Card withBorder>
-                                        <Text fw={700} mb="xs">Historial de revisiones</Text>
-                                        <Stack gap={4}>
-                                            {selectedWork.historial.map((line, idx) => (
-                                                <Text size="sm" key={`${line}-${idx}`}>• {line}</Text>
-                                            ))}
-                                        </Stack>
-                                    </Card>
-                                </Stack>
-                            </Tabs.Panel>
-                        </Tabs>
+                                    )}
+                                </Box>
+                            ) : (
+                                <span />
+                            )}
+                            {canEditSelectedProceso ? (
+                                <Group justify="flex-end" gap="sm">
+                                    <Button variant="default" disabled={savingProceso || deletingJob} onClick={() => setDetailOpened(false)}>
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        color="teal"
+                                        loading={savingProceso}
+                                        disabled={deletingJob}
+                                        leftSection={!savingProceso ? <IconCheck size={16} /> : undefined}
+                                        onClick={handleSaveProceso}
+                                    >
+                                        {savingProceso ? 'Guardando…' : 'Guardar proceso'}
+                                    </Button>
+                                </Group>
+                            ) : (
+                                <Button variant="default" onClick={() => setDetailOpened(false)}>
+                                    Cerrar
+                                </Button>
+                            )}
+                        </Group>
+
                     </Stack>
                 )}
             </Modal>

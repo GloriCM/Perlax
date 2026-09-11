@@ -17,6 +17,7 @@
 * [Órdenes de trabajo y fichas](flujo-principal/ordenes-trabajo.md)
 * [Pedidos de cliente](flujo-principal/pedidos-cliente.md)
 * [Planeación y producción](flujo-principal/planeacion-produccion.md)
+* [Programador de máquinas](flujo-principal/programador-maquinas.md)
 * [Reporte diario](flujo-principal/reporte-diario.md)
 * [Vista de planta](flujo-principal/planta.md)
 * [Remisiones](flujo-principal/remisiones.md)
@@ -33,6 +34,7 @@
 
 * [Introducción](gastos-por-area/README.md)
 * [Diseño — cuadro de gastos](gastos-por-area/diseno.md)
+* [Planeador de Diseño](gastos-por-area/planeador-diseno.md)
 * [Producción — control de gastos](gastos-por-area/produccion.md)
 * [Planeación — cuadro de gastos](gastos-por-area/planeacion.md)
 * [Talleres y despachos](gastos-por-area/talleres.md)

@@ -58,33 +58,17 @@ Ejemplo: pedido `1234` y OT `OT-7851` → OP `1234 51`.
 
 | Entrada | URL | Estado actual |
 |---------|-----|---------------|
-| Programador | `/planeacion/programador` | **Operativo** — Gantt con arrastre, lista, roster, wizard 3 pasos |
+| Programador | `/planeacion/programador` | **Operativo** — ver [Programador de máquinas](programador-maquinas.md) |
 
 ### Programador (`/planeacion/programador`)
 
-Programación mensual al estilo expertiS / Perla:
+Guía completa (vistas Gantt/Lista/Roster, wizard, meta mes y API):
 
-- **Gantt** por procesos productivos configurables (catálogo en BD).
-- **Zoom Mes / Semana / Día** — cabecera con semanas coloreadas (S1–S6), días L–D y línea del día actual.
-- **Roster** — pestañas al estilo Perla: **Grilla | Horarios | Cobertura | Turnos | Novedades**.
-  - **Grilla**: horarios semanales por trabajador (máquina o proceso/categoría, ej. Robert → Convertidora).
-  - **Horarios**: catálogo de turnos de planta (7 am–1 pm, 7 am–4:30 pm).
-  - **Cobertura**: grid máquina × día × turno con asignación Op/Ax.
-  - **Turnos**: turnos habilitados por máquina.
-  - **Novedades**: incapacidades y faltas (próximamente).
-- **Procesos** — agregar, editar, eliminar y reordenar filas del Gantt.
-- Clic en semana o día del encabezado cambia la vista; chips S1–S6 para saltar a una semana.
-- **Lista** de OPs programadas con detalle expandible por proceso.
-- **Wizard Programar OP** (3 pasos): datos OP → cálculo de horas → fechas por proceso.
-- Bloques auxiliares: **Capacitación** y **Limpieza** (botón o arrastre a una fila del Gantt).
-- **Arrastre** de barras para mover fechas; **bordes** para redimensionar; clic derecho para editar/eliminar. Validación de cruce de horario.
-- **Meta mes** — meta de facturacion mensual dividida por semanas; fila **FACTURADO** al pie del Gantt (Gen., meta base, total meta, +/-).
-- API ERP: `/api/production/scheduling/*` (vía `IOpSchedulingService` en Application: Gantt, blocks, program, catálogo, turnos, roster, coverage, billing).
-- API planta: `GET /api/planta/floor/schedule?machineId=` (programación del día por máquina, red interna).
-- API facturacion: `GET/PUT /api/production/scheduling/billing/meta` y `GET .../billing/summary`.
-- API procesos: `GET/POST/PUT/DELETE /api/production/scheduling/processes/...` y turnos `GET .../shifts`.
+→ **[Programador de máquinas](programador-maquinas.md)**
 
-> Redirects legacy: `/planeacion/panel` y `/produccion/planeacion` → `/planeacion/programador`.
+Resumen: Gantt Mes/Semana/Día con arrastre; Lista; Roster (Grilla, Horarios, Cobertura, Turnos); wizard Programar OP; bloques Capacitación/Limpieza; meta de facturación; URL https://perlax.perla.work/planeacion/programador
+
+> Otras rutas del menú (`/planeacion/panel`, `/produccion/planeacion`) redirigen al programador.
 
 Flujo recomendado: OP abierta en Apertura → Programar OP en planeación → operario consulta en `/planta`.
 
@@ -136,5 +120,6 @@ En **Administración → Planeación** existen módulos de **gastos** y **person
 ## Siguiente lectura
 
 - [Pedidos de cliente](pedidos-cliente.md)
+- [Programador de máquinas](programador-maquinas.md)
 - [Vista de planta](planta.md)
 - [Reporte diario](reporte-diario.md)

@@ -43,6 +43,7 @@ public class ProductionDbContext : DbContext
     public DbSet<ProductionWasteEntry> ProductionWasteEntries => Set<ProductionWasteEntry>();
     public DbSet<AreaExpenseRubro> AreaExpenseRubros => Set<AreaExpenseRubro>();
     public DbSet<AreaExpenseProveedor> AreaExpenseProveedores => Set<AreaExpenseProveedor>();
+    public DbSet<AreaExpenseCaptura> AreaExpenseCapturas => Set<AreaExpenseCaptura>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -347,10 +348,13 @@ public class ProductionDbContext : DbContext
             b.Property(x => x.Cliente).IsRequired().HasMaxLength(255);
             b.Property(x => x.Vendedor).IsRequired().HasMaxLength(255);
             b.Property(x => x.Trabajo).IsRequired().HasMaxLength(500);
+            b.Property(x => x.Accion).HasMaxLength(4000);
             b.Property(x => x.Responsable).IsRequired().HasMaxLength(255);
             b.Property(x => x.Estado).IsRequired().HasMaxLength(50);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
             b.Property(x => x.Requerimientos).HasMaxLength(4000);
             b.Property(x => x.ComentariosAprobacion).HasMaxLength(4000);
+            b.Property(x => x.ProcesoJson).IsRequired();
             b.Property(x => x.HistorialJson).IsRequired();
             b.Property(x => x.UpdatedBy).HasMaxLength(255);
             b.HasIndex(x => x.JobNumber).IsUnique();
@@ -562,6 +566,25 @@ public class ProductionDbContext : DbContext
             b.Property(x => x.Asesor).HasMaxLength(200);
             b.Property(x => x.RubrosJson).IsRequired();
             b.HasIndex(x => new { x.Area, x.Name });
+        });
+
+        modelBuilder.Entity<AreaExpenseCaptura>(b =>
+        {
+            b.ToTable("AreaExpenseCapturas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Area).IsRequired().HasMaxLength(40);
+            b.Property(x => x.RubroName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.ProveedorName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Invoice).HasMaxLength(120);
+            b.Property(x => x.OpNumber).HasMaxLength(120);
+            b.Property(x => x.Status).IsRequired().HasMaxLength(40);
+            b.Property(x => x.RegisteredBy).IsRequired().HasMaxLength(200);
+            b.Property(x => x.BaseAmount).HasPrecision(18, 2);
+            b.Property(x => x.IvaAmount).HasPrecision(18, 2);
+            b.Property(x => x.TotalAmount).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.Area, x.ExpenseDate });
+            b.HasIndex(x => new { x.Area, x.RubroName });
+            b.HasIndex(x => x.OvertimeGroupId);
         });
     }
 }
