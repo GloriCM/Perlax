@@ -34,9 +34,17 @@ public static class UserRoles
     public static bool IsTaller(string? role) =>
         string.Equals(role, Taller, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Operario, auxiliar, almacén y taller: no usan matriz de vistas del ERP.</summary>
+    /// <summary>Operario, auxiliar, almacén y taller: personal de apoyo (horas extras por área).</summary>
     public static bool IsShopFloor(string? role) =>
         IsOperario(role) || IsAuxiliar(role) || IsAlmacen(role) || IsTaller(role);
+
+    /// <summary>Roles que usan matriz de módulos/vistas (Administrativo y Taller con acceso ERP).</summary>
+    public static bool UsesViewMatrix(string? role) =>
+        IsAdministrative(role) || IsTaller(role);
+
+    /// <summary>Personal de planta sin menú ERP (fuerza rutas vacías).</summary>
+    public static bool ForcesEmptyRoutes(string? role) =>
+        IsShopFloor(role) && !IsTaller(role);
 
     /// <summary>Solo operarios se eligen en /planta.</summary>
     public static bool AppearsInPlanta(string? role) => IsOperario(role);

@@ -1,11 +1,18 @@
-import { Card, Title, Text, Group, Stack, ThemeIcon, Box, Button, ScrollArea, Badge, TextInput, ActionIcon, FileButton, Tooltip, Menu } from '@mantine/core';
-import { IconUsers, IconSend, IconSearch, IconPaperclip, IconX, IconDotsVertical, IconTrash } from '@tabler/icons-react';
-import { useLocation } from 'react-router-dom';
+import {
+    Card, Title, Text, Group, Stack, ThemeIcon, Box, Button, ScrollArea, Badge,
+    TextInput, ActionIcon, FileButton, Tooltip, Menu, Loader
+} from '@mantine/core';
+import {
+    IconUsers, IconSend, IconSearch, IconPaperclip, IconX, IconDotsVertical,
+    IconTrash, IconMessageCircle, IconBuilding, IconUser
+} from '@tabler/icons-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { api, getApiOrigin } from '../../utils/api';
 import { resolveUploadUrl } from '../../utils/uploadUrl';
 import { notifications } from '@mantine/notifications';
+import { canAccessInternalChat, getCurrentUser, isAdmin } from '../../utils/permissions';
 
 function normalizeText(value) {
     return String(value || '')
@@ -17,6 +24,10 @@ function normalizeText(value) {
 
 function normalizeUsername(value) {
     return String(value || '').trim().toLowerCase();
+}
+
+function isDesignArea(area) {
+    return normalizeText(area).includes('dise');
 }
 
 function isImageAttachment(contentType, fileName) {
@@ -40,11 +51,37 @@ function normalizePickedFiles(input) {
     return [];
 }
 
+function typeBadge(type) {
+    if (type === 'Area') return { color: 'cyan', label: 'Área' };
+    if (type === 'Direct') return { color: 'grape', label: 'Directo' };
+    if (type === 'OpThread') return { color: 'orange', label: 'OP' };
+    return { color: 'gray', label: type || 'Chat' };
+}
+
+function mapConversation(c) {
+    return {
+        id: c.id,
+        conversationType: c.conversationType || c.ConversationType || 'OpThread',
+        areaKey: c.areaKey || c.AreaKey || null,
+        areaLabel: c.areaLabel || c.AreaLabel || c.areaKey || '',
+        otNumber: c.otNumber || c.OTNumber || '',
+        title: c.title || (c.otNumber ? `OP ${c.otNumber}` : 'Conversación'),
+        createdBy: c.createdByDisplayName || c.createdByUsername || 'Usuario',
+        lastMessage: c.lastMessage || 'Sin mensajes aún.',
+        updatedAt: c.lastMessageAt || c.updatedAt,
+        peerUsername: c.peerUsername || null,
+        peerDisplayName: c.peerDisplayName || null,
+    };
+}
+
 export default function ChatCenter() {
     const location = useLocation();
+    const navigate = useNavigate();
     const hubRef = useRef(null);
     const joinedConversationRef = useRef(null);
     const activeConversationIdRef = useRef(null);
+    const userSearchTimer = useRef(null);
+
     const [conversations, setConversations] = useState([]);
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [activeConversationId, setActiveConversationId] = useState(null);
@@ -52,22 +89,24 @@ export default function ChatCenter() {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [sending, setSending] = useState(false);
     const [connectingRealtime, setConnectingRealtime] = useState(false);
-    const [search, setSearch] = useState('');
+    const [listFilter, setListFilter] = useState('');
     const [messageDraft, setMessageDraft] = useState('');
     const [selectedFiles, setSelectedFiles] = useState([]);
+    const [userQuery, setUserQuery] = useState('');
+    const [userResults, setUserResults] = useState([]);
+    const [searchingUsers, setSearchingUsers] = useState(false);
+    const [openingDirect, setOpeningDirect] = useState(false);
+    const [accessDenied, setAccessDenied] = useState(false);
 
     const conversationIdFromUrl = useMemo(() => {
         const params = new URLSearchParams(location.search || '');
         return params.get('conversationId');
     }, [location.search]);
 
-    const currentUser = useMemo(() => {
-        try {
-            return JSON.parse(localStorage.getItem('user') || '{}');
-        } catch {
-            return {};
-        }
-    }, []);
+    const currentUser = useMemo(() => getCurrentUser() || {}, []);
+    const chatAllowed = canAccessInternalChat(currentUser);
+    const adminUser = isAdmin(currentUser);
+    const designUser = adminUser || isDesignArea(currentUser?.area || currentUser?.Area);
 
     const senderDisplayName = useMemo(() => {
         return [currentUser?.firstName, currentUser?.lastName]
@@ -77,6 +116,20 @@ export default function ChatCenter() {
     }, [currentUser]);
 
     const authToken = useMemo(() => currentUser?.token || currentUser?.Token || '', [currentUser]);
+
+    useEffect(() => {
+        if (!chatAllowed) {
+            setAccessDenied(true);
+            notifications.show({
+                title: 'Sin acceso',
+                message: 'El chat interno es solo para Administradores y Administrativos.',
+                color: 'red'
+            });
+            const t = setTimeout(() => navigate('/', { replace: true }), 1200);
+            return () => clearTimeout(t);
+        }
+        return undefined;
+    }, [chatAllowed, navigate]);
 
     useEffect(() => {
         activeConversationIdRef.current = activeConversationId;
@@ -97,16 +150,11 @@ export default function ChatCenter() {
     };
 
     const loadConversations = async ({ preserveCurrent } = { preserveCurrent: true }) => {
+        if (!chatAllowed) return;
         try {
             setLoadingConversations(true);
             const rows = await api.get('/production/internal-chat/conversations');
-            const list = (rows || []).map((c) => ({
-                id: c.id,
-                title: c.title || `OT ${c.otNumber || '-'}`,
-                createdBy: c.createdByDisplayName || c.createdByUsername || 'Usuario',
-                lastMessage: c.lastMessage || 'Sin mensajes aún.',
-                updatedAt: c.lastMessageAt || c.updatedAt,
-            }));
+            const list = (rows || []).map(mapConversation);
             setConversations(list);
 
             if (list.length === 0) {
@@ -126,6 +174,11 @@ export default function ChatCenter() {
 
             setActiveConversationId(list[0].id);
         } catch (error) {
+            const msg = String(error?.message || '').toLowerCase();
+            if (msg.includes('sin acceso') || msg.includes('403') || msg.includes('forbidden')) {
+                setAccessDenied(true);
+                return;
+            }
             notifications.show({
                 title: 'Error',
                 message: error?.message || 'No se pudieron cargar las conversaciones.',
@@ -157,16 +210,19 @@ export default function ChatCenter() {
     };
 
     useEffect(() => {
+        if (!chatAllowed) return;
         loadConversations({ preserveCurrent: false });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [conversationIdFromUrl]);
+    }, [conversationIdFromUrl, chatAllowed]);
 
     useEffect(() => {
+        if (!chatAllowed) return;
         loadMessages(activeConversationId);
-    }, [activeConversationId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeConversationId, chatAllowed]);
 
     useEffect(() => {
-        if (!authToken) return undefined;
+        if (!authToken || !chatAllowed) return undefined;
         let mounted = true;
 
         const startRealtime = async () => {
@@ -185,7 +241,10 @@ export default function ChatCenter() {
                     if (msg?.conversationId !== activeConversationIdRef.current) {
                         setConversations((prev) => {
                             const idx = prev.findIndex((x) => x.id === msg?.conversationId);
-                            if (idx === -1) return prev;
+                            if (idx === -1) {
+                                loadConversations({ preserveCurrent: true });
+                                return prev;
+                            }
                             const next = [...prev];
                             next[idx] = {
                                 ...next[idx],
@@ -205,13 +264,11 @@ export default function ChatCenter() {
 
                 conn.on('ConversationUpserted', (conv) => {
                     setConversations((prev) => {
-                        const mapped = {
-                            id: conv.id,
-                            title: conv.title,
-                            createdBy: conv.createdBy || 'Usuario',
-                            lastMessage: conv.lastMessage || 'Sin mensajes aún.',
-                            updatedAt: conv.updatedAt || new Date().toISOString(),
-                        };
+                        const mapped = mapConversation({
+                            ...conv,
+                            createdByDisplayName: conv.createdBy,
+                            lastMessage: conv.lastMessage,
+                        });
                         const idx = prev.findIndex((x) => x.id === mapped.id);
                         if (idx === -1) {
                             return [mapped, ...prev];
@@ -244,7 +301,7 @@ export default function ChatCenter() {
                 }
                 hubRef.current = conn;
                 await syncConversationGroup(activeConversationIdRef.current);
-            } catch (error) {
+            } catch {
                 notifications.show({
                     title: 'Tiempo real no disponible',
                     message: 'No se pudo establecer conexión en vivo. Se mantiene modo API.',
@@ -265,11 +322,64 @@ export default function ChatCenter() {
                 joinedConversationRef.current = null;
             }
         };
-    }, [authToken]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [authToken, chatAllowed]);
 
     useEffect(() => {
         syncConversationGroup(activeConversationId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeConversationId]);
+
+    useEffect(() => {
+        if (!chatAllowed) return undefined;
+        if (userSearchTimer.current) clearTimeout(userSearchTimer.current);
+        const q = userQuery.trim();
+        if (q.length < 1) {
+            setUserResults([]);
+            setSearchingUsers(false);
+            return undefined;
+        }
+        setSearchingUsers(true);
+        userSearchTimer.current = setTimeout(async () => {
+            try {
+                const rows = await api.get(`/production/internal-chat/users/search?q=${encodeURIComponent(q)}`);
+                setUserResults(Array.isArray(rows) ? rows : []);
+            } catch {
+                setUserResults([]);
+            } finally {
+                setSearchingUsers(false);
+            }
+        }, 280);
+        return () => {
+            if (userSearchTimer.current) clearTimeout(userSearchTimer.current);
+        };
+    }, [userQuery, chatAllowed]);
+
+    const openDirectChat = async (peerUsername) => {
+        if (!peerUsername || openingDirect) return;
+        try {
+            setOpeningDirect(true);
+            const conversation = await api.post('/production/internal-chat/conversations/direct', {
+                peerUsername,
+                createdByDisplayName: senderDisplayName
+            });
+            setUserQuery('');
+            setUserResults([]);
+            await loadConversations({ preserveCurrent: false });
+            if (conversation?.id) {
+                setActiveConversationId(conversation.id);
+                navigate(`/chat?conversationId=${conversation.id}`, { replace: true });
+            }
+        } catch (error) {
+            notifications.show({
+                title: 'No se pudo abrir el chat',
+                message: error?.message || 'Error al iniciar conversación directa.',
+                color: 'red'
+            });
+        } finally {
+            setOpeningDirect(false);
+        }
+    };
 
     const handleSend = async () => {
         const text = messageDraft.trim();
@@ -364,15 +474,135 @@ export default function ChatCenter() {
     };
 
     const filteredConversations = useMemo(() => {
-        const term = normalizeText(search);
+        const term = normalizeText(listFilter);
         if (!term) return conversations;
         return conversations.filter((item) => {
-            const haystack = normalizeText(`${item.title} ${item.createdBy} ${item.lastMessage}`);
+            const haystack = normalizeText(`${item.title} ${item.createdBy} ${item.lastMessage} ${item.areaLabel} ${item.otNumber}`);
             return haystack.includes(term);
         });
-    }, [conversations, search]);
+    }, [conversations, listFilter]);
+
+    const groupedByArea = useMemo(() => {
+        const groups = new Map();
+        const ensure = (key, label) => {
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    label,
+                    channel: null,
+                    directs: [],
+                    ops: [],
+                    other: [],
+                });
+            }
+            return groups.get(key);
+        };
+
+        for (const item of filteredConversations) {
+            if (item.conversationType === 'Direct') {
+                const cross = ensure('_directos', 'Directos');
+                cross.directs.push(item);
+                continue;
+            }
+
+            const areaKey = item.areaKey || '_otros';
+            const label = item.areaLabel || (areaKey === '_otros' ? 'Otros' : areaKey);
+            const g = ensure(areaKey, label);
+            if (item.conversationType === 'Area') g.channel = item;
+            else if (item.conversationType === 'OpThread') g.ops.push(item);
+            else g.other.push(item);
+        }
+
+        // Stable order: known areas first, then directos, then others
+        const preferred = [
+            'diseño', 'produccion', 'planeaccion', 'calidad', 'talleres',
+            'ti', 'mantenimiento', 'sst', 'gestion humana', 'presupuestos', 'financiera', 'contabilidad', '_directos', '_otros'
+        ];
+        const keys = [...groups.keys()].sort((a, b) => {
+            const ia = preferred.indexOf(a);
+            const ib = preferred.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+
+        return keys.map((k) => groups.get(k)).filter(Boolean);
+    }, [filteredConversations]);
 
     const activeConversation = conversations.find((x) => x.id === activeConversationId) || null;
+
+    const renderConversationCard = (item) => {
+        const badge = typeBadge(item.conversationType);
+        return (
+            <Card
+                key={item.id}
+                p="sm"
+                onClick={() => {
+                    setActiveConversationId(item.id);
+                    navigate(`/chat?conversationId=${item.id}`, { replace: true });
+                }}
+                style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    outline: activeConversationId === item.id ? '1px solid rgba(99,102,241,0.7)' : 'none'
+                }}
+            >
+                <Group justify="space-between" align="flex-start">
+                    <Box style={{ minWidth: 0, flex: 1 }}>
+                        <Group gap={6} mb={2}>
+                            <Text size="sm" fw={700} c="white" lineClamp={1}>{item.title}</Text>
+                            <Badge size="xs" color={badge.color} variant="light">{badge.label}</Badge>
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={1}>{item.lastMessage}</Text>
+                    </Box>
+                    <Group gap={6}>
+                        {activeConversationId === item.id ? <Badge color="indigo" size="xs">Activa</Badge> : null}
+                        <Menu withinPortal={false} position="bottom-end">
+                            <Menu.Target>
+                                <ActionIcon
+                                    variant="subtle"
+                                    color="gray"
+                                    size="sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label="Opciones conversación"
+                                >
+                                    <IconDotsVertical size={14} />
+                                </ActionIcon>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                <Menu.Item
+                                    color="red"
+                                    leftSection={<IconTrash size={14} />}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteConversationForMe(item.id);
+                                    }}
+                                >
+                                    Borrar para mí
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
+                    </Group>
+                </Group>
+            </Card>
+        );
+    };
+
+    if (accessDenied || !chatAllowed) {
+        return (
+            <Stack gap="lg" className="fade-in">
+                <Card className="glass-card" p="lg">
+                    <Title order={3} c="white">Chat Interno</Title>
+                    <Text size="sm" c="dimmed" mt="sm">
+                        No tienes permiso para usar el chat. Solo Administradores, Administrativos y personal de Taller con vistas asignadas.
+                    </Text>
+                </Card>
+            </Stack>
+        );
+    }
 
     return (
         <Stack gap="lg" className="fade-in">
@@ -384,111 +614,136 @@ export default function ChatCenter() {
                 }}
             >
                 <Group justify="space-between" align="center">
-                    <Group gap="sm">
-                        <Box>
-                            <Title order={3} c="white">Chat Interno</Title>
-                            <Text size="sm" c="dimmed">
-                                Centro de conversaciones del equipo.
-                            </Text>
-                        </Box>
-                    </Group>
+                    <Box>
+                        <Title order={3} c="white">Chat Interno</Title>
+                        <Text size="sm" c="dimmed">
+                            Canales por área, chats directos{designUser ? ' e hilos por OP en Diseño' : ''}.
+                        </Text>
+                    </Box>
+                    {connectingRealtime ? (
+                        <Badge size="sm" color="yellow" variant="light">Conectando...</Badge>
+                    ) : (
+                        <Badge size="sm" color="teal" variant="light">Tiempo real</Badge>
+                    )}
                 </Group>
             </Card>
 
             <Group align="stretch" grow wrap="wrap" className="chat-layout">
                 <Card className="glass-card chat-panel-list" p="md" style={{ flex: 1.1, minWidth: 320 }}>
-                    <Group justify="space-between" mb="sm">
+                    <Stack gap="sm" mb="sm">
                         <Group gap="xs">
                             <ThemeIcon variant="light" color="blue">
                                 <IconUsers size={16} />
                             </ThemeIcon>
                             <Text fw={700} c="white">Conversaciones</Text>
-                            {connectingRealtime ? (
-                                <Badge size="xs" color="yellow" variant="light">Conectando...</Badge>
-                            ) : (
-                                <Badge size="xs" color="teal" variant="light">Tiempo real</Badge>
-                            )}
                         </Group>
+
+                        <TextInput
+                            size="sm"
+                            leftSection={searchingUsers ? <Loader size={12} /> : <IconSearch size={14} />}
+                            placeholder="Buscar usuario para chat 1:1..."
+                            value={userQuery}
+                            onChange={(e) => setUserQuery(e.currentTarget.value)}
+                        />
+                        {userResults.length > 0 ? (
+                            <Card p="xs" style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 10 }}>
+                                <Stack gap={4}>
+                                    {userResults.map((u) => (
+                                        <Group
+                                            key={u.username}
+                                            justify="space-between"
+                                            p={6}
+                                            style={{ cursor: 'pointer', borderRadius: 8 }}
+                                            onClick={() => openDirectChat(u.username)}
+                                        >
+                                            <Box>
+                                                <Text size="sm" c="white" fw={600}>{u.displayName || u.username}</Text>
+                                                <Text size="xs" c="dimmed">
+                                                    @{u.username}{u.areaLabel || u.area ? ` · ${u.areaLabel || u.area}` : ''}
+                                                </Text>
+                                            </Box>
+                                            <ActionIcon variant="light" color="indigo" loading={openingDirect} aria-label="Abrir chat">
+                                                <IconMessageCircle size={14} />
+                                            </ActionIcon>
+                                        </Group>
+                                    ))}
+                                </Stack>
+                            </Card>
+                        ) : null}
+
                         <TextInput
                             size="xs"
                             leftSection={<IconSearch size={14} />}
-                            placeholder="Buscar"
-                            value={search}
-                            onChange={(e) => setSearch(e.currentTarget.value)}
-                            styles={{ input: { maxWidth: 140 } }}
+                            placeholder="Filtrar conversaciones"
+                            value={listFilter}
+                            onChange={(e) => setListFilter(e.currentTarget.value)}
                         />
-                    </Group>
+                    </Stack>
 
-                    <ScrollArea h={420}>
-                        <Stack gap="xs">
+                    <ScrollArea h={460}>
+                        <Stack gap="md">
                             {loadingConversations ? (
                                 <Text size="sm" c="dimmed">Cargando conversaciones...</Text>
-                            ) : filteredConversations.length === 0 ? (
+                            ) : groupedByArea.length === 0 ? (
                                 <Text size="sm" c="dimmed">No hay conversaciones.</Text>
-                            ) : filteredConversations.map((item) => (
-                                <Card
-                                    key={item.id}
-                                    p="sm"
-                                    onClick={() => setActiveConversationId(item.id)}
-                                    style={{
-                                        background: 'rgba(255,255,255,0.04)',
-                                        border: '1px solid rgba(255,255,255,0.08)',
-                                        borderRadius: 12,
-                                        cursor: 'pointer',
-                                        outline: activeConversationId === item.id ? '1px solid rgba(99,102,241,0.7)' : 'none'
-                                    }}
-                                >
-                                    <Group justify="space-between" align="flex-start">
-                                        <Box>
-                                            <Text size="sm" fw={700} c="white">{item.title}</Text>
-                                            <Text size="xs" c="dimmed">Creado por: {item.createdBy}</Text>
-                                            <Text size="xs" c="dimmed">{item.lastMessage}</Text>
-                                        </Box>
-                                        <Group gap={6}>
-                                            {activeConversationId === item.id ? <Badge color="indigo" size="xs">Activa</Badge> : null}
-                                            <Menu withinPortal={false} position="bottom-end">
-                                                <Menu.Target>
-                                                    <ActionIcon
-                                                        variant="subtle"
-                                                        color="gray"
-                                                        size="sm"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        aria-label="Opciones conversación"
-                                                    >
-                                                        <IconDotsVertical size={14} />
-                                                    </ActionIcon>
-                                                </Menu.Target>
-                                                <Menu.Dropdown>
-                                                    <Menu.Item
-                                                        color="red"
-                                                        leftSection={<IconTrash size={14} />}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteConversationForMe(item.id);
-                                                        }}
-                                                    >
-                                                        Borrar para mí
-                                                    </Menu.Item>
-                                                </Menu.Dropdown>
-                                            </Menu>
-                                        </Group>
+                            ) : groupedByArea.map((group) => (
+                                <Box key={group.key}>
+                                    <Group gap={6} mb={6}>
+                                        <ThemeIcon size="sm" variant="light" color={group.key === 'diseño' ? 'orange' : 'gray'}>
+                                            {group.key === '_directos' ? <IconUser size={12} /> : <IconBuilding size={12} />}
+                                        </ThemeIcon>
+                                        <Text size="sm" fw={700} c="white">{group.label}</Text>
                                     </Group>
-                                </Card>
+                                    <Stack gap="xs">
+                                        {group.channel ? renderConversationCard(group.channel) : null}
+                                        {group.key === 'diseño' && group.ops.length > 0 ? (
+                                            <>
+                                                <Text size="xs" c="dimmed" mt={4}>Por OP</Text>
+                                                {group.ops.map(renderConversationCard)}
+                                            </>
+                                        ) : null}
+                                        {group.key !== 'diseño' && group.ops.length > 0
+                                            ? group.ops.map(renderConversationCard)
+                                            : null}
+                                        {group.directs.length > 0 ? (
+                                            <>
+                                                {group.key === '_directos' ? null : (
+                                                    <Text size="xs" c="dimmed" mt={4}>Usuarios / directos</Text>
+                                                )}
+                                                {group.directs.map(renderConversationCard)}
+                                            </>
+                                        ) : null}
+                                        {group.other.map(renderConversationCard)}
+                                    </Stack>
+                                </Box>
                             ))}
                         </Stack>
                     </ScrollArea>
                 </Card>
 
                 <Card className="glass-card chat-panel-messages" p="md" style={{ flex: 1.9, minWidth: 420 }}>
-                    <Stack justify="space-between" h={420}>
+                    <Stack justify="space-between" h={560}>
                         <Box>
-                            <Text fw={700} c="white" mb={4}>
-                                {activeConversation ? activeConversation.title : 'Selecciona una conversación'}
-                            </Text>
+                            <Group gap="xs" mb={4}>
+                                <Text fw={700} c="white">
+                                    {activeConversation ? activeConversation.title : 'Selecciona una conversación'}
+                                </Text>
+                                {activeConversation ? (
+                                    <Badge size="xs" color={typeBadge(activeConversation.conversationType).color} variant="light">
+                                        {typeBadge(activeConversation.conversationType).label}
+                                    </Badge>
+                                ) : null}
+                            </Group>
                             <Text size="xs" c="dimmed" mb={6}>
-                                {activeConversation ? `Creado por: ${activeConversation.createdBy}` : ''}
+                                {activeConversation?.conversationType === 'Area'
+                                    ? `Canal de ${activeConversation.areaLabel || activeConversation.areaKey || 'área'}`
+                                    : activeConversation?.conversationType === 'OpThread'
+                                        ? `Hilo OP ${activeConversation.otNumber || ''}`
+                                        : activeConversation
+                                            ? `Chat con ${activeConversation.peerDisplayName || activeConversation.title}`
+                                            : ''}
                             </Text>
-                            <ScrollArea h={250} mt="md" pr="xs">
+                            <ScrollArea h={380} mt="md" pr="xs">
                                 <Stack gap="xs">
                                     {loadingMessages ? (
                                         <Text size="sm" c="dimmed">Cargando mensajes...</Text>
@@ -539,7 +794,7 @@ export default function ChatCenter() {
                                                                 rel="noreferrer"
                                                                 style={{ color: '#93c5fd', fontSize: 12 }}
                                                             >
-                                                                📎 {msg.attachmentName || 'Descargar archivo'}
+                                                                {msg.attachmentName || 'Descargar archivo'}
                                                             </a>
                                                         )}
                                                     </Box>

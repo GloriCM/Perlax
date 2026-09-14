@@ -1,18 +1,7 @@
 const STORAGE_KEYS = {
-  rubros: 'mantenimiento_gastos_rubros',
   productos: 'mantenimiento_gastos_productos',
-  proveedores: 'mantenimiento_gastos_proveedores',
   cotizaciones: 'mantenimiento_gastos_cotizaciones',
 };
-
-const DEFAULT_RUBROS = [
-  'Ferreteria',
-  'Lubricacion',
-  'Mantenimiento',
-  'Repuestos',
-  'Rodamientos',
-  'Sistema Aire',
-];
 
 const DEFAULT_PRODUCTOS = [
   {
@@ -24,11 +13,6 @@ const DEFAULT_PRODUCTOS = [
     medida: 'Uni',
     puntoReorden: 50,
   },
-];
-
-const DEFAULT_PROVEEDORES = [
-  { id: 1, nombre: 'ARP Soluciones Industriales', rubro: 'Mantenimiento', nit: '902033107-3', telefono: '3147711871' },
-  { id: 2, nombre: 'Bandas', rubro: 'Repuestos', nit: '', telefono: '3176725964' },
 ];
 
 const DEFAULT_COTIZACIONES = [
@@ -61,28 +45,12 @@ function writeJSON(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function getRubros() {
-  return readJSON(STORAGE_KEYS.rubros, DEFAULT_RUBROS);
-}
-
-export function saveRubros(rubros) {
-  writeJSON(STORAGE_KEYS.rubros, rubros);
-}
-
 export function getProductos() {
   return readJSON(STORAGE_KEYS.productos, DEFAULT_PRODUCTOS);
 }
 
 export function saveProductos(productos) {
   writeJSON(STORAGE_KEYS.productos, productos);
-}
-
-export function getProveedores() {
-  return readJSON(STORAGE_KEYS.proveedores, DEFAULT_PROVEEDORES);
-}
-
-export function saveProveedores(proveedores) {
-  writeJSON(STORAGE_KEYS.proveedores, proveedores);
 }
 
 export function getCotizaciones() {
@@ -96,4 +64,3 @@ export function saveCotizaciones(cotizaciones) {
 export function getMedidas() {
   return MEDIDAS;
 }
-

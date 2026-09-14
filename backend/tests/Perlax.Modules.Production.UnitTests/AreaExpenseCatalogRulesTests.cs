@@ -33,6 +33,7 @@ public class AreaExpenseCatalogRulesTests
     [InlineData("planeacion")]
     [InlineData("produccion")]
     [InlineData("mantenimiento")]
+    [InlineData("sst")]
     public void Known_areas_are_accepted(string area)
     {
         Assert.True(AreaExpenseCatalogRules.TryNormalizeArea(area, out var key));

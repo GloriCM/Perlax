@@ -20,21 +20,46 @@ public sealed class InternalChatService : IInternalChatService
     };
 
     private readonly ProductionDbContext _db;
+    private readonly IChatUserDirectory _users;
 
-    public InternalChatService(ProductionDbContext db)
+    public InternalChatService(ProductionDbContext db, IChatUserDirectory users)
     {
         _db = db;
+        _users = users;
     }
 
-    public async Task<IReadOnlyList<ChatConversationListItemDto>> GetConversationsAsync(string currentUsername, CancellationToken ct = default)
+    public async Task EnsureAccessAsync(ChatCallerContext caller, CancellationToken ct = default)
     {
-        var normalizedUser = NormalizeUser(currentUsername);
+        var info = await _users.FindByUsernameAsync(caller.Username, ct);
+        if (info == null || !ChatAccess.IsEligible(info.Role, info.AssignedViewsCount))
+            throw new UnauthorizedAccessException("El chat interno solo está disponible para Administradores, Administrativos y personal de Taller con vistas asignadas.");
+    }
+
+    public async Task<IReadOnlyList<ChatConversationListItemDto>> GetConversationsAsync(
+        ChatCallerContext caller, CancellationToken ct = default)
+    {
+        await EnsureAccessAsync(caller, ct);
+        await EnsureHomeChannelsAsync(caller, ct);
+
+        var normalizedUser = NormalizeUser(caller.Username);
+        var isAdmin = ChatAccess.IsAdmin(caller.Role);
+        var isDesign = ChatAccess.IsDesignArea(caller.Area);
+        var userArea = ChatAccess.NormalizeArea(caller.Area);
+
+        var participantIds = await _db.InternalChatParticipants.AsNoTracking()
+            .Where(p => p.Username == normalizedUser)
+            .Select(p => p.ConversationId)
+            .ToListAsync(ct);
+
         var conversations = await _db.InternalChatConversations
             .AsNoTracking()
             .OrderByDescending(c => c.UpdatedAt)
             .Select(c => new
             {
                 c.Id,
+                c.ConversationType,
+                c.AreaKey,
+                c.DirectPairKey,
                 c.OTNumber,
                 c.Title,
                 c.CreatedByDisplayName,
@@ -42,6 +67,7 @@ public sealed class InternalChatService : IInternalChatService
                 c.DeletedForUsersJson,
                 c.CreatedAt,
                 c.UpdatedAt,
+                Participants = c.Participants.Select(p => p.Username).ToList(),
                 LastMessage = c.Messages
                     .OrderByDescending(m => m.SentAt)
                     .Select(m =>
@@ -58,33 +84,120 @@ public sealed class InternalChatService : IInternalChatService
             })
             .ToListAsync(ct);
 
-        return conversations
-            .Where(c => !IsConversationDeletedForUser(c.DeletedForUsersJson, normalizedUser))
-            .Select(c => new ChatConversationListItemDto(
-                c.Id, c.OTNumber, c.Title, c.CreatedByDisplayName, c.CreatedByUsername,
-                c.CreatedAt, c.UpdatedAt, c.LastMessage, c.LastMessageAt))
+        var visible = conversations.Where(c =>
+        {
+            if (IsConversationDeletedForUser(c.DeletedForUsersJson, normalizedUser))
+                return false;
+
+            if (participantIds.Contains(c.Id))
+                return true;
+
+            if (c.ConversationType == InternalChatConversationType.Area)
+            {
+                if (isAdmin) return true;
+                return string.Equals(ChatAccess.NormalizeArea(c.AreaKey), userArea, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (c.ConversationType == InternalChatConversationType.OpThread)
+                return isAdmin || isDesign;
+
+            return false;
+        }).ToList();
+
+        // Auto-membership for visible area/op threads so ACL stays consistent.
+        foreach (var row in visible.Where(c => !participantIds.Contains(c.Id)))
+        {
+            await EnsureParticipantAsync(row.Id, normalizedUser, ct);
+        }
+        if (_db.ChangeTracker.HasChanges())
+            await _db.SaveChangesAsync(ct);
+
+        var peerLookup = new Dictionary<string, ChatUserInfo>(StringComparer.OrdinalIgnoreCase);
+        var peerUsernames = visible
+            .Where(c => c.ConversationType == InternalChatConversationType.Direct)
+            .SelectMany(c => c.Participants)
+            .Where(u => !string.Equals(u, normalizedUser, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        foreach (var peer in peerUsernames)
+        {
+            var info = await _users.FindByUsernameAsync(peer, ct);
+            if (info != null) peerLookup[NormalizeUser(info.Username)] = info;
+        }
+
+        return visible.Select(c =>
+        {
+            string? peerUsername = null;
+            string? peerDisplayName = null;
+            var title = c.Title;
+            if (c.ConversationType == InternalChatConversationType.Direct)
+            {
+                peerUsername = c.Participants
+                    .FirstOrDefault(u => !string.Equals(u, normalizedUser, StringComparison.OrdinalIgnoreCase));
+                if (peerUsername != null && peerLookup.TryGetValue(NormalizeUser(peerUsername), out var peerInfo))
+                {
+                    peerDisplayName = peerInfo.DisplayName;
+                    title = peerInfo.DisplayName;
+                }
+                else if (!string.IsNullOrWhiteSpace(peerUsername))
+                {
+                    peerDisplayName = peerUsername;
+                    title = peerUsername;
+                }
+            }
+
+            return new ChatConversationListItemDto(
+                c.Id,
+                c.ConversationType.ToString(),
+                c.AreaKey,
+                c.OTNumber,
+                title,
+                c.CreatedByDisplayName,
+                c.CreatedByUsername,
+                c.CreatedAt,
+                c.UpdatedAt,
+                c.LastMessage,
+                c.LastMessageAt,
+                peerUsername,
+                peerDisplayName);
+        }).ToList();
+    }
+
+    public async Task<IReadOnlyList<ChatUserSearchItemDto>> SearchUsersAsync(
+        ChatCallerContext caller, string query, CancellationToken ct = default)
+    {
+        await EnsureAccessAsync(caller, ct);
+        var rows = await _users.SearchEligibleAsync(query, caller.Username, 20, ct);
+        return rows.Select(u => new ChatUserSearchItemDto(u.Username, u.DisplayName, u.Role, u.Area)).ToList();
     }
 
     public async Task<ChatConversationSummaryDto> CreateOrGetFromOtAsync(
-        CreateChatFromOtCommand command, string username, CancellationToken ct = default)
+        CreateChatFromOtCommand command, ChatCallerContext caller, CancellationToken ct = default)
     {
+        await EnsureAccessAsync(caller, ct);
+        if (!ChatAccess.IsAdmin(caller.Role) && !ChatAccess.IsDesignArea(caller.Area))
+            throw new UnauthorizedAccessException("Solo Diseño y Administradores pueden abrir hilos por OP.");
+
         var otNumber = (command.OTNumber ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(otNumber))
             throw new InvalidOperationException("OTNumber es obligatorio.");
 
         var normalizedOt = otNumber.ToUpperInvariant();
-        var existing = await _db.InternalChatConversations.FirstOrDefaultAsync(c => c.OTNumber == normalizedOt, ct);
+        var existing = await _db.InternalChatConversations
+            .FirstOrDefaultAsync(c =>
+                c.ConversationType == InternalChatConversationType.OpThread &&
+                c.OTNumber == normalizedOt, ct);
         if (existing != null)
         {
-            UnhideConversationForUser(existing, username);
+            UnhideConversationForUser(existing, caller.Username);
+            await EnsureParticipantAsync(existing.Id, caller.Username, ct);
             await _db.SaveChangesAsync(ct);
-            return new ChatConversationSummaryDto(
-                existing.Id, existing.OTNumber, existing.Title,
-                existing.CreatedByDisplayName, existing.CreatedByUsername, false);
+            return ToSummary(existing, false);
         }
 
-        var displayName = string.IsNullOrWhiteSpace(command.CreatedByDisplayName) ? username : command.CreatedByDisplayName.Trim();
+        var displayName = string.IsNullOrWhiteSpace(command.CreatedByDisplayName)
+            ? caller.DisplayName
+            : command.CreatedByDisplayName.Trim();
         var productionOrderId = await _db.ProductionOrders.AsNoTracking()
             .Where(o => o.OTNumber == normalizedOt || o.OTNumber == otNumber)
             .Select(o => (Guid?)o.Id)
@@ -93,32 +206,137 @@ public sealed class InternalChatService : IInternalChatService
         var conversation = new InternalChatConversation
         {
             Id = Guid.NewGuid(),
+            ConversationType = InternalChatConversationType.OpThread,
+            AreaKey = "diseño",
             OTNumber = normalizedOt,
-            Title = $"OT {normalizedOt}",
+            Title = $"OP {normalizedOt}",
             ProductionOrderId = productionOrderId,
-            CreatedByUsername = username,
+            CreatedByUsername = caller.Username,
             CreatedByDisplayName = displayName,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
         _db.InternalChatConversations.Add(conversation);
+        await EnsureParticipantAsync(conversation.Id, caller.Username, ct);
         await _db.SaveChangesAsync(ct);
+        return ToSummary(conversation, true);
+    }
 
-        return new ChatConversationSummaryDto(
-            conversation.Id, conversation.OTNumber, conversation.Title,
-            conversation.CreatedByDisplayName, conversation.CreatedByUsername, true);
+    public async Task<ChatConversationSummaryDto> CreateOrGetDirectAsync(
+        CreateDirectChatCommand command, ChatCallerContext caller, CancellationToken ct = default)
+    {
+        await EnsureAccessAsync(caller, ct);
+        var peerUsername = (command.PeerUsername ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(peerUsername))
+            throw new InvalidOperationException("Debe indicar el usuario destino.");
+
+        if (string.Equals(NormalizeUser(peerUsername), NormalizeUser(caller.Username), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("No puedes abrir un chat directo contigo mismo.");
+
+        var peer = await _users.FindByUsernameAsync(peerUsername, ct)
+            ?? throw new InvalidOperationException("Usuario no encontrado.");
+        if (!ChatAccess.IsEligible(peer.Role, peer.AssignedViewsCount))
+            throw new InvalidOperationException("El usuario destino no puede usar el chat interno.");
+
+        var pairKey = BuildDirectPairKey(caller.Username, peer.Username);
+        var existing = await _db.InternalChatConversations
+            .FirstOrDefaultAsync(c =>
+                c.ConversationType == InternalChatConversationType.Direct &&
+                c.DirectPairKey == pairKey, ct);
+        if (existing != null)
+        {
+            UnhideConversationForUser(existing, caller.Username);
+            await EnsureParticipantAsync(existing.Id, caller.Username, ct);
+            await EnsureParticipantAsync(existing.Id, peer.Username, ct);
+            await _db.SaveChangesAsync(ct);
+            return ToSummary(existing, false, peer.DisplayName);
+        }
+
+        var displayName = string.IsNullOrWhiteSpace(command.CreatedByDisplayName)
+            ? caller.DisplayName
+            : command.CreatedByDisplayName.Trim();
+        var conversation = new InternalChatConversation
+        {
+            Id = Guid.NewGuid(),
+            ConversationType = InternalChatConversationType.Direct,
+            DirectPairKey = pairKey,
+            OTNumber = string.Empty,
+            Title = peer.DisplayName,
+            CreatedByUsername = caller.Username,
+            CreatedByDisplayName = displayName,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _db.InternalChatConversations.Add(conversation);
+        await EnsureParticipantAsync(conversation.Id, caller.Username, ct);
+        await EnsureParticipantAsync(conversation.Id, peer.Username, ct);
+        await _db.SaveChangesAsync(ct);
+        return ToSummary(conversation, true, peer.DisplayName);
+    }
+
+    public async Task<ChatConversationSummaryDto> CreateOrGetAreaAsync(
+        CreateAreaChatCommand command, ChatCallerContext caller, CancellationToken ct = default)
+    {
+        await EnsureAccessAsync(caller, ct);
+        var areaKey = ChatAccess.NormalizeArea(command.AreaKey);
+        if (!ChatAccess.IsKnownArea(areaKey))
+            throw new InvalidOperationException("Área no válida.");
+
+        var isAdmin = ChatAccess.IsAdmin(caller.Role);
+        var userArea = ChatAccess.NormalizeArea(caller.Area);
+        if (!isAdmin && !string.Equals(areaKey, userArea, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Solo puedes abrir el canal de tu área.");
+
+        var existing = await _db.InternalChatConversations
+            .FirstOrDefaultAsync(c =>
+                c.ConversationType == InternalChatConversationType.Area &&
+                c.AreaKey == areaKey, ct);
+        if (existing != null)
+        {
+            UnhideConversationForUser(existing, caller.Username);
+            await EnsureParticipantAsync(existing.Id, caller.Username, ct);
+            await _db.SaveChangesAsync(ct);
+            return ToSummary(existing, false);
+        }
+
+        var displayName = string.IsNullOrWhiteSpace(command.CreatedByDisplayName)
+            ? caller.DisplayName
+            : command.CreatedByDisplayName.Trim();
+        var conversation = new InternalChatConversation
+        {
+            Id = Guid.NewGuid(),
+            ConversationType = InternalChatConversationType.Area,
+            AreaKey = areaKey,
+            OTNumber = string.Empty,
+            Title = $"Canal {ChatAccess.AreaDisplayName(areaKey)}",
+            CreatedByUsername = caller.Username,
+            CreatedByDisplayName = displayName,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _db.InternalChatConversations.Add(conversation);
+        await EnsureParticipantAsync(conversation.Id, caller.Username, ct);
+        await _db.SaveChangesAsync(ct);
+        return ToSummary(conversation, true);
     }
 
     public async Task<IReadOnlyList<ChatMessageDto>> GetMessagesAsync(
-        Guid conversationId, string currentUsername, string uploadsRoot, CancellationToken ct = default)
+        Guid conversationId, ChatCallerContext caller, string uploadsRoot, CancellationToken ct = default)
     {
+        await EnsureAccessAsync(caller, ct);
         var conversation = await _db.InternalChatConversations.AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == conversationId, ct)
             ?? throw new KeyNotFoundException("Conversación no encontrada.");
 
-        if (IsConversationDeletedForUser(conversation.DeletedForUsersJson, NormalizeUser(currentUsername)))
+        if (!await CanAccessConversationAsync(conversation, caller, ct))
+            throw new UnauthorizedAccessException("No tienes acceso a esta conversación.");
+
+        if (IsConversationDeletedForUser(conversation.DeletedForUsersJson, NormalizeUser(caller.Username)))
             throw new KeyNotFoundException("Conversación no disponible.");
+
+        await EnsureParticipantAsync(conversationId, caller.Username, ct);
+        await _db.SaveChangesAsync(ct);
 
         var rows = await _db.InternalChatMessages.AsNoTracking()
             .Where(m => m.ConversationId == conversationId)
@@ -131,9 +349,10 @@ public sealed class InternalChatService : IInternalChatService
             m.AttachmentName, m.AttachmentContentType, m.SentAt)).ToList();
     }
 
-    public async Task<(ChatMessageDto Message, string OTNumber, string CreatedByDisplayName, string LastMessagePreview)> SendMessageAsync(
-        Guid conversationId, SendChatMessageCommand command, string username, CancellationToken ct = default)
+    public async Task<SendChatMessageResultDto> SendMessageAsync(
+        Guid conversationId, SendChatMessageCommand command, ChatCallerContext caller, CancellationToken ct = default)
     {
+        await EnsureAccessAsync(caller, ct);
         var messageText = (command.Message ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(messageText))
             throw new InvalidOperationException("El mensaje no puede estar vacío.");
@@ -142,14 +361,20 @@ public sealed class InternalChatService : IInternalChatService
 
         var conversation = await _db.InternalChatConversations.FirstOrDefaultAsync(c => c.Id == conversationId, ct)
             ?? throw new KeyNotFoundException("Conversación no encontrada.");
-        UnhideConversationForUser(conversation, username);
+        if (!await CanAccessConversationAsync(conversation, caller, ct))
+            throw new UnauthorizedAccessException("No tienes acceso a esta conversación.");
 
-        var senderDisplayName = string.IsNullOrWhiteSpace(command.SenderDisplayName) ? username : command.SenderDisplayName.Trim();
+        UnhideConversationForUser(conversation, caller.Username);
+        await EnsureParticipantAsync(conversation.Id, caller.Username, ct);
+
+        var senderDisplayName = string.IsNullOrWhiteSpace(command.SenderDisplayName)
+            ? caller.DisplayName
+            : command.SenderDisplayName.Trim();
         var msg = new InternalChatMessage
         {
             Id = Guid.NewGuid(),
             ConversationId = conversationId,
-            SenderUsername = username,
+            SenderUsername = caller.Username,
             SenderDisplayName = senderDisplayName,
             Message = messageText,
             SentAt = DateTime.UtcNow
@@ -163,18 +388,26 @@ public sealed class InternalChatService : IInternalChatService
             msg.Id, msg.ConversationId, msg.SenderUsername, msg.SenderDisplayName, msg.Message,
             msg.AttachmentUrl, msg.AttachmentName, msg.AttachmentContentType, msg.SentAt);
 
-        return (dto, conversation.OTNumber, conversation.CreatedByDisplayName, BuildConversationLastMessage(msg));
+        return new SendChatMessageResultDto(
+            dto,
+            conversation.ConversationType.ToString(),
+            conversation.AreaKey,
+            conversation.OTNumber,
+            conversation.Title,
+            conversation.CreatedByDisplayName,
+            BuildConversationLastMessage(msg));
     }
 
     public async Task<SendChatAttachmentsResultDto> SendAttachmentsAsync(
         Guid conversationId,
         string? message,
         string? senderDisplayName,
-        string username,
+        ChatCallerContext caller,
         string uploadsRoot,
         IReadOnlyList<ChatUploadFileDto> files,
         CancellationToken ct = default)
     {
+        await EnsureAccessAsync(caller, ct);
         if (files == null || files.Count == 0)
             throw new InvalidOperationException("Debe enviar al menos un archivo válido.");
         if (files.Count > 10)
@@ -182,9 +415,13 @@ public sealed class InternalChatService : IInternalChatService
 
         var conversation = await _db.InternalChatConversations.FirstOrDefaultAsync(c => c.Id == conversationId, ct)
             ?? throw new KeyNotFoundException("Conversación no encontrada.");
-        UnhideConversationForUser(conversation, username);
+        if (!await CanAccessConversationAsync(conversation, caller, ct))
+            throw new UnauthorizedAccessException("No tienes acceso a esta conversación.");
 
-        var senderName = string.IsNullOrWhiteSpace(senderDisplayName) ? username : senderDisplayName.Trim();
+        UnhideConversationForUser(conversation, caller.Username);
+        await EnsureParticipantAsync(conversation.Id, caller.Username, ct);
+
+        var senderName = string.IsNullOrWhiteSpace(senderDisplayName) ? caller.DisplayName : senderDisplayName.Trim();
         var relativeDir = Path.Combine("chat", conversationId.ToString("N"));
         var physicalDir = Path.Combine(uploadsRoot, relativeDir);
         Directory.CreateDirectory(physicalDir);
@@ -214,7 +451,7 @@ public sealed class InternalChatService : IInternalChatService
             {
                 Id = Guid.NewGuid(),
                 ConversationId = conversationId,
-                SenderUsername = username,
+                SenderUsername = caller.Username,
                 SenderDisplayName = senderName,
                 Message = i == 0 ? finalText : string.Empty,
                 AttachmentUrl = publicUrl,
@@ -234,7 +471,10 @@ public sealed class InternalChatService : IInternalChatService
 
         return new SendChatAttachmentsResultDto(
             conversation.Id,
+            conversation.ConversationType.ToString(),
+            conversation.AreaKey,
             conversation.OTNumber,
+            conversation.Title,
             conversation.CreatedByDisplayName,
             conversation.UpdatedAt,
             createdMessages.Select(m => new ChatMessageDto(
@@ -243,9 +483,10 @@ public sealed class InternalChatService : IInternalChatService
     }
 
     public async Task<DeleteChatForUserResultDto> DeleteForCurrentUserAsync(
-        Guid conversationId, string currentUsername, string uploadsRoot, CancellationToken ct = default)
+        Guid conversationId, ChatCallerContext caller, string uploadsRoot, CancellationToken ct = default)
     {
-        var normalized = NormalizeUser(currentUsername);
+        await EnsureAccessAsync(caller, ct);
+        var normalized = NormalizeUser(caller.Username);
         if (string.IsNullOrWhiteSpace(normalized))
             throw new InvalidOperationException("Usuario no válido.");
 
@@ -255,11 +496,18 @@ public sealed class InternalChatService : IInternalChatService
         var deletedUsers = ParseDeletedUsers(conversation.DeletedForUsersJson);
         deletedUsers.Add(normalized);
 
-        var participants = await _db.InternalChatMessages.AsNoTracking()
-            .Where(m => m.ConversationId == conversationId)
-            .Select(m => m.SenderUsername)
+        var participants = await _db.InternalChatParticipants.AsNoTracking()
+            .Where(p => p.ConversationId == conversationId)
+            .Select(p => p.Username)
             .ToListAsync(ct);
-        participants.Add(conversation.CreatedByUsername);
+        if (participants.Count == 0)
+        {
+            participants = await _db.InternalChatMessages.AsNoTracking()
+                .Where(m => m.ConversationId == conversationId)
+                .Select(m => m.SenderUsername)
+                .ToListAsync(ct);
+            participants.Add(conversation.CreatedByUsername);
+        }
 
         var normalizedParticipants = participants
             .Select(NormalizeUser)
@@ -271,32 +519,130 @@ public sealed class InternalChatService : IInternalChatService
                               normalizedParticipants.All(x => deletedUsers.Contains(x));
 
         var otNumber = conversation.OTNumber;
-        if (everyoneDeleted)
+        var title = conversation.Title;
+        if (everyoneDeleted && conversation.ConversationType != InternalChatConversationType.Area)
         {
             var relatedMessages = await _db.InternalChatMessages
                 .Where(m => m.ConversationId == conversationId)
                 .ToListAsync(ct);
+            var relatedParticipants = await _db.InternalChatParticipants
+                .Where(p => p.ConversationId == conversationId)
+                .ToListAsync(ct);
             _db.InternalChatMessages.RemoveRange(relatedMessages);
+            _db.InternalChatParticipants.RemoveRange(relatedParticipants);
             _db.InternalChatConversations.Remove(conversation);
             await _db.SaveChangesAsync(ct);
             TryDeleteConversationUploadDirectory(uploadsRoot, conversationId);
-            return new DeleteChatForUserResultDto(true, conversationId, otNumber);
+            return new DeleteChatForUserResultDto(true, conversationId, otNumber, title);
         }
 
         conversation.DeletedForUsersJson = SerializeDeletedUsers(deletedUsers);
         await _db.SaveChangesAsync(ct);
-        return new DeleteChatForUserResultDto(false, conversationId, otNumber);
+        return new DeleteChatForUserResultDto(false, conversationId, otNumber, title);
+    }
+
+    public async Task<bool> CanJoinConversationAsync(Guid conversationId, ChatCallerContext caller, CancellationToken ct = default)
+    {
+        var info = await _users.FindByUsernameAsync(caller.Username, ct);
+        if (info == null || !ChatAccess.IsEligible(info.Role, info.AssignedViewsCount)) return false;
+        var conversation = await _db.InternalChatConversations.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == conversationId, ct);
+        if (conversation == null) return false;
+        return await CanAccessConversationAsync(conversation, caller, ct);
+    }
+
+    public async Task<IReadOnlyList<string>> GetParticipantUsernamesAsync(Guid conversationId, CancellationToken ct = default)
+    {
+        return await _db.InternalChatParticipants.AsNoTracking()
+            .Where(p => p.ConversationId == conversationId)
+            .Select(p => p.Username)
+            .ToListAsync(ct);
+    }
+
+    private async Task EnsureHomeChannelsAsync(ChatCallerContext caller, CancellationToken ct)
+    {
+        if (ChatAccess.IsAdmin(caller.Role))
+        {
+            // Admin: ensure channels exist for all known areas so they appear in the list.
+            foreach (var area in ChatAccess.AreaKeys)
+            {
+                await CreateOrGetAreaAsync(new CreateAreaChatCommand(area, caller.DisplayName), caller, ct);
+            }
+            return;
+        }
+
+        var areaKey = ChatAccess.NormalizeArea(caller.Area);
+        if (ChatAccess.IsKnownArea(areaKey))
+            await CreateOrGetAreaAsync(new CreateAreaChatCommand(areaKey, caller.DisplayName), caller, ct);
+    }
+
+    private async Task<bool> CanAccessConversationAsync(
+        InternalChatConversation conversation, ChatCallerContext caller, CancellationToken ct)
+    {
+        var normalizedUser = NormalizeUser(caller.Username);
+        var isParticipant = await _db.InternalChatParticipants.AsNoTracking()
+            .AnyAsync(p => p.ConversationId == conversation.Id && p.Username == normalizedUser, ct);
+        if (isParticipant) return true;
+
+        if (ChatAccess.IsAdmin(caller.Role)) return true;
+
+        if (conversation.ConversationType == InternalChatConversationType.Area)
+        {
+            return string.Equals(
+                ChatAccess.NormalizeArea(conversation.AreaKey),
+                ChatAccess.NormalizeArea(caller.Area),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (conversation.ConversationType == InternalChatConversationType.OpThread)
+            return ChatAccess.IsDesignArea(caller.Area);
+
+        return false;
+    }
+
+    private async Task EnsureParticipantAsync(Guid conversationId, string username, CancellationToken ct)
+    {
+        var normalized = NormalizeUser(username);
+        if (string.IsNullOrWhiteSpace(normalized)) return;
+
+        var exists = await _db.InternalChatParticipants
+            .AnyAsync(p => p.ConversationId == conversationId && p.Username == normalized, ct);
+        if (exists) return;
+
+        // Also check tracked entities
+        var tracked = _db.InternalChatParticipants.Local
+            .Any(p => p.ConversationId == conversationId && p.Username == normalized);
+        if (tracked) return;
+
+        _db.InternalChatParticipants.Add(new InternalChatParticipant
+        {
+            Id = Guid.NewGuid(),
+            ConversationId = conversationId,
+            Username = normalized,
+            JoinedAt = DateTime.UtcNow
+        });
+    }
+
+    private static ChatConversationSummaryDto ToSummary(
+        InternalChatConversation conversation, bool wasCreated, string? titleOverride = null)
+        => new(
+            conversation.Id,
+            conversation.ConversationType.ToString(),
+            conversation.AreaKey,
+            conversation.OTNumber,
+            titleOverride ?? conversation.Title,
+            conversation.CreatedByDisplayName,
+            conversation.CreatedByUsername,
+            wasCreated);
+
+    private static string BuildDirectPairKey(string a, string b)
+    {
+        var x = NormalizeUser(a);
+        var y = NormalizeUser(b);
+        return string.CompareOrdinal(x, y) <= 0 ? $"{x}|{y}" : $"{y}|{x}";
     }
 
     private static string BuildConversationLastMessage(InternalChatMessage msg)
-    {
-        var text = (msg.Message ?? string.Empty).Trim();
-        if (!string.IsNullOrWhiteSpace(text)) return text;
-        if (!string.IsNullOrWhiteSpace(msg.AttachmentName)) return $"[Archivo] {msg.AttachmentName}";
-        return "Nuevo mensaje";
-    }
-
-    public static string BuildLastMessagePreview(ChatMessageDto msg)
     {
         var text = (msg.Message ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(text)) return text;

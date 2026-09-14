@@ -7,7 +7,8 @@ export default function GastosSST() {
             titulo="Captura de Gastos SST"
             showTabs
             pathPrefix="/sst/gastos"
-            persistRemote={false}
+            areaKey="sst"
+            persistRemote
             presupuestoInicial={0}
             personnelRoles={[]}
         />

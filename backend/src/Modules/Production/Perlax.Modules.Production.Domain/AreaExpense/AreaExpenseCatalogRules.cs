@@ -4,7 +4,7 @@ public static class AreaExpenseCatalogRules
 {
     public static readonly HashSet<string> Areas = new(StringComparer.OrdinalIgnoreCase)
     {
-        "produccion", "planeacion", "talleres", "diseno", "gestion-humana", "mantenimiento"
+        "produccion", "planeacion", "talleres", "diseno", "gestion-humana", "mantenimiento", "sst"
     };
 
     public static bool TryNormalizeArea(string? area, out string key)
@@ -67,6 +67,15 @@ public static class AreaExpenseCatalogRules
     public static string[] DefaultRubros(string area) => area switch
     {
         "mantenimiento" => ["Ferreteria", "Lubricacion", "Mantenimiento", "Repuestos", "Rodamientos", "Sistema Aire"],
+        "sst" =>
+        [
+            "Capacitacion-Asesorias-Auditorias, Actividades De Bienestar",
+            "Higiene Industrial Y Manejo Ambiental",
+            "Iluminacion-Infraestructural",
+            "Examenes Medicos",
+            "Dotacion Y Epp",
+            "Entrenamiento Montacargas"
+        ],
         _ => ["Horas Extras", "Mantenimiento", "Repuesto", "Refrigerios", "Recargo", "Prestadores De Servicios"]
     };
 

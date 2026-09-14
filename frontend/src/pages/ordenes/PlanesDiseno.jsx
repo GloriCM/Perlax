@@ -37,7 +37,7 @@ import { api } from '../../utils/api';
 import { fetchAuthenticatedUploadBlob } from '../../utils/authenticatedUpload';
 import AuthenticatedImage from '../../components/AuthenticatedImage';
 import { notifications } from '@mantine/notifications';
-import { isAdmin, isAssignedToCurrentUser } from '../../utils/permissions';
+import { isAdmin, isAssignedToCurrentUser, canAccessInternalChat } from '../../utils/permissions';
 
 function mergeOrderPartDetail(order, part) {
     return {
@@ -524,6 +524,15 @@ export default function PlanesDiseno() {
     };
 
     const handleOpenInternalChat = async (item) => {
+        if (!canAccessInternalChat(currentUser)) {
+            notifications.show({
+                title: 'Sin acceso',
+                message: 'El chat interno es solo para Administradores y Administrativos.',
+                color: 'yellow'
+            });
+            return;
+        }
+
         const creatorName = [currentUser?.firstName, currentUser?.lastName]
             .filter(Boolean)
             .join(' ')
@@ -680,9 +689,11 @@ export default function PlanesDiseno() {
                                 <Menu.Item onClick={() => openQuickEditor(item)}>
                                     Editar prioridad / diseñador
                                 </Menu.Item>
-                                <Menu.Item onClick={() => handleOpenInternalChat(item)}>
-                                    Chat interno
-                                </Menu.Item>
+                                {canAccessInternalChat(currentUser) && (isAdmin(currentUser) || String(currentUser?.area || currentUser?.Area || '').toLowerCase().includes('dise')) ? (
+                                    <Menu.Item onClick={() => handleOpenInternalChat(item)}>
+                                        Chat interno (OP)
+                                    </Menu.Item>
+                                ) : null}
                             </>
                         )}
                     </Menu.Dropdown>

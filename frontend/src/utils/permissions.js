@@ -23,6 +23,27 @@ export function isAdmin(user) {
     return normalized === 'admin' || normalized === 'administrador';
 }
 
+export function isAdministrative(user) {
+    if (!user) return false;
+    const r = String(user.role ?? user.Role ?? '').toLowerCase();
+    return r === 'administrativo' || r === 'user';
+}
+
+/** Chat interno: Admin, Administrativo, o Taller con al menos una vista asignada. */
+export function isTaller(user) {
+    if (!user) return false;
+    return String(user.role ?? user.Role ?? '').toLowerCase() === 'taller';
+}
+
+export function canAccessInternalChat(user) {
+    if (isAdmin(user) || isAdministrative(user)) return true;
+    if (isTaller(user)) {
+        const ar = getAllowedRoutes(user);
+        return Array.isArray(ar) && ar.length > 0;
+    }
+    return false;
+}
+
 export function normalizePersonKey(value) {
     return String(value || '')
         .normalize('NFD')
@@ -111,9 +132,9 @@ export function canAccessRoute(pathname, user) {
 
     const path = normPath(pathname);
 
-    // Chat interno: acceso por icono superior, no depende de matriz de módulos.
+    // Chat interno: solo Admin/Administrativo (icono superior), no depende de matriz.
     if (path === '/chat' || path.startsWith('/chat/')) {
-        return true;
+        return canAccessInternalChat(user);
     }
 
     if (isAdmin(user)) return true;

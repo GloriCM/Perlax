@@ -20,14 +20,13 @@ import { IconArrowLeft, IconPlus, IconPencil, IconTrash, IconFileDollar } from '
 import { useNavigate } from 'react-router-dom';
 import GastosTabs from '../../../components/GastosTabs';
 import { notifications } from '@mantine/notifications';
+import { api } from '../../../utils/api';
 import {
   getCotizaciones,
   getProductos,
-  getProveedores,
-  getRubros,
   saveCotizaciones,
 } from './storage';
-import { proveedorBelongsToRubro } from '../../produccion/gastos/gastosText';
+import { proveedorBelongsToRubro, toTitleCase } from '../../produccion/gastos/gastosText';
 
 const PATH_PREFIX = '/mantenimiento/gastos';
 
@@ -60,10 +59,34 @@ export default function CotizacionesMantenimiento() {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    setRubros(getRubros());
+    let cancelled = false;
+    (async () => {
+      try {
+        const [rubroRows, proveedorRows] = await Promise.all([
+          api.get('/gastos/mantenimiento/rubros'),
+          api.get('/gastos/mantenimiento/proveedores'),
+        ]);
+        if (cancelled) return;
+        setRubros((Array.isArray(rubroRows) ? rubroRows : [])
+          .map((r) => toTitleCase(r.name || r.Name || ''))
+          .filter(Boolean));
+        setProveedores((Array.isArray(proveedorRows) ? proveedorRows : []).map((p) => ({
+          id: p.id || p.Id,
+          nombre: toTitleCase(p.name || p.Name || ''),
+          rubros: Array.isArray(p.rubros) ? p.rubros : (Array.isArray(p.Rubros) ? p.Rubros : []),
+          rubro: p.rubro || p.Rubro || '',
+        })));
+      } catch (e) {
+        notifications.show({
+          title: 'Error',
+          message: e?.message || 'No se pudieron cargar rubros/proveedores.',
+          color: 'red',
+        });
+      }
+    })();
     setProductos(getProductos());
-    setProveedores(getProveedores());
     setCotizaciones(getCotizaciones());
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {

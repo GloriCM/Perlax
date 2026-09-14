@@ -23,6 +23,7 @@ public class ProductionDbContext : DbContext
     public DbSet<OpBillingMonthGoal> OpBillingMonthGoals => Set<OpBillingMonthGoal>();
     public DbSet<InternalChatConversation> InternalChatConversations => Set<InternalChatConversation>();
     public DbSet<InternalChatMessage> InternalChatMessages => Set<InternalChatMessage>();
+    public DbSet<InternalChatParticipant> InternalChatParticipants => Set<InternalChatParticipant>();
     public DbSet<CotizadorMachine> CotizadorMachines => Set<CotizadorMachine>();
     public DbSet<CotizadorMaterial> CotizadorMaterials => Set<CotizadorMaterial>();
     public DbSet<CotizadorFactor> CotizadorFactors => Set<CotizadorFactor>();
@@ -265,6 +266,9 @@ public class ProductionDbContext : DbContext
         {
             builder.ToTable("InternalChatConversations");
             builder.HasKey(x => x.Id);
+            builder.Property(x => x.ConversationType).HasConversion<int>().IsRequired();
+            builder.Property(x => x.AreaKey).HasMaxLength(80);
+            builder.Property(x => x.DirectPairKey).HasMaxLength(520);
             builder.Property(x => x.OTNumber).IsRequired().HasMaxLength(20);
             builder.Property(x => x.Title).IsRequired().HasMaxLength(100);
             builder.Property(x => x.CreatedByUsername).IsRequired().HasMaxLength(255);
@@ -273,8 +277,16 @@ public class ProductionDbContext : DbContext
             builder.HasIndex(x => x.OTNumber);
             builder.HasIndex(x => x.UpdatedAt);
             builder.HasIndex(x => x.ProductionOrderId);
+            builder.HasIndex(x => x.ConversationType);
+            builder.HasIndex(x => new { x.ConversationType, x.AreaKey });
+            builder.HasIndex(x => x.DirectPairKey);
 
             builder.HasMany(x => x.Messages)
+                .WithOne(x => x.Conversation)
+                .HasForeignKey(x => x.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(x => x.Participants)
                 .WithOne(x => x.Conversation)
                 .HasForeignKey(x => x.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -292,6 +304,16 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.AttachmentContentType).HasMaxLength(200);
             builder.HasIndex(x => x.ConversationId);
             builder.HasIndex(x => x.SentAt);
+        });
+
+        modelBuilder.Entity<InternalChatParticipant>(builder =>
+        {
+            builder.ToTable("InternalChatParticipants");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Username).IsRequired().HasMaxLength(255);
+            builder.HasIndex(x => x.ConversationId);
+            builder.HasIndex(x => x.Username);
+            builder.HasIndex(x => new { x.ConversationId, x.Username }).IsUnique();
         });
 
         modelBuilder.Entity<CotizadorMachine>(b =>

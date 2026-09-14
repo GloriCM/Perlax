@@ -55,6 +55,9 @@ const AREA_OPTIONS = [
     { value: 'mantenimiento', label: 'Mantenimiento' },
     { value: 'sst', label: 'SST' },
     { value: 'gestion humana', label: 'Gestión humana' },
+    { value: 'presupuestos', label: 'Presupuestos' },
+    { value: 'financiera', label: 'Financiera' },
+    { value: 'contabilidad', label: 'Contabilidad' },
 ];
 
 function PermissionCell({ path, selected, onToggle }) {
@@ -137,9 +140,11 @@ export default function UsuariosConfig() {
         else if (rawRole === 'almacen' || rawRole === 'almacén') role = 'Almacen';
         else if (rawRole === 'taller') role = 'Taller';
         let routes = [];
-        if (role === 'Administrativo') {
+        if (role === 'Administrativo' || role === 'Taller') {
             if (Array.isArray(u.allowedRoutes)) routes = [...u.allowedRoutes];
-            else if (u.allowedRoutes === null || u.allowedRoutes === undefined) routes = [...allLeafPaths];
+            else if (u.allowedRoutes === null || u.allowedRoutes === undefined) {
+                routes = role === 'Administrativo' ? [...allLeafPaths] : [];
+            }
         }
         setEditingId(u.id);
         setForm({
@@ -181,6 +186,7 @@ export default function UsuariosConfig() {
     const handleSubmit = async () => {
         const isAdminRole = form.role === 'Administrador';
         const isShopFloorRole = ['Operario', 'Auxiliar', 'Almacen', 'Taller'].includes(form.role);
+        const forcesEmptyRoutes = ['Operario', 'Auxiliar', 'Almacen'].includes(form.role);
         const documentNumber = String(form.documentNumber || '').replace(/[^\d]/g, '');
         const username = String(form.username || '').trim();
         const tempPassword = String(form.password || '').trim();
@@ -257,7 +263,7 @@ export default function UsuariosConfig() {
                     salary: salaryValue,
                     email: form.email?.trim() || null,
                     role: form.role,
-                    allowedRoutes: isAdminRole ? null : (isShopFloorRole ? [] : form.allowedRoutes),
+                    allowedRoutes: isAdminRole ? null : (forcesEmptyRoutes ? [] : form.allowedRoutes),
                 };
                 if (form.password?.trim()) putPayload.password = form.password;
                 await api.put(`/users/${editingId}`, putPayload);
@@ -285,7 +291,7 @@ export default function UsuariosConfig() {
                     salary: Number(form.salary),
                     email: form.email?.trim() || null,
                     role: form.role,
-                    allowedRoutes: isShopFloorRole ? [] : form.allowedRoutes,
+                    allowedRoutes: forcesEmptyRoutes ? [] : form.allowedRoutes,
                 });
             }
             notifications.show({
@@ -342,14 +348,20 @@ export default function UsuariosConfig() {
         if (r === 'operario') return 'Planta (/planta) · extras Producción';
         if (r === 'auxiliar') return 'Personal Producción (no planta) · extras Producción';
         if (r === 'almacen' || r === 'almacén') return 'Personal Planeación · extras Gastos Planeación';
-        if (r === 'taller') return 'Personal Talleres · extras Talleres';
+        if (r === 'taller') {
+            if (Array.isArray(u.allowedRoutes) && u.allowedRoutes.length > 0) {
+                return `Talleres · ${u.allowedRoutes.length} vista(s) · extras Talleres`;
+            }
+            return 'Personal Talleres · sin vistas ERP · extras Talleres';
+        }
         if ((u.role || '').toLowerCase() === 'admin' || (u.role || '').toLowerCase() === 'administrador') return 'Completo';
         if (u.allowedRoutes === null || u.allowedRoutes === undefined) return 'Completo (sin lista)';
         if (u.allowedRoutes.length === 0) return 'Solo inicio';
         return `${u.allowedRoutes.length} vista(s)`;
     };
 
-    const selectedCount = form.role === 'Administrativo' ? form.allowedRoutes.length : 0;
+    const usesViewMatrix = form.role === 'Administrativo' || form.role === 'Taller';
+    const selectedCount = usesViewMatrix ? form.allowedRoutes.length : 0;
 
     return (
         <Stack p="md" gap="md">
@@ -567,7 +579,7 @@ export default function UsuariosConfig() {
                                 ...form,
                                 role: v || 'Administrativo',
                                 area: v === 'Administrativo' ? form.area : '',
-                                allowedRoutes: v === 'Administrativo' ? form.allowedRoutes : [],
+                                allowedRoutes: (v === 'Administrativo' || v === 'Taller') ? form.allowedRoutes : [],
                                 // Al cambiar a Administrador, limpia password de edición accidental en creación.
                                 password: editingId ? form.password : '',
                                 username: v === 'Administrador' ? form.username : '',
@@ -595,9 +607,33 @@ export default function UsuariosConfig() {
                         </Text>
                     )}
                     {form.role === 'Taller' && (
-                        <Text size="xs" c="dimmed">
-                            Personal de talleres. Horas extras: Talleres → Control de Personal. No aparece en /planta.
-                        </Text>
+                        <Stack gap="xs">
+                            <Text size="xs" c="dimmed">
+                                Personal de talleres (área fija: Talleres). Horas extras: Talleres → Control de Personal.
+                                Si asigna vistas, podrá usar el menú ERP y el chat interno (p. ej. con el líder administrativo de talleres).
+                                Sin vistas: solo inicio, sin chat.
+                            </Text>
+                            <Text size="sm" fw={500}>
+                                Vistas permitidas
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                                Cada celda con X indica acceso a esa vista. Sin ninguna X, el usuario solo verá la pantalla de inicio y no el chat.
+                            </Text>
+                            <Group align="center" wrap="wrap">
+                                <Button
+                                    leftSection={<IconLayoutGrid size={18} />}
+                                    variant="light"
+                                    onClick={openMatrixModal}
+                                >
+                                    Selección de módulos y vistas
+                                </Button>
+                                <Text size="sm" c="dimmed">
+                                    {selectedCount === 0
+                                        ? 'Ninguna vista (solo inicio, sin chat)'
+                                        : `${selectedCount} vista${selectedCount === 1 ? '' : 's'} · chat habilitado`}
+                                </Text>
+                            </Group>
+                        </Stack>
                     )}
                     {form.role === 'Administrativo' && (
                         <Stack gap="xs">

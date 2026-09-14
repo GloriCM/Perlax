@@ -27,7 +27,8 @@ public class UsersController : ControllerBase
         "sst",
         "gestion humana",
         "presupuestos",
-        "financiera"
+        "financiera",
+        "contabilidad"
     };
 
     private readonly UsersDbContext _context;
@@ -182,7 +183,7 @@ public class UsersController : ControllerBase
             CreatedAt = DateTime.UtcNow,
             AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
                 role,
-                UserRoles.IsShopFloor(role) ? [] : request.AllowedRoutes)
+                UserRoles.ForcesEmptyRoutes(role) ? [] : request.AllowedRoutes)
         };
 
         var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
@@ -255,7 +256,7 @@ public class UsersController : ControllerBase
         entity.Salary = request.Salary;
         var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
             entity.Role,
-            UserRoles.IsShopFloor(entity.Role) ? [] : request.AllowedRoutes);
+            UserRoles.ForcesEmptyRoutes(entity.Role) ? [] : request.AllowedRoutes);
         entity.AllowedRoutesJson = newRoutesJson;
 
         var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);

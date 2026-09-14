@@ -7,18 +7,18 @@ PerlaX define roles de **oficina** y de **personal** (horas extras). Los **Admin
 | Rol | Acceso al ERP | Horas extras |
 |-----|---------------|--------------|
 | **Administrador** | Completo | **No** |
-| **Administrativo** | Vistas autorizadas + área | Sí (según su área) |
+| **Administrativo** | Vistas autorizadas + área (incluye Contabilidad) | Sí (según su área) |
 
 ## Roles de personal (horas extras)
 
-Se crean en **Configuración → Usuarios**. No usan la matriz de módulos.
+Se crean en **Configuración → Usuarios**.
 
-| Rol | Quién lo gestiona | /planta | Horas extras van a |
-|-----|-------------------|---------|--------------------|
-| **Operario (planta)** | Producción → Control de Personal | **Sí** (único rol seleccionable) | Gastos de **Producción** |
-| **Auxiliar** | Producción → Control de Personal | No | Gastos de **Producción** |
-| **Almacén** | Planeación → Personal | No | Gastos de **Planeación** |
-| **Taller** | Talleres → Personal | No | Gastos de **Talleres** |
+| Rol | Quién lo gestiona | /planta | Matriz de vistas | Horas extras van a |
+|-----|-------------------|---------|------------------|--------------------|
+| **Operario (planta)** | Producción → Control de Personal | **Sí** (único rol seleccionable) | No | Gastos de **Producción** |
+| **Auxiliar** | Producción → Control de Personal | No | No | Gastos de **Producción** |
+| **Almacén** | Planeación → Personal | No | No | Gastos de **Planeación** |
+| **Taller** | Talleres → Personal | No | **Sí** (opcional) | Gastos de **Talleres** |
 
 ## Operario vs auxiliar
 
@@ -32,14 +32,22 @@ Se crean en **Configuración → Usuarios**. No usan la matriz de módulos.
 
 ## Administrativo
 
-- Área obligatoria y **vistas permitidas**.
+- Área obligatoria (incluye **Contabilidad**) y **vistas permitidas**.
 - Si no tiene vistas, solo ve el inicio.
+- Acceso al chat interno.
 
-## Personal de almacén, operarios, auxiliares y talleres
+## Personal de almacén, operarios y auxiliares
 
 - Login = cédula (igual que el resto).
-- No acceden al menú ERP.
+- No acceden al menú ERP ni al chat.
 - Salario y cédula sirven para el cálculo de extras en el área indicada.
+
+## Taller
+
+- Área fija **Talleres**; horas extras en Talleres.
+- Puede recibir **vistas** del ERP (misma matriz que Administrativo).
+- **Con al menos una vista:** menú según matriz + **chat interno** (p. ej. con el líder administrativo de talleres).
+- **Sin vistas:** solo inicio, sin chat.
 
 ## Usuarios inactivos
 
@@ -49,3 +57,4 @@ Un usuario **desactivado** no puede iniciar sesión. El historial se conserva.
 
 - [Usuarios y permisos](../configuracion/usuarios.md)
 - [Vista de planta](../flujo-principal/planta.md)
+- [Chat interno](../operaciones-apoyo/chat-interno.md)

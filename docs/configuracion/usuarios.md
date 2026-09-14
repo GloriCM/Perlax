@@ -39,14 +39,16 @@ Columnas: Nombre, Login, Correo, Rol, Estado, Area, Permisos.
 | **Operario (planta)** | Solo `/planta`. Extras en Producción |
 | **Auxiliar** | Personal de producción. No aparece en `/planta`. Extras en Producción |
 | **Almacén** | Personal de Planeación. Extras en Gastos de Planeación |
-| **Taller** | Personal de Talleres. Extras en Talleres |
+| **Taller** | Personal de Talleres. Puede tener **vistas** ERP. Con vistas: chat. Extras en Talleres |
 
-### Permisos (Administrativo)
+### Permisos (Administrativo y Taller)
 
-1. Elija **area**.
-2. Pulse **Seleccion de modulos y vistas**.
-3. Marque con **X** cada pantalla permitida.
-4. **Sin ninguna X** = usuario solo ve pantalla de inicio.
+1. **Administrativo:** elija **área** (incluye Contabilidad).
+2. **Taller:** área fija Talleres; opcionalmente asigne vistas.
+3. Pulse **Seleccion de modulos y vistas**.
+4. Marque con **X** cada pantalla permitida.
+5. **Sin ninguna X** = usuario solo ve pantalla de inicio.
+6. **Taller con al menos una vista** también puede usar el **chat interno** (p. ej. con el líder administrativo de talleres).
 
 ## Operarios de planta
 

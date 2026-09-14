@@ -4,7 +4,7 @@ import './TopBar.css';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { navSections } from '../config/navSections';
-import { getCurrentUser, canAccessRoute } from '../utils/permissions';
+import { getCurrentUser, canAccessRoute, canAccessInternalChat } from '../utils/permissions';
 
 function normalizeText(value) {
     return String(value || '')
@@ -62,6 +62,8 @@ export default function TopBar({ showMenuButton = false, menuOpened = false, onM
                 .filter((entry) => canAccessRoute(entry.path, user))
         );
     }, []);
+
+    const showChat = useMemo(() => canAccessInternalChat(getCurrentUser()), []);
 
     const suggestions = useMemo(() => {
         if (normalizeText(query).length < 2) return [];
@@ -163,17 +165,19 @@ export default function TopBar({ showMenuButton = false, menuOpened = false, onM
                 </Box>
 
                 <Group gap="sm" wrap="nowrap" className="topbar-actions" justify="flex-end">
-                    <ActionIcon
-                        variant="subtle"
-                        size="lg"
-                        radius="md"
-                        c="dimmed"
-                        aria-label="Abrir chat"
-                        title="Chat interno"
-                        onClick={() => navigate('/chat')}
-                    >
-                        <IconMessageCircle size={22} stroke={1.5} />
-                    </ActionIcon>
+                    {showChat ? (
+                        <ActionIcon
+                            variant="subtle"
+                            size="lg"
+                            radius="md"
+                            c="dimmed"
+                            aria-label="Abrir chat"
+                            title="Chat interno"
+                            onClick={() => navigate('/chat')}
+                        >
+                            <IconMessageCircle size={22} stroke={1.5} />
+                        </ActionIcon>
+                    ) : null}
                     <Indicator color="red" size={10} offset={4} processing>
                         <ActionIcon
                             variant="subtle"

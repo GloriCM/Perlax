@@ -61,6 +61,7 @@ builder.Services.AddProductionModule(builder.Configuration);
 builder.Services.AddUsersModule(builder.Configuration);
 // Los usuarios con rol "Operario" se exponen como operarios de planta
 builder.Services.AddScoped<Perlax.Modules.Production.Application.DailyProduction.IOperatorUserDirectory, Perlax.Web.Services.UsersOperatorDirectory>();
+builder.Services.AddScoped<Perlax.Modules.Production.Application.Chat.IChatUserDirectory, Perlax.Web.Services.UsersChatDirectory>();
 builder.Services.AddAuditModule(builder.Configuration);
 builder.Services.AddBudgetsModule(builder.Configuration);
 builder.Services.AddAlmacenModule(builder.Configuration);
@@ -206,6 +207,15 @@ try
         catch (Exception ex)
         {
             Console.WriteLine($"DesignPlannerSchemaFixes failed: {ex.Message}");
+        }
+        try
+        {
+            await InternalChatSchemaFixes.ApplyAsync(productionContext);
+            Console.WriteLine("InternalChatSchemaFixes applied.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"InternalChatSchemaFixes failed: {ex.Message}");
         }
         try
         {

@@ -29,6 +29,7 @@
 * [Calidad](operaciones-apoyo/calidad.md)
 * [Inventario PT](operaciones-apoyo/inventario-pt.md)
 * [Cuadro Master](operaciones-apoyo/cuadro-master.md)
+* [Chat interno](operaciones-apoyo/chat-interno.md)
 
 ## Gastos por área
 
