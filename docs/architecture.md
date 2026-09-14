@@ -2,7 +2,7 @@
 
 Complemento del [manual de usuario](README.md).
 
-**Estado:** criterios de arquitectura backend **cumplidos** (marzo 2026 / actualizado sep 2026).
+
 
 ## Estilo
 
