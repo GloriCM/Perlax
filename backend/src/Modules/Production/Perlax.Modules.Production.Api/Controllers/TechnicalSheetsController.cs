@@ -132,6 +132,23 @@ public class TechnicalSheetsController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    [HttpDelete("{partId:guid}")]
+    public async Task<ActionResult> Delete(Guid partId, CancellationToken ct)
+    {
+        try
+        {
+            await _sheets.DeleteAsync(partId, User.Identity?.Name ?? "Sistema", ct);
+            await _auditService.LogAsync(
+                User.Identity?.Name, User.Identity?.Name,
+                "DELETE_TECHNICAL_SHEET",
+                $"Se eliminó ficha técnica {partId}",
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            return NoContent();
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     public sealed class SetTechnicalSheetApprovalRequest
     {
         public bool Approved { get; set; }

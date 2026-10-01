@@ -12,6 +12,7 @@ export default function PlaneacionPresupuesto() {
     return (
         <PresupuestoPorAreaPage
             title="Planeación"
+            storageKey="planeacion"
             icon={IconReportAnalytics}
             rubros={RUBROS}
         />

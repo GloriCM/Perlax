@@ -16,8 +16,7 @@ public static class ChatAccess
         "sst",
         "gestion humana",
         "presupuestos",
-        "financiera",
-        "contabilidad"
+        "financiero"
     ];
 
     public static bool IsAdmin(string? role)
@@ -57,6 +56,8 @@ public static class ChatAccess
             .Replace('ó', 'o').Replace('ú', 'u').Replace('ü', 'u');
         if (ascii is "diseno") return "diseño";
         if (ascii is "planeacion") return "planeaccion";
+        // Solo área canónica "financiero". Alias legacy: contabilidad / financiera.
+        if (key is "contabilidad" or "financiera" || ascii is "contabilidad" or "financiera") return "financiero";
         return key;
     }
 
@@ -87,8 +88,7 @@ public static class ChatAccess
         "sst" => "SST",
         "gestion humana" => "Gestión Humana",
         "presupuestos" => "Presupuestos",
-        "financiera" => "Financiera",
-        "contabilidad" => "Contabilidad",
+        "financiero" => "Financiero",
         var key when key.Length > 0 => char.ToUpper(key[0]) + key[1..],
         _ => "Área"
     };

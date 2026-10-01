@@ -27,8 +27,7 @@ public class UsersController : ControllerBase
         "sst",
         "gestion humana",
         "presupuestos",
-        "financiera",
-        "contabilidad"
+        "financiero"
     };
 
     private readonly UsersDbContext _context;
@@ -354,7 +353,7 @@ public class UsersController : ControllerBase
         u.Email,
         u.FirstName,
         u.LastName,
-        u.Area,
+        NormalizeArea(u.Area),
         u.DocumentNumber,
         u.Salary,
         u.Role,
@@ -401,6 +400,9 @@ public class UsersController : ControllerBase
     private static string? NormalizeArea(string? area)
     {
         if (string.IsNullOrWhiteSpace(area)) return null;
+        var key = area.Trim().ToLowerInvariant();
+        // Solo área canónica "financiero". Alias legacy: contabilidad / financiera.
+        if (key is "contabilidad" or "financiera") return "financiero";
         return area.Trim();
     }
 

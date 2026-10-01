@@ -12,6 +12,7 @@ export default function SstPresupuesto() {
     return (
         <PresupuestoPorAreaPage
             title="SST"
+            storageKey="sst"
             icon={IconShieldCheck}
             rubros={RUBROS}
             rowLabel="Tipo de servicio"

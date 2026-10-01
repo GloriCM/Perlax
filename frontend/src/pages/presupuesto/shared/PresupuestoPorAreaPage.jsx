@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+    Badge,
     Box,
-    Button,
     Card,
     Group,
     NumberInput,
@@ -13,16 +13,19 @@ import {
     Text,
     Title
 } from '@mantine/core';
-import { IconDeviceFloppy } from '@tabler/icons-react';
 import {
     MONTHS,
     QUARTERS,
-    YEAR_OPTIONS,
+    buildYearOptions,
     createEmptyBudgetData,
     formatMoney,
-    formatMoneyCurrency
+    formatMoneyCurrency,
+    loadAreaBudget,
+    saveAreaBudget
 } from './presupuestoConstants';
 import './PresupuestoPorArea.css';
+
+const AUTOSAVE_MS = 400;
 
 function sumMonths(data, rubro, months) {
     return months.reduce((acc, month) => acc + (data[rubro]?.[month] || 0), 0);
@@ -36,17 +39,54 @@ function sumAll(data, rubros) {
     return rubros.reduce((acc, rubro) => acc + sumMonths(data, rubro, MONTHS), 0);
 }
 
+function buildInitial(rubros, getInitialValue) {
+    return createEmptyBudgetData(rubros, getInitialValue);
+}
+
 export default function PresupuestoPorAreaPage({
     title,
+    storageKey,
     icon: AreaIcon,
     rubros,
     rowLabel = 'Rubro',
     getInitialValue
 }) {
+    const yearOptions = useMemo(() => buildYearOptions(), []);
     const [year, setYear] = useState(String(new Date().getFullYear()));
     const [view, setView] = useState('q1');
-    const [data, setData] = useState(() => createEmptyBudgetData(rubros, getInitialValue));
-    const [dirty, setDirty] = useState(false);
+    const [data, setData] = useState(() => {
+        const key = storageKey || title;
+        const saved = loadAreaBudget(key, String(new Date().getFullYear()));
+        return saved || buildInitial(rubros, getInitialValue);
+    });
+    const [saveStatus, setSaveStatus] = useState('idle');
+    const skipAutosave = useRef(true);
+    const dataRef = useRef(data);
+
+    useEffect(() => {
+        const key = storageKey || title;
+        const saved = loadAreaBudget(key, year);
+        skipAutosave.current = true;
+        const next = saved || buildInitial(rubros, getInitialValue);
+        setData(next);
+        dataRef.current = next;
+        setSaveStatus('idle');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [year, storageKey, title]);
+
+    useEffect(() => {
+        if (skipAutosave.current) {
+            skipAutosave.current = false;
+            return undefined;
+        }
+        setSaveStatus('saving');
+        const timer = setTimeout(() => {
+            const key = storageKey || title;
+            saveAreaBudget(key, year, dataRef.current);
+            setSaveStatus('saved');
+        }, AUTOSAVE_MS);
+        return () => clearTimeout(timer);
+    }, [data, year, storageKey, title]);
 
     const totalAnnual = useMemo(() => sumAll(data, rubros), [data, rubros]);
 
@@ -71,19 +111,23 @@ export default function PresupuestoPorAreaPage({
 
     const handleValueChange = (rubro, month, value) => {
         const numValue = typeof value === 'number' && !Number.isNaN(value) ? Math.max(0, value) : 0;
-        setData((prev) => ({
-            ...prev,
-            [rubro]: {
-                ...prev[rubro],
-                [month]: numValue
-            }
-        }));
-        setDirty(true);
+        setData((prev) => {
+            const next = {
+                ...prev,
+                [rubro]: {
+                    ...prev[rubro],
+                    [month]: numValue
+                }
+            };
+            dataRef.current = next;
+            return next;
+        });
     };
 
-    const handleSave = () => {
-        setDirty(false);
-    };
+    const saveHint =
+        saveStatus === 'saving' ? 'Guardando…'
+            : saveStatus === 'saved' ? 'Guardado automáticamente'
+                : 'Los cambios se guardan solos';
 
     const numberInputProps = {
         min: 0,
@@ -141,7 +185,7 @@ export default function PresupuestoPorAreaPage({
                                 <Table.Td key={`${rubro}-${month}`} className="presupuesto-area-input-cell">
                                     <NumberInput
                                         {...numberInputProps}
-                                        value={data[rubro][month]}
+                                        value={data[rubro]?.[month] ?? 0}
                                         onChange={(val) => handleValueChange(rubro, month, val)}
                                         aria-label={`${rubro} ${month}`}
                                     />
@@ -266,18 +310,27 @@ export default function PresupuestoPorAreaPage({
                                 Presupuesto {title}
                             </Title>
                             <Text size="sm" c="dimmed">
-                                Captura mensual por rubro · vista por trimestre
+                                Captura mensual · se guarda solo al editar
                             </Text>
                         </div>
                     </Group>
-                    <Select
-                        label="Año fiscal"
-                        data={YEAR_OPTIONS}
-                        value={year}
-                        onChange={(v) => v && setYear(v)}
-                        w={120}
-                        classNames={{ input: 'presupuesto-area-year-input' }}
-                    />
+                    <Group gap="sm" align="flex-end">
+                        <Badge
+                            size="lg"
+                            variant="light"
+                            color={saveStatus === 'saving' ? 'yellow' : saveStatus === 'saved' ? 'teal' : 'gray'}
+                        >
+                            {saveHint}
+                        </Badge>
+                        <Select
+                            label="Año fiscal"
+                            data={yearOptions}
+                            value={year}
+                            onChange={(v) => v && setYear(v)}
+                            w={120}
+                            classNames={{ input: 'presupuesto-area-year-input' }}
+                        />
+                    </Group>
                 </Group>
 
                 <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
@@ -327,17 +380,6 @@ export default function PresupuestoPorAreaPage({
                         {view === 'annual' ? renderAnnualSummary() : renderQuarterTable()}
                     </Stack>
                 </Card>
-
-                <Group justify="flex-end">
-                    <Button
-                        leftSection={<IconDeviceFloppy size={18} />}
-                        onClick={handleSave}
-                        disabled={!dirty}
-                        className="presupuesto-area-save"
-                    >
-                        Guardar cambios
-                    </Button>
-                </Group>
             </Stack>
         </Box>
     );

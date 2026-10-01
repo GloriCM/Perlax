@@ -42,6 +42,61 @@ public sealed partial class CotizadorService
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task<int> ImportMachinesAsync(IReadOnlyList<CotizadorMachineImportItem> items, CancellationToken ct = default)
+    {
+        if (items == null || items.Count == 0) return 0;
+        var created = 0;
+        foreach (var item in items)
+        {
+            var name = (item.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            var role = string.IsNullOrWhiteSpace(item.ServiceRole)
+                ? InferServiceRole(name)
+                : item.ServiceRole!.Trim();
+
+            var existing = await _db.CotizadorMachines
+                .FirstOrDefaultAsync(m => m.Name == name && m.ServiceRole == role, ct);
+            if (existing != null)
+            {
+                existing.SetupTimeHours = item.SetupTimeHours;
+                existing.ShotsPerHour = item.ShotsPerHour;
+                existing.HourlyRate = item.HourlyRate;
+                existing.IsActive = true;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _db.CotizadorMachines.Add(new CotizadorMachine
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name,
+                    ServiceRole = role,
+                    SetupTimeHours = item.SetupTimeHours,
+                    ShotsPerHour = item.ShotsPerHour,
+                    HourlyRate = item.HourlyRate,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                created++;
+            }
+        }
+        await _db.SaveChangesAsync(ct);
+        return created;
+    }
+
+    private static string InferServiceRole(string name)
+    {
+        var n = name.ToLowerInvariant();
+        if (n.Contains("convertid")) return "Conversion";
+        if (n.Contains("guillot") || n.Contains("corte")) return "Corte";
+        if (n.Contains("impres")) return "Impresora";
+        if (n.Contains("corrug")) return "Corrugado";
+        if (n.Contains("lamin")) return "Laminado";
+        if (n.Contains("troquel")) return "Troquelado";
+        if (n.Contains("pegad")) return "Pegado";
+        return "Impresora";
+    }
+
     public async Task<IReadOnlyList<CotizadorMaterial>> GetCatalogMaterialsAsync(CancellationToken ct = default) =>
         await _db.CotizadorMaterials.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
 
@@ -175,5 +230,133 @@ public sealed partial class CotizadorService
             ?? throw new KeyNotFoundException("Plancha no encontrada.");
         _db.CotizadorPlanchas.Remove(entity);
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<CotizadorBarniz>> GetCatalogBarnicesAsync(CancellationToken ct = default) =>
+        await _db.CotizadorBarnices.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
+
+    public async Task<CotizadorBarniz> CreateBarnizAsync(CotizadorBarniz item, CancellationToken ct = default)
+    {
+        item.Id = Guid.NewGuid();
+        item.CreatedAt = DateTime.UtcNow;
+        _db.CotizadorBarnices.Add(item);
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    public async Task<CotizadorBarniz> UpdateBarnizAsync(Guid id, CotizadorBarniz item, CancellationToken ct = default)
+    {
+        var entity = await _db.CotizadorBarnices.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Barniz no encontrado.");
+        entity.Name = item.Name;
+        entity.Factor = item.Factor;
+        entity.IsActive = item.IsActive;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return entity;
+    }
+
+    public async Task DeleteBarnizAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await _db.CotizadorBarnices.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Barniz no encontrado.");
+        _db.CotizadorBarnices.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<CotizadorTerminado>> GetCatalogTerminadosAsync(CancellationToken ct = default) =>
+        await _db.CotizadorTerminados.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
+
+    public async Task<CotizadorTerminado> CreateTerminadoAsync(CotizadorTerminado item, CancellationToken ct = default)
+    {
+        item.Id = Guid.NewGuid();
+        item.CreatedAt = DateTime.UtcNow;
+        _db.CotizadorTerminados.Add(item);
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    public async Task<CotizadorTerminado> UpdateTerminadoAsync(Guid id, CotizadorTerminado item, CancellationToken ct = default)
+    {
+        var entity = await _db.CotizadorTerminados.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Terminado no encontrado.");
+        entity.Name = item.Name;
+        entity.PricePerM2 = item.PricePerM2;
+        entity.IsActive = item.IsActive;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return entity;
+    }
+
+    public async Task DeleteTerminadoAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await _db.CotizadorTerminados.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Terminado no encontrado.");
+        _db.CotizadorTerminados.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<CotizadorCordon>> GetCatalogCordonesAsync(CancellationToken ct = default) =>
+        await _db.CotizadorCordones.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
+
+    public async Task<CotizadorCordon> CreateCordonAsync(CotizadorCordon item, CancellationToken ct = default)
+    {
+        item.Id = Guid.NewGuid();
+        item.CreatedAt = DateTime.UtcNow;
+        _db.CotizadorCordones.Add(item);
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    public async Task<CotizadorCordon> UpdateCordonAsync(Guid id, CotizadorCordon item, CancellationToken ct = default)
+    {
+        var entity = await _db.CotizadorCordones.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Cordon no encontrado.");
+        entity.Name = item.Name;
+        entity.PricePerManija = item.PricePerManija;
+        entity.IsActive = item.IsActive;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return entity;
+    }
+
+    public async Task DeleteCordonAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await _db.CotizadorCordones.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Cordon no encontrado.");
+        _db.CotizadorCordones.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<int> ImportMaterialsAsync(IReadOnlyList<CotizadorMaterialImportItem> items, CancellationToken ct = default)
+    {
+        if (items == null || items.Count == 0) return 0;
+        var created = 0;
+        foreach (var item in items)
+        {
+            var name = (item.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            var existing = await _db.CotizadorMaterials.FirstOrDefaultAsync(m => m.Name == name, ct);
+            if (existing != null)
+            {
+                existing.PricePerM2 = item.PricePerM2;
+                existing.IsActive = true;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _db.CotizadorMaterials.Add(new CotizadorMaterial
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name,
+                    PricePerM2 = item.PricePerM2,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                created++;
+            }
+        }
+        await _db.SaveChangesAsync(ct);
+        return created;
     }
 }

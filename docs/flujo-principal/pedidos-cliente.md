@@ -1,6 +1,6 @@
 # Pedidos de cliente
 
-**Estado:** En produccion (integrado con API)
+**Estado:** En produccion
 **Menu:** Operaciones -> Pedidos
 
 > No confundir con **Compras & Almacen -> Pedidos**, que son pedidos a **proveedores** de insumos.
@@ -21,12 +21,13 @@ Formaliza el pedido del **cliente** contra OT con ficha aprobada: cantidades, OC
 | Nuevo pedido | `/pedidos/nuevo` |
 | Editar pedido | `/pedidos/nuevo/:id` |
 | Informe | `/pedidos/informe` |
+| Clientes | `/clientes` |
 
 ## Flujo: nuevo pedido
 
 1. El sistema asigna **numero de pedido**.
 2. Complete encabezado obligatorio:
-   - **Cliente**
+   - **Cliente** (selección desde el **maestro** `/clientes`; si escribe un nombre nuevo, se crea/enlaza al guardar)
    - **Fecha pedido**
    - **Orden de compra del cliente (OC)**
    - **Fecha entrega acordada**
@@ -41,7 +42,7 @@ Formaliza el pedido del **cliente** contra OT con ficha aprobada: cantidades, OC
 - Estado por pedido: **Aprobado** o **Pendiente**.
 - **Editar** pedidos pendientes.
 - **Imprimir** nota de pedido (HTML).
-- **Aprobar** con **precio unitario** por linea (requerido para produccion y facturacion futura).
+- **Aprobar** con **precio unitario** por linea. Ese precio es el que usan producción y facturación.
 
 ## Estados
 

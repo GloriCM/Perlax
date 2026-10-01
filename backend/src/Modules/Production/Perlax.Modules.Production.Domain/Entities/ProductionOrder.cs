@@ -4,6 +4,7 @@ public class ProductionOrder
 {
     public Guid Id { get; set; }
     public string OTNumber { get; set; } = string.Empty; // e.g. "7451"
+    public Guid? CustomerId { get; set; }
     public string Cliente { get; set; } = string.Empty;
     public string EjecutivoCuenta { get; set; } = string.Empty;
     public DateTime FechaSolicitud { get; set; } = DateTime.UtcNow;
@@ -19,5 +20,6 @@ public class ProductionOrder
     public string? UpdatedBy { get; set; }
 
     // Relationships
+    public Customer? Customer { get; set; }
     public ICollection<OrderPart> Parts { get; set; } = new List<OrderPart>();
 }

@@ -1,6 +1,6 @@
 # Reporte diario
 
-**Estado:** En produccion (integrado con API)
+**Estado:** En produccion
 **Menu:** Operaciones -> Reporte Diario
 **URL:** `/reporte-diario`
 

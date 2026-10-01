@@ -26,6 +26,12 @@ public class BudgetPersonnelItem
     public Budget? Budget { get; set; }
     public BudgetBusinessUnit? BusinessUnit { get; set; }
 
-    public decimal MonthlyTotal => Headcount * MonthlySalary + Benefits + Allowances + Bonuses + Overtime;
-    public decimal AnnualTotal => MonthlyTotal * 12;
+    /// <summary>Total mensual del cargo (salario + extras por persona × headcount).</summary>
+    public decimal MonthlyTotal =>
+        Perlax.Modules.Budgets.Domain.BudgetCalculations.PersonnelMonthlyTotal(
+            Headcount, MonthlySalary, Benefits, Allowances, Bonuses, Overtime);
+
+    public decimal AnnualTotal =>
+        Perlax.Modules.Budgets.Domain.BudgetCalculations.PersonnelAnnualTotal(
+            Headcount, MonthlySalary, Benefits, Allowances, Bonuses, Overtime);
 }

@@ -12,6 +12,7 @@ export default function DisenoPresupuesto() {
     return (
         <PresupuestoPorAreaPage
             title="Diseño"
+            storageKey="diseno"
             icon={IconPalette}
             rubros={RUBROS}
         />

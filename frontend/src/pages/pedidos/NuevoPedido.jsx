@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+    ActionIcon,
     Badge,
     Button,
     Card,
@@ -85,11 +86,17 @@ export default function NuevoPedido() {
                 );
 
                 setAvailableProducts(mappedProducts);
-                const uniqueClients = [...new Set(
-                    mappedProducts.map(product => (product?.clientName || '').trim())
-                        .filter(Boolean)
-                )].sort((a, b) => a.localeCompare(b));
-                setClientOptions(uniqueClients.map(client => ({ value: client, label: client })));
+                const customers = await api.get('/production/customers?onlyActive=true').catch(() => []);
+                const fromMaster = (customers || []).map(c => ({ value: c.name, label: c.name }));
+                const fromOt = [...new Set(
+                    mappedProducts.map(product => (product?.clientName || '').trim()).filter(Boolean)
+                )].map(client => ({ value: client, label: client }));
+                const merged = [...fromMaster];
+                fromOt.forEach(opt => {
+                    if (!merged.some(m => m.value.toLowerCase() === opt.value.toLowerCase())) merged.push(opt);
+                });
+                merged.sort((a, b) => a.label.localeCompare(b.label));
+                setClientOptions(merged);
                 if (!id) {
                     const nextNumber = await api.get('/production/customer-orders/next-number');
                     setOrderNumber(String(nextNumber || ''));
@@ -332,7 +339,7 @@ export default function NuevoPedido() {
                     <Group grow>
                         <Select
                             label="Cliente"
-                            description={`${clientOptions.length} clientes disponibles desde OT`}
+                            description={`${clientOptions.length} clientes (maestro + OT). Gestionar en Pedidos → Clientes.`}
                             placeholder="Buscar o seleccionar cliente..."
                             searchable
                             maxDropdownHeight={260}
@@ -340,6 +347,11 @@ export default function NuevoPedido() {
                             data={clientOptions}
                             value={formData.clientName}
                             onChange={(value) => setFormData(prev => ({ ...prev, clientName: value || '' }))}
+                            rightSection={
+                                <ActionIcon variant="subtle" onClick={() => navigate('/clientes')} title="Maestro de clientes">
+                                    <IconUsers size={16} />
+                                </ActionIcon>
+                            }
                             comboboxProps={{ shadow: 'xl', width: 420, position: 'bottom-start' }}
                             styles={{
                                 label: {

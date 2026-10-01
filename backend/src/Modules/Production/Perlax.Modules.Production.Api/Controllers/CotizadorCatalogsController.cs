@@ -65,8 +65,12 @@ public class CotizadorCatalogsController : ControllerBase
     }
 
     [HttpPost("machines/import")]
-    public ActionResult<object> ImportMachinesPlaceholder() =>
-        Ok(new { message = "Importacion Excel pendiente. Envie la plantilla para habilitar este endpoint." });
+    public async Task<ActionResult<object>> ImportMachines([FromBody] List<CotizadorMachineImportItem>? items, CancellationToken ct)
+    {
+        var created = await _cotizador.ImportMachinesAsync(items ?? [], ct);
+        await Audit("IMPORT_COTIZADOR_MACHINES", $"created={created}");
+        return Ok(new { created, total = items?.Count ?? 0 });
+    }
 
     [HttpGet("materials")]
     public async Task<ActionResult<IEnumerable<CotizadorMaterial>>> GetMaterials(CancellationToken ct) =>
@@ -161,6 +165,80 @@ public class CotizadorCatalogsController : ControllerBase
     {
         try { await _cotizador.DeletePlanchaAsync(id, ct); return NoContent(); }
         catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpGet("barnices")]
+    public async Task<ActionResult<IEnumerable<CotizadorBarniz>>> GetBarnices(CancellationToken ct) =>
+        Ok(await _cotizador.GetCatalogBarnicesAsync(ct));
+
+    [HttpPost("barnices")]
+    public async Task<ActionResult<CotizadorBarniz>> CreateBarniz([FromBody] CotizadorBarniz item, CancellationToken ct) =>
+        Ok(await _cotizador.CreateBarnizAsync(item, ct));
+
+    [HttpPut("barnices/{id:guid}")]
+    public async Task<ActionResult<CotizadorBarniz>> UpdateBarniz(Guid id, [FromBody] CotizadorBarniz item, CancellationToken ct)
+    {
+        try { return Ok(await _cotizador.UpdateBarnizAsync(id, item, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpDelete("barnices/{id:guid}")]
+    public async Task<IActionResult> DeleteBarniz(Guid id, CancellationToken ct)
+    {
+        try { await _cotizador.DeleteBarnizAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpGet("terminados")]
+    public async Task<ActionResult<IEnumerable<CotizadorTerminado>>> GetTerminados(CancellationToken ct) =>
+        Ok(await _cotizador.GetCatalogTerminadosAsync(ct));
+
+    [HttpPost("terminados")]
+    public async Task<ActionResult<CotizadorTerminado>> CreateTerminado([FromBody] CotizadorTerminado item, CancellationToken ct) =>
+        Ok(await _cotizador.CreateTerminadoAsync(item, ct));
+
+    [HttpPut("terminados/{id:guid}")]
+    public async Task<ActionResult<CotizadorTerminado>> UpdateTerminado(Guid id, [FromBody] CotizadorTerminado item, CancellationToken ct)
+    {
+        try { return Ok(await _cotizador.UpdateTerminadoAsync(id, item, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpDelete("terminados/{id:guid}")]
+    public async Task<IActionResult> DeleteTerminado(Guid id, CancellationToken ct)
+    {
+        try { await _cotizador.DeleteTerminadoAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpGet("cordones")]
+    public async Task<ActionResult<IEnumerable<CotizadorCordon>>> GetCordones(CancellationToken ct) =>
+        Ok(await _cotizador.GetCatalogCordonesAsync(ct));
+
+    [HttpPost("cordones")]
+    public async Task<ActionResult<CotizadorCordon>> CreateCordon([FromBody] CotizadorCordon item, CancellationToken ct) =>
+        Ok(await _cotizador.CreateCordonAsync(item, ct));
+
+    [HttpPut("cordones/{id:guid}")]
+    public async Task<ActionResult<CotizadorCordon>> UpdateCordon(Guid id, [FromBody] CotizadorCordon item, CancellationToken ct)
+    {
+        try { return Ok(await _cotizador.UpdateCordonAsync(id, item, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpDelete("cordones/{id:guid}")]
+    public async Task<IActionResult> DeleteCordon(Guid id, CancellationToken ct)
+    {
+        try { await _cotizador.DeleteCordonAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpPost("materials/import")]
+    public async Task<ActionResult<object>> ImportMaterials([FromBody] List<CotizadorMaterialImportItem>? items, CancellationToken ct)
+    {
+        var created = await _cotizador.ImportMaterialsAsync(items ?? [], ct);
+        await Audit("IMPORT_COTIZADOR_MATERIALS", $"created={created}");
+        return Ok(new { created, total = items?.Count ?? 0 });
     }
 
     private Task Audit(string action, string detail) =>

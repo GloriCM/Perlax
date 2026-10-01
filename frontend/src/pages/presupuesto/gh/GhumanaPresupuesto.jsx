@@ -12,6 +12,7 @@ export default function GhumanaPresupuesto() {
     return (
         <PresupuestoPorAreaPage
             title="Gestión Humana"
+            storageKey="gestion-humana"
             icon={IconUsers}
             rubros={RUBROS}
             rowLabel="Tipo de servicio"

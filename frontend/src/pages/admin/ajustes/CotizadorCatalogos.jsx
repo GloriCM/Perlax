@@ -42,7 +42,20 @@ function CatalogFieldInput({ field, value, onChange, disabled }) {
                 disabled={disabled}
                 hideControls
                 min={0}
-                decimalScale={4}
+                decimalScale={6}
+            />
+        );
+    }
+    if (field.type === 'select') {
+        return (
+            <Select
+                label={field.label}
+                data={field.options || []}
+                value={value || null}
+                onChange={(next) => onChange(next || '')}
+                required={field.required}
+                disabled={disabled}
+                searchable
             />
         );
     }
@@ -168,7 +181,7 @@ export default function CotizadorCatalogos() {
                             variant="subtle"
                             color="gray"
                             leftSection={<IconArrowLeft size={16} />}
-                            onClick={() => navigate('/ajustes')}
+                            onClick={() => navigate(-1)}
                         >
                             Volver
                         </Button>
@@ -180,7 +193,8 @@ export default function CotizadorCatalogos() {
                                 Catálogos del cotizador
                             </Title>
                             <Text size="sm" c="dimmed">
-                                Mismos campos que Cotizador Link&apos;t. Los cambios se aplican al cálculo de cotizaciones.
+                                Maestro de papeles, máquinas, barnices, terminados, flautas, cordones, planchas y
+                                factores. Estos valores alimentan el cálculo del cotizador.
                             </Text>
                         </Stack>
                     </Group>
@@ -205,11 +219,71 @@ export default function CotizadorCatalogos() {
                             {loading ? 'Cargando…' : `${rows.length} registro(s)`}
                         </Text>
                     </Stack>
-                    {canCreate && (
-                        <Button leftSection={<IconPlus size={16} />} onClick={openAddRecord}>
-                            Nuevo registro
-                        </Button>
-                    )}
+                    <Group>
+                        {config.allowImport && catalogKey === 'maquinas' && (
+                            <Button
+                                variant="light"
+                                onClick={async () => {
+                                    const raw = window.prompt(
+                                        'Pegue JSON de máquinas [{ "name", "serviceRole?", "setupTimeHours", "shotsPerHour", "hourlyRate" }]',
+                                    );
+                                    if (!raw?.trim()) return;
+                                    try {
+                                        const items = JSON.parse(raw);
+                                        const res = await api.post('/production/cotizador/catalogs/machines/import', items);
+                                        notifications.show({
+                                            title: 'Importación',
+                                            message: `Creadas: ${res?.created ?? 0} / enviadas: ${res?.total ?? 0}`,
+                                            color: 'teal',
+                                        });
+                                        await loadRows();
+                                    } catch (err) {
+                                        notifications.show({
+                                            title: 'Error al importar',
+                                            message: err.message || 'JSON inválido',
+                                            color: 'red',
+                                        });
+                                    }
+                                }}
+                            >
+                                Importar JSON
+                            </Button>
+                        )}
+                        {config.allowImport && catalogKey === 'materiales' && (
+                            <Button
+                                variant="light"
+                                onClick={async () => {
+                                    const raw = window.prompt(
+                                        'Pegue JSON de materiales [{ "name", "pricePerM2" }]',
+                                    );
+                                    if (!raw?.trim()) return;
+                                    try {
+                                        const items = JSON.parse(raw);
+                                        const res = await api.post('/production/cotizador/catalogs/materials/import', items);
+                                        notifications.show({
+                                            title: 'Importación',
+                                            message: `Creadas: ${res?.created ?? 0} / enviadas: ${res?.total ?? 0}`,
+                                            color: 'teal',
+                                        });
+                                        await loadRows();
+                                    } catch (err) {
+                                        notifications.show({
+                                            title: 'Error al importar',
+                                            message: err.message || 'JSON inválido',
+                                            color: 'red',
+                                        });
+                                    }
+                                }}
+                            >
+                                Importar JSON
+                            </Button>
+                        )}
+                        {canCreate && (
+                            <Button leftSection={<IconPlus size={16} />} onClick={openAddRecord}>
+                                Nuevo registro
+                            </Button>
+                        )}
+                    </Group>
                 </Group>
 
                 {loading ? (

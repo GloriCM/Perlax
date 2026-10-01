@@ -21,6 +21,14 @@ import CotizadorWizard from './pages/cotizador/CotizadorWizard';
 import CotizadorGuardadas from './pages/cotizador/CotizadorGuardadas';
 import NuevoPedido from './pages/pedidos/NuevoPedido';
 import InformePedidos from './pages/pedidos/InformePedidos';
+import NuevaRemision from './pages/remisiones/NuevaRemision';
+import InformeRemisiones from './pages/remisiones/InformeRemisiones';
+import NuevaFactura from './pages/facturacion/NuevaFactura';
+import InformeFacturas from './pages/facturacion/InformeFacturas';
+import ExistenciasPt from './pages/inventario/ExistenciasPt';
+import DevolucionesPt from './pages/inventario/DevolucionesPt';
+import ConsumosAlmacen from './pages/compras/ConsumosAlmacen';
+import ClientesPage from './pages/clientes/ClientesPage';
 import GastosProduccion from './pages/produccion/gastos/GastosProduccion';
 import GraficasGastos from './pages/produccion/gastos/GraficasGastos';
 import RubrosGastos from './pages/produccion/gastos/RubrosGastos';
@@ -109,6 +117,8 @@ import './App.css';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ChatCenter from './pages/chat/ChatCenter';
 import CotizadorCatalogos from './pages/admin/ajustes/CotizadorCatalogos.jsx';
+import AjustesHub from './pages/admin/ajustes/AjustesHub.jsx';
+import InformesGestion from './pages/informes/InformesGestion.jsx';
 import PlantaFloorPage from './pages/planta/PlantaFloorPage';
 import RequisicionPage from './pages/compras/requisicion/RequisicionPage';
 import PedidosPage from './pages/compras/pedidos/PedidosPage';
@@ -182,11 +192,24 @@ function App() {
             <Route path="/cotizador/nueva" element={<CotizadorWizard />} />
             <Route path="/cotizador/nueva/ot/:orderId" element={<CotizadorWizard />} />
             <Route path="/cotizador/guardadas" element={<CotizadorGuardadas />} />
+            <Route path="/cotizador/catalogos" element={<CotizadorCatalogos />} />
             <Route path="/cotizador/:id" element={<CotizadorWizard />} />
             <Route path="/cotizaciones/*" element={<Navigate to="/cotizador" replace />} />
             <Route path="/pedidos/nuevo" element={<NuevoPedido />} />
             <Route path="/pedidos/nuevo/:id" element={<NuevoPedido />} />
             <Route path="/pedidos/informe" element={<InformePedidos />} />
+            <Route path="/clientes" element={<ClientesPage />} />
+            <Route path="/remisiones/nueva" element={<NuevaRemision />} />
+            <Route path="/remisiones/nueva/:id" element={<NuevaRemision />} />
+            <Route path="/remisiones/informe" element={<InformeRemisiones />} />
+            <Route path="/remisiones" element={<Navigate to="/remisiones/informe" replace />} />
+            <Route path="/facturacion/nueva" element={<NuevaFactura />} />
+            <Route path="/facturacion/informe" element={<InformeFacturas />} />
+            <Route path="/facturacion" element={<Navigate to="/facturacion/informe" replace />} />
+            <Route path="/inventario/existencias" element={<ExistenciasPt />} />
+            <Route path="/inventario/devoluciones" element={<DevolucionesPt />} />
+            <Route path="/inventario" element={<Navigate to="/inventario/existencias" replace />} />
+            <Route path="/compras/consumos" element={<ConsumosAlmacen />} />
             <Route path="/reporte-diario" element={<ReporteDiario />} />
             <Route path="/produccion/apertura" element={<AperturaProduccion />} />
             <Route path="/produccion/op-existente" element={<RegistrarOpExistente />} />
@@ -296,7 +319,10 @@ function App() {
             <Route path="/calidad/planes-accion" element={<PlanesAccion />} />
             <Route path="/admin/auditoria" element={<Auditoria />} />
             <Route path="/configuracion/usuarios" element={<UsuariosConfig />} />
+            <Route path="/ajustes" element={<AjustesHub />} />
             <Route path="/ajustes/cotizador-catalogos" element={<CotizadorCatalogos />} />
+            <Route path="/informes" element={<InformesGestion />} />
+            <Route path="/informes/:reportKey" element={<InformesGestion />} />
 
             {/* SST */}
             <Route path="/sst/gastos/captura" element={<GastosSST />} />

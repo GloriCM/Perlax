@@ -1,7 +1,6 @@
 # Manual Perla
 
 * [Introducción](README.md)
-* [Arquitectura (equipo técnico)](architecture.md)
 
 ## Introducción
 
@@ -15,6 +14,7 @@
 * [Presupuestos](flujo-principal/presupuestos.md)
 * [Cotizador](flujo-principal/cotizador.md)
 * [Órdenes de trabajo y fichas](flujo-principal/ordenes-trabajo.md)
+* [Planes de Diseño](flujo-principal/planes-diseno.md)
 * [Pedidos de cliente](flujo-principal/pedidos-cliente.md)
 * [Planeación y producción](flujo-principal/planeacion-produccion.md)
 * [Programador de máquinas](flujo-principal/programador-maquinas.md)
@@ -30,6 +30,7 @@
 * [Inventario PT](operaciones-apoyo/inventario-pt.md)
 * [Cuadro Master](operaciones-apoyo/cuadro-master.md)
 * [Chat interno](operaciones-apoyo/chat-interno.md)
+* [Informes de gestión](operaciones-apoyo/informes-gestion.md)
 
 ## Gastos por área
 
@@ -47,3 +48,4 @@
 
 * [Usuarios y permisos](configuracion/usuarios.md)
 * [Auditoría](configuracion/auditoria.md)
+* [Parametrización / Ajustes](configuracion/parametrizacion.md)

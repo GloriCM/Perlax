@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Perlax.Modules.Production.Application.CustomerOrders;
+using Perlax.Modules.Production.Application.Customers;
 using Perlax.Modules.Production.Application.Manufacturing;
 using Perlax.Modules.Production.Domain.Entities;
 using Perlax.Modules.Production.Infrastructure.Persistence;
@@ -11,11 +12,16 @@ public sealed class CustomerOrderService : ICustomerOrderService
 {
     private readonly ProductionDbContext _db;
     private readonly IManufacturingOrderSyncService _manufacturingSync;
+    private readonly ICustomerService _customers;
 
-    public CustomerOrderService(ProductionDbContext db, IManufacturingOrderSyncService manufacturingSync)
+    public CustomerOrderService(
+        ProductionDbContext db,
+        IManufacturingOrderSyncService manufacturingSync,
+        ICustomerService customers)
     {
         _db = db;
         _manufacturingSync = manufacturingSync;
+        _customers = customers;
     }
 
     public async Task<IReadOnlyList<AvailableProductDto>> GetAvailableProductsAsync(CancellationToken ct = default) =>
@@ -78,6 +84,7 @@ public sealed class CustomerOrderService : ICustomerOrderService
         ValidateRequest(command);
         await EnsureApprovedPartsAsync(command, ct);
 
+        var customer = await _customers.EnsureByNameAsync(command.ClientName, userName, ct);
         var partProductionOrders = await GetPartProductionOrderIdsAsync(command.Items.Select(x => x.OrderPartId), ct);
 
         for (var attempt = 0; attempt < 5; attempt++)
@@ -90,7 +97,8 @@ public sealed class CustomerOrderService : ICustomerOrderService
                 Id = orderId,
                 OrderNumber = orderNumber,
                 OrderDate = ToUtcDateTime(command.OrderDate),
-                ClientName = command.ClientName.Trim(),
+                CustomerId = customer.Id,
+                ClientName = customer.Name,
                 PurchaseOrderNumber = command.PurchaseOrderNumber.Trim(),
                 AgreedDeliveryDate = ToUtcDateTime(command.AgreedDeliveryDate!.Value),
                 Status = CustomerOrderStatuses.Pending,
@@ -131,10 +139,12 @@ public sealed class CustomerOrderService : ICustomerOrderService
         var entity = await _db.CustomerOrders.Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new KeyNotFoundException("Pedido no encontrado.");
 
+        var customer = await _customers.EnsureByNameAsync(command.ClientName, userName, ct);
         var partProductionOrders = await GetPartProductionOrderIdsAsync(command.Items.Select(x => x.OrderPartId), ct);
 
         entity.OrderDate = ToUtcDateTime(command.OrderDate);
-        entity.ClientName = command.ClientName.Trim();
+        entity.CustomerId = customer.Id;
+        entity.ClientName = customer.Name;
         entity.PurchaseOrderNumber = command.PurchaseOrderNumber.Trim();
         entity.AgreedDeliveryDate = ToUtcDateTime(command.AgreedDeliveryDate);
         entity.Status = CustomerOrderStatuses.Pending;

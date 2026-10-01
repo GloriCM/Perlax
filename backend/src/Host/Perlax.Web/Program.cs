@@ -95,13 +95,23 @@ builder.Services.AddAuthentication(options =>
     {
         OnMessageReceived = context =>
         {
+            // Token en query: hubs, uploads y documentos abiertos en pestaña nueva
+            // (cotizador PDF, remisiones/facturas print) donde no hay header Authorization.
             var accessToken = context.Request.Query["access_token"];
+            if (string.IsNullOrEmpty(accessToken))
+                return Task.CompletedTask;
+
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken)
-                && (path.StartsWithSegments("/hubs/internal-chat") || path.StartsWithSegments("/uploads")))
-            {
+            var p = path.Value ?? string.Empty;
+            var allowQueryToken =
+                path.StartsWithSegments("/hubs/internal-chat")
+                || path.StartsWithSegments("/uploads")
+                || p.Contains("/pdf/", StringComparison.OrdinalIgnoreCase)
+                || p.Contains("/print", StringComparison.OrdinalIgnoreCase);
+
+            if (allowQueryToken)
                 context.Token = accessToken;
-            }
+
             return Task.CompletedTask;
         }
     };
@@ -219,20 +229,85 @@ try
         }
         try
         {
+            await CommercialChainSchemaFixes.ApplyAsync(productionContext);
+            Console.WriteLine("CommercialChainSchemaFixes applied (ClosedAt, remisiones, facturas, PT, OP detail, devoluciones).");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"CRITICAL CommercialChainSchemaFixes failed: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
+            try
+            {
+                await CommercialChainSchemaFixes.EnsureManufacturingOrderColumnsAsync(productionContext);
+                Console.WriteLine("Fallback EnsureManufacturingOrderColumnsAsync applied.");
+            }
+            catch (Exception ensureEx)
+            {
+                Console.Error.WriteLine($"EnsureManufacturingOrderColumnsAsync also failed: {ensureEx.Message}");
+            }
+        }
+        // Siempre asegurar devoluciones PT aunque ApplyAsync haya fallado a mitad.
+        try
+        {
+            await CommercialChainSchemaFixes.EnsureFinishedGoodsReturnsAsync(productionContext);
+            Console.WriteLine("FinishedGoodsReturns ensured.");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"CRITICAL EnsureFinishedGoodsReturnsAsync failed: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
+        }
+        try
+        {
+            await CommercialChainSchemaFixes.EnsureCustomerLinkColumnsAsync(productionContext);
+            var customers = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Production.Application.Customers.ICustomerService>();
+            var sync = await customers.SyncFromDocumentsAsync("startup");
+            Console.WriteLine($"Customer master sync: created={sync.Created}, linked={sync.Linked}, total={sync.TotalInMaster}");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Customer master sync failed: {ex.Message}");
+        }
+        try
+        {
             await ProductionDbInitializer.InitializeAsync(productionContext);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ProductionDbInitializer failed: {ex.Message}");
         }
-        await Perlax.Modules.Production.Infrastructure.Persistence.CotizadorDbSeeder.SeedAsync(productionContext);
-        await Perlax.Modules.Production.Infrastructure.Persistence.DesignPlannerDbSeeder.SeedAsync(productionContext);
-        await Perlax.Modules.Production.Infrastructure.Persistence.DailyProductionDbSeeder.SeedAsync(productionContext);
-        await Perlax.Modules.Production.Infrastructure.Persistence.OpSchedulingSeeder.SeedAsync(productionContext);
+        try
+        {
+            await Perlax.Modules.Production.Infrastructure.Persistence.CotizadorDbSeeder.SeedAsync(productionContext);
+            await Perlax.Modules.Production.Infrastructure.Persistence.DesignPlannerDbSeeder.SeedAsync(productionContext);
+            await Perlax.Modules.Production.Infrastructure.Persistence.DailyProductionDbSeeder.SeedAsync(productionContext);
+            await Perlax.Modules.Production.Infrastructure.Persistence.OpSchedulingSeeder.SeedAsync(productionContext);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Production seeders failed: {ex.Message}");
+        }
 
-        var budgetsContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbContext>();
-        await budgetsContext.Database.MigrateAsync();
-        await Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbSeeder.SeedAsync(budgetsContext);
+        try
+        {
+            var budgetsContext = scope.ServiceProvider.GetRequiredService<Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbContext>();
+            // Primero schema + historial + tablas (idempotente). MigrateAsync después, sin tumbar el arranque.
+            await Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsElliotSchemaFixes.ApplyAsync(budgetsContext);
+            try
+            {
+                await budgetsContext.Database.MigrateAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Budgets MigrateAsync failed: {ex.Message}");
+            }
+            await Perlax.Modules.Budgets.Infrastructure.Persistence.BudgetsDbSeeder.SeedAsync(budgetsContext);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Budget seed failed: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+        }
 
         var almacenContext = scope.ServiceProvider.GetRequiredService<AlmacenDbContext>();
         await almacenContext.Database.MigrateAsync();

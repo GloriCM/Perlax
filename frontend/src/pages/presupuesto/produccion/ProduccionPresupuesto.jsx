@@ -19,6 +19,7 @@ export default function ProduccionPresupuesto() {
     return (
         <PresupuestoPorAreaPage
             title="Producción"
+            storageKey="produccion"
             icon={IconCube}
             rubros={RUBROS}
             getInitialValue={(rubro) => getInitialValue(rubro)}

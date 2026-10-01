@@ -19,6 +19,7 @@ Gestiona el ciclo de **insumos** para la planta: crear requisiciones, convertirl
 | Requisicion | Compras & Almacen -> Requisicion | `/compras/requisicion` |
 | Pedidos | Compras & Almacen -> Pedidos | `/compras/pedidos` |
 | Recepcion | Compras & Almacen -> Recepcion | `/compras/recepcion` |
+| Consumos / Saldos | Compras & Almacen -> Consumos / Saldos | `/compras/consumos` |
 | Indicadores | Compras & Almacen -> Indicadores | `/compras/indicadores` |
 
 ## Flujo general
@@ -26,7 +27,8 @@ Gestiona el ciclo de **insumos** para la planta: crear requisiciones, convertirl
 1. **Requisicion:** se registra la necesidad de insumo (estado Pendiente).
 2. **Pedidos:** se confirma el pedido al proveedor (estado Pedido o Parcial).
 3. **Recepcion:** se registra lo recibido (Parcial o En Almacen).
-4. **Indicadores:** analisis de puntualidad, precios y gastos.
+4. **Consumos:** salida de material aplicada a una OP abierta; alimenta saldos y costos.
+5. **Indicadores:** analisis de puntualidad, precios y gastos.
 
 ## Categorias de insumo
 

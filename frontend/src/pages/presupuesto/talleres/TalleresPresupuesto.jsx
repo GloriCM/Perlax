@@ -16,6 +16,7 @@ export default function TalleresPresupuesto() {
     return (
         <PresupuestoPorAreaPage
             title="Talleres"
+            storageKey="talleres"
             icon={IconTools}
             rubros={RUBROS}
             getInitialValue={(rubro) => getInitialValue(rubro)}

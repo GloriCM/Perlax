@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Production.Application.Common;
+using Perlax.Modules.Production.Application.Customers;
 using Perlax.Modules.Production.Application.Orders;
 using Perlax.Modules.Production.Domain.Entities;
 using Perlax.Modules.Production.Infrastructure.Persistence;
@@ -28,10 +29,12 @@ public sealed class ProductionOrderService : IProductionOrderService
     private const long MaxFileBytes = 26_214_400;
 
     private readonly ProductionDbContext _db;
+    private readonly ICustomerService _customers;
 
-    public ProductionOrderService(ProductionDbContext db)
+    public ProductionOrderService(ProductionDbContext db, ICustomerService customers)
     {
         _db = db;
+        _customers = customers;
     }
 
     public async Task<IReadOnlyList<ProductionOrder>> ListAsync(CancellationToken ct = default) =>
@@ -60,6 +63,8 @@ public sealed class ProductionOrderService : IProductionOrderService
             if (isDuplicate)
                 throw new ResourceConflictException("Ya existe una orden de trabajo con el mismo cliente y nombre de producto.");
         }
+
+        await ProductionOrderCustomerLink.ApplyAsync(order, _customers, userName, ct);
 
         order.Id = Guid.NewGuid();
         order.CreatedAt = DateTime.UtcNow;
@@ -104,6 +109,8 @@ public sealed class ProductionOrderService : IProductionOrderService
         order.Status = "Pendiente";
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = userName;
+
+        await ProductionOrderCustomerLink.ApplyAsync(order, _customers, userName, ct);
 
         var existingPartsById = order.Parts.ToDictionary(p => p.Id, p => p);
         var keepPartIds = new HashSet<Guid>();
@@ -185,20 +192,22 @@ public sealed class ProductionOrderService : IProductionOrderService
     public async Task<IReadOnlyList<string>> GetClientSuggestionsAsync(string? q = null, int limit = 30, CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 100);
-        var query = _db.ProductionOrders.AsNoTracking().Where(o => !string.IsNullOrWhiteSpace(o.Cliente));
+        var rows = await _customers.ListAsync(null, true, ct);
+        IEnumerable<string> names = rows
+            .Select(c => (c.Name ?? string.Empty).Trim())
+            .Where(n => n.Length > 0);
 
         if (!string.IsNullOrWhiteSpace(q))
         {
-            var term = q.Trim().ToLowerInvariant();
-            query = query.Where(o => o.Cliente.ToLower().Contains(term));
+            var term = q.Trim();
+            names = names.Where(n => n.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
-        return await query
-            .Select(o => o.Cliente.Trim())
-            .Distinct()
-            .OrderBy(c => c)
+        return names
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .Take(limit)
-            .ToListAsync(ct);
+            .ToList();
     }
 
     public async Task<IReadOnlyList<ReusableOrderSummaryDto>> SearchReusableAsync(string? q, int limit = 30, CancellationToken ct = default)
@@ -338,7 +347,6 @@ public sealed class ProductionOrderService : IProductionOrderService
             CondicionOrdenCompra = source.CondicionOrdenCompra,
             Notas = origenNote,
             FabricationProcessesJson = source.FabricationProcessesJson,
-            // No se reutilizan adjuntos del origen (evita borrar/compartir archivos).
             AdjuntosJson = "[]",
         };
     }

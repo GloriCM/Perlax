@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Production.Application.Common;
+using Perlax.Modules.Production.Application.Customers;
 using Perlax.Modules.Production.Application.Manufacturing;
 using Perlax.Modules.Production.Domain.Entities;
 using Perlax.Modules.Production.Infrastructure.Parsing;
@@ -13,11 +14,16 @@ public sealed class ManufacturingOrderService : IManufacturingOrderService
 {
     private readonly ProductionDbContext _db;
     private readonly IManufacturingOrderSyncService _syncService;
+    private readonly ICustomerService _customers;
 
-    public ManufacturingOrderService(ProductionDbContext db, IManufacturingOrderSyncService syncService)
+    public ManufacturingOrderService(
+        ProductionDbContext db,
+        IManufacturingOrderSyncService syncService,
+        ICustomerService customers)
     {
         _db = db;
         _syncService = syncService;
+        _customers = customers;
     }
 
     public async Task<IReadOnlyList<ManufacturingOrderListItemDto>> GetPendingOpeningAsync(CancellationToken ct = default)
@@ -217,6 +223,8 @@ public sealed class ManufacturingOrderService : IManufacturingOrderService
             throw new InvalidOperationException("Esta orden de produccion ya esta cerrada.");
 
         mo.Status = "Cerrada";
+        mo.ClosedAt = DateTime.UtcNow;
+        mo.ClosedBy = userName;
         mo.UpdatedAt = DateTime.UtcNow;
         mo.UpdatedBy = userName;
         await _db.SaveChangesAsync(ct);
@@ -398,11 +406,15 @@ public sealed class ManufacturingOrderService : IManufacturingOrderService
                     notes)
             }).ToList();
 
+        var customer = await _customers.EnsureByNameAsync(command.ClientName, userName, ct);
+        var receiptPct = customer.ReceiptPercentage;
+
         var ot = new ProductionOrder
         {
             Id = otId,
             OTNumber = otNumber,
-            Cliente = command.ClientName.Trim(),
+            CustomerId = customer.Id,
+            Cliente = customer.Name,
             EjecutivoCuenta = string.IsNullOrWhiteSpace(command.EjecutivoCuenta) ? "Importado" : command.EjecutivoCuenta.Trim(),
             FechaSolicitud = openingDate,
             Asignacion = "Existente",
@@ -479,7 +491,8 @@ public sealed class ManufacturingOrderService : IManufacturingOrderService
             Id = customerOrderId,
             OrderNumber = orderNumber,
             OrderDate = openingDate,
-            ClientName = command.ClientName.Trim(),
+            CustomerId = customer.Id,
+            ClientName = customer.Name,
             PurchaseOrderNumber = command.PurchaseOrderNumber?.Trim() ?? "",
             AgreedDeliveryDate = delivery,
             Status = CustomerOrderStatuses.Approved,
@@ -499,13 +512,14 @@ public sealed class ManufacturingOrderService : IManufacturingOrderService
             ProductionOrderId = otId,
             OrderNumber = orderNumber,
             OtNumber = otNumber,
-            ClientName = command.ClientName.Trim(),
+            CustomerId = customer.Id,
+            ClientName = customer.Name,
             ProductName = command.ProductName.Trim(),
             ReferenceName = command.ReferenceName?.Trim() ?? command.ProductName.Trim(),
             PurchaseOrderNumber = command.PurchaseOrderNumber?.Trim() ?? "",
             AgreedDeliveryDate = delivery,
             QuantityOrdered = qtyOrdered,
-            ReceiptPercentage = 0,
+            ReceiptPercentage = receiptPct,
             QuantityToProduce = command.QuantityToProduce,
             ApprovedUnitPrice = 0,
             OpeningDate = openingDate,

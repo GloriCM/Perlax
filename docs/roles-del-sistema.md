@@ -7,7 +7,7 @@ PerlaX define roles de **oficina** y de **personal** (horas extras). Los **Admin
 | Rol | Acceso al ERP | Horas extras |
 |-----|---------------|--------------|
 | **Administrador** | Completo | **No** |
-| **Administrativo** | Vistas autorizadas + área (incluye Contabilidad) | Sí (según su área) |
+| **Administrativo** | Vistas autorizadas + área (p. ej. Financiero) | Sí (según su área) |
 
 ## Roles de personal (horas extras)
 
@@ -32,7 +32,7 @@ Se crean en **Configuración → Usuarios**.
 
 ## Administrativo
 
-- Área obligatoria (incluye **Contabilidad**) y **vistas permitidas**.
+- Área obligatoria (p. ej. **Financiero**) y **vistas permitidas**.
 - Si no tiene vistas, solo ve el inicio.
 - Acceso al chat interno.
 

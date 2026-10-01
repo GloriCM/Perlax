@@ -3,6 +3,7 @@ namespace Perlax.Modules.Budgets.Domain.Entities;
 /// <summary>
 /// Linea presupuestal generica para ingresos, costos, gastos y materia prima (RC-001).
 /// LineType: Income | RawMaterial | ProductionCost | AdminExpense | SalesExpense | FinancialExpense
+/// ProjectedValue = monto del período (Frequency); usar AnnualValue para totales.
 /// </summary>
 public class BudgetLine
 {
@@ -13,8 +14,13 @@ public class BudgetLine
     public string Category { get; set; } = string.Empty;
     public string Concept { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    /// <summary>Monto del período según Frequency (no necesariamente anual).</summary>
     public decimal ProjectedValue { get; set; }
     public string Frequency { get; set; } = "Anual";
+
+    /// <summary>Equivalente anual para totales y reportes.</summary>
+    public decimal AnnualValue =>
+        Perlax.Modules.Budgets.Domain.BudgetCalculations.AnnualAmount(ProjectedValue, Frequency);
     public string? CostCenter { get; set; }
     public string? Code { get; set; }
     public string? UnitOfMeasure { get; set; }

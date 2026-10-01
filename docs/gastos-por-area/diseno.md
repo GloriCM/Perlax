@@ -13,9 +13,11 @@
 
 ## Planeador de Diseño
 
-Cola de trabajos de diseño: alta, asignacion, proceso (planchas, troquel, muestra, Expertis…), semaforo, avance y aprobacion.
+Cola de trabajos de diseño: alta, asignacion, proceso (planchas, troquel, muestra), semaforo, avance y aprobacion.
 
 **Guia completa:** [Planeador de Diseño](planeador-diseno.md)
+
+El seguimiento de la orden, el arte y la ficha está en [Planes de Diseño](../flujo-principal/planes-diseno.md) (menú Operaciones → Órdenes de trabajo).
 
 Resumen rapido:
 

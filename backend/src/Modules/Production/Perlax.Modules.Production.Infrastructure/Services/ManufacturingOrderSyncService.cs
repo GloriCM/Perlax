@@ -23,9 +23,7 @@ public class ManufacturingOrderSyncService : IManufacturingOrderSyncService
             .ToListAsync(ct);
 
         foreach (var orderId in orderIds)
-        {
             await SyncForCustomerOrderAsync(orderId, null, ct);
-        }
     }
 
     public async Task SyncForCustomerOrderAsync(Guid customerOrderId, string? userName = null, CancellationToken ct = default)
@@ -48,7 +46,6 @@ public class ManufacturingOrderSyncService : IManufacturingOrderSyncService
                 _context.ManufacturingOrders.RemoveRange(pending);
                 await _context.SaveChangesAsync(ct);
             }
-
             return;
         }
 
@@ -66,13 +63,23 @@ public class ManufacturingOrderSyncService : IManufacturingOrderSyncService
 
         var activePartIds = order.Items.Select(i => i.OrderPartId).ToHashSet();
 
-            foreach (var orphan in existing.Where(m =>
-                         !activePartIds.Contains(m.OrderPartId)
-                         && m.OpeningDate == null
-                         && !string.Equals(m.Status, "Abierta", StringComparison.OrdinalIgnoreCase)
-                         && !string.Equals(m.Status, "Cerrada", StringComparison.OrdinalIgnoreCase)))
+        foreach (var orphan in existing.Where(m =>
+                     !activePartIds.Contains(m.OrderPartId)
+                     && m.OpeningDate == null
+                     && !string.Equals(m.Status, "Abierta", StringComparison.OrdinalIgnoreCase)
+                     && !string.Equals(m.Status, "Cerrada", StringComparison.OrdinalIgnoreCase)))
         {
             _context.ManufacturingOrders.Remove(orphan);
+        }
+
+        var receiptPct = 10m;
+        if (order.CustomerId.HasValue)
+        {
+            var pct = await _context.Customers.AsNoTracking()
+                .Where(c => c.Id == order.CustomerId.Value)
+                .Select(c => (decimal?)c.ReceiptPercentage)
+                .FirstOrDefaultAsync(ct);
+            if (pct.HasValue) receiptPct = pct.Value;
         }
 
         foreach (var item in order.Items)
@@ -81,7 +88,6 @@ public class ManufacturingOrderSyncService : IManufacturingOrderSyncService
                 continue;
 
             var opNumber = BuildOpNumber(order.OrderNumber, part.Order.OTNumber);
-            var receiptPct = 10m;
             var qtyToProduce = CalculateQuantityToProduce(item.Quantity, receiptPct);
 
             var mo = existing.FirstOrDefault(m => m.OrderPartId == item.OrderPartId);
@@ -106,6 +112,7 @@ public class ManufacturingOrderSyncService : IManufacturingOrderSyncService
             mo.ProductionOrderId = part.ProductionOrderId;
             mo.OrderNumber = order.OrderNumber;
             mo.OtNumber = part.Order.OTNumber;
+            mo.CustomerId = order.CustomerId ?? part.Order.CustomerId;
             mo.ClientName = order.ClientName;
             mo.ProductName = item.ProductName;
             mo.ReferenceName = item.ReferenceName;

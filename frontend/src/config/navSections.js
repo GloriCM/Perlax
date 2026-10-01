@@ -71,6 +71,7 @@ export const navSections = [
                 children: [
                     { label: 'Nueva cotizacion', icon: IconPencil, path: '/cotizador/nueva' },
                     { label: 'Guardadas', icon: IconClipboardPlus, path: '/cotizador/guardadas' },
+                    { label: 'Materiales y máquinas', icon: IconSettings, path: '/cotizador/catalogos' },
                 ],
             },
             {
@@ -96,6 +97,7 @@ export const navSections = [
                 children: [
                     { label: 'Nuevo Pedido', icon: IconPackage, path: '/pedidos/nuevo' },
                     { label: 'Informe', icon: IconChartBar, path: '/pedidos/informe' },
+                    { label: 'Clientes', icon: IconUsers, path: '/clientes' },
                 ],
             },
             {
@@ -139,6 +141,7 @@ export const navSections = [
                     { label: 'Requisición', icon: IconClipboardList, path: '/compras/requisicion' },
                     { label: 'Pedidos', icon: IconShoppingCart, path: '/compras/pedidos' },
                     { label: 'Recepción', icon: IconPackage, path: '/compras/recepcion' },
+                    { label: 'Consumos / Saldos', icon: IconArchive, path: '/compras/consumos' },
                     { label: 'Indicadores', icon: IconChartBar, path: '/compras/indicadores' },
                 ],
             },
@@ -388,6 +391,7 @@ export const navSections = [
     {
         title: 'Configuración',
         items: [
+            { label: 'Informes de gestión', icon: IconChartBar, path: '/informes' },
             { label: 'Auditoría', icon: IconHistory, path: '/admin/auditoria' },
             { label: 'Usuarios', icon: IconUserCog, path: '/configuracion/usuarios' },
             {

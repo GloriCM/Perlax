@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Card, Title, Text, Stack, Table, Group, Button, ActionIcon } from '@mantine/core';
 import { IconArrowLeft, IconEdit, IconTrash, IconFileTypePdf, IconClipboardList } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import { api, getApiOrigin } from '../../utils/api';
+import { api } from '../../utils/api';
 import { notifications } from '@mantine/notifications';
+import { openCotizacionPdf } from './cotizadorHelpers';
 
 export default function CotizadorGuardadas() {
     const navigate = useNavigate();
@@ -31,12 +32,7 @@ export default function CotizadorGuardadas() {
         load();
     };
 
-    const openPdf = (id, type) => {
-        const token = JSON.parse(localStorage.getItem('user') || '{}')?.Token
-            || JSON.parse(localStorage.getItem('user') || '{}')?.token;
-        const url = `${getApiOrigin()}/api/production/cotizador/${id}/pdf/${type}${token ? `?access_token=${encodeURIComponent(token)}` : ''}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
-    };
+    const openPdf = (id, type) => openCotizacionPdf(id, type);
 
     const convertToOt = async (quoteId, quoteNumber) => {
         if (!window.confirm(`¿Convertir ${quoteNumber} en borrador de OT?`)) return;
@@ -82,8 +78,8 @@ export default function CotizadorGuardadas() {
                                 <Table.Td>
                                     <Group gap="xs">
                                         <ActionIcon variant="light" onClick={() => navigate(`/cotizador/${q.id}`)}><IconEdit size={16} /></ActionIcon>
-                                        <ActionIcon variant="light" color="blue" title="Propuesta comercial" onClick={() => openPdf(q.id, 'propuesta')}><IconFileTypePdf size={16} /></ActionIcon>
-                                        <ActionIcon variant="light" color="cyan" title="Hoja de producción" onClick={() => openPdf(q.id, 'produccion')}><IconFileTypePdf size={16} /></ActionIcon>
+                                        <ActionIcon variant="light" color="blue" title="Descargar propuesta para cliente" onClick={() => openPdf(q.id, 'propuesta')}><IconFileTypePdf size={16} /></ActionIcon>
+                                        <ActionIcon variant="light" color="cyan" title="Hoja de producción (interno)" onClick={() => openPdf(q.id, 'produccion')}><IconFileTypePdf size={16} /></ActionIcon>
                                         {!q.productionOrderId && (
                                             <ActionIcon variant="light" color="teal" title="Convertir a OT" onClick={() => convertToOt(q.id, q.quoteNumber)}><IconClipboardList size={16} /></ActionIcon>
                                         )}

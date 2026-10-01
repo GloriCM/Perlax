@@ -1,6 +1,6 @@
 # Programador de máquinas (Planeación)
 
-**Estado:** En producción (integrado con API)
+**Estado:** En producción
 **Menú:** Operaciones → Producción → Programador
 **URL:** https://perlax.perla.work/planeacion/programador  
 **Ruta interna:** `/planeacion/programador`
@@ -103,24 +103,6 @@ Validaciones relevantes:
 - El avance real (tiros, tiempos de proceso) se registra en planta y se refleja en **Estado de órdenes** y **Reporte diario**.
 - Si la producción termina antes o después de lo planeado, el tablero de planeación y el seguimiento operativo se actualizan según los datos capturados en el ERP.
 
-## API del ERP (referencia técnica)
-
-Base: `/api/production/scheduling`  
-Servicio Application: `IOpSchedulingService`  
-Cliente FE: `frontend/src/services/schedulingApi.js`  
-UI: `frontend/src/pages/planeacion/programador/`
-
-| Área | Endpoints típicos |
-|------|-------------------|
-| Gantt / bloques | `GET gantt`, `POST/PUT/DELETE blocks`, `POST program`, `DELETE program/{opId}` |
-| Lista / actual | `GET list`, `GET current` |
-| OP abiertas | `GET open-orders`, `GET open-orders/{id}/prefill` |
-| Procesos | `GET/POST/PUT/DELETE processes`, `PUT processes/reorder` |
-| Turnos | `GET/POST/PUT/DELETE shifts`, `machines/{id}/shifts` |
-| Roster | `GET roster`, rows CRUD, `copy-previous`, `coverage`, assignments |
-| Facturación | `GET/PUT billing/meta`, `GET billing/summary` |
-| Planta | `GET /api/planta/floor/schedule?machineId=` (día por máquina) |
-
 ## Buenas prácticas
 
 1. Solo programar OPs **abiertas** (flujo Apertura / OP existente en Perla).
@@ -135,4 +117,3 @@ UI: `frontend/src/pages/planeacion/programador/`
 - [Vista de planta](planta.md)
 - [Reporte diario](reporte-diario.md)
 - [Acceso al sistema](../introduccion/acceso-al-sistema.md)
-- [Arquitectura](../architecture.md)

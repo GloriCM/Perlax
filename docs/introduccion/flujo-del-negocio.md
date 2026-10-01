@@ -28,7 +28,7 @@ Presupuesto
 |-------|------------------|---------------------|
 | Presupuesto | Presupuestos (general y por área) | [Presupuestos](../flujo-principal/presupuestos.md) |
 | Cotización | Cotizador | [Cotizador](../flujo-principal/cotizador.md) |
-| Diseño | Diseño, Planeador de Diseño | [Órdenes y diseño](../flujo-principal/ordenes-trabajo.md) |
+| Diseño | Planes de Diseño y Planeador de Diseño | [Planes de Diseño](../flujo-principal/planes-diseno.md) |
 | Pedido | Pedidos de cliente | [Pedidos](../flujo-principal/pedidos-cliente.md) |
 | Planeación | Planeación, panel de producción | [Planeación y producción](../flujo-principal/planeacion-produccion.md) |
 | Producción | Apertura OT, estado de órdenes, reporte diario | [Planeación y producción](../flujo-principal/planeacion-produccion.md) |
@@ -40,7 +40,7 @@ Presupuesto
 
 A la derecha del flujo principal están los **cuadros de gastos de cada área**. No forman parte de la cadena del pedido; registran costos internos:
 
-- Contabilidad (si aplica en el sistema)
+- Financiero (si aplica en el sistema)
 - Gestión Humana
 - SST
 - Diseño, Producción, Planeación, Talleres, Mantenimiento (cada uno con captura, rubros, gráficas, proveedores)

@@ -77,4 +77,5 @@ public interface ITechnicalSheetService
     Task<IReadOnlyList<TechnicalSheetListItemDto>> ListAsync(string? q = null, CancellationToken ct = default);
     Task<TechnicalSheetDetailDto> GetByPartIdAsync(Guid partId, CancellationToken ct = default);
     Task<TechnicalSheetApprovalResultDto> SetApprovalAsync(Guid partId, bool approved, string? rejectionReason, string userName, CancellationToken ct = default);
+    Task DeleteAsync(Guid partId, string userName, CancellationToken ct = default);
 }

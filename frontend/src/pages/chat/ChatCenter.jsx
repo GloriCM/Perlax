@@ -516,7 +516,7 @@ export default function ChatCenter() {
         // Stable order: known areas first, then directos, then others
         const preferred = [
             'diseño', 'produccion', 'planeaccion', 'calidad', 'talleres',
-            'ti', 'mantenimiento', 'sst', 'gestion humana', 'presupuestos', 'financiera', 'contabilidad', '_directos', '_otros'
+            'ti', 'mantenimiento', 'sst', 'gestion humana', 'presupuestos', 'financiero', '_directos', '_otros'
         ];
         const keys = [...groups.keys()].sort((a, b) => {
             const ia = preferred.indexOf(a);

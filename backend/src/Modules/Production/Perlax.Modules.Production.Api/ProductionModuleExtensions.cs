@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Perlax.Modules.Production.Application.Chat;
 using Perlax.Modules.Production.Application.CustomerOrders;
+using Perlax.Modules.Production.Application.Customers;
 using Perlax.Modules.Production.Application.Overtime;
 using Perlax.Modules.Production.Application.AreaExpense;
 using Perlax.Modules.Production.Application.Quotations;
@@ -11,8 +12,14 @@ using Perlax.Modules.Production.Application.TechnicalSheets;
 using Perlax.Modules.Production.Application.Cotizador;
 using Perlax.Modules.Production.Application.Design;
 using Perlax.Modules.Production.Application.DailyProduction;
+using Perlax.Modules.Production.Application.Facturacion;
+using Perlax.Modules.Production.Application.Inventory;
+using Perlax.Modules.Production.Application.InventarioPt;
+using Perlax.Modules.Production.Application.ManagementReports;
 using Perlax.Modules.Production.Application.Manufacturing;
+using Perlax.Modules.Production.Application.OpDetail;
 using Perlax.Modules.Production.Application.Orders;
+using Perlax.Modules.Production.Application.Remisiones;
 using Perlax.Modules.Production.Application.Scheduling;
 using Perlax.Modules.Production.Infrastructure.Cotizador;
 using Perlax.Modules.Production.Infrastructure.Persistence;
@@ -45,6 +52,13 @@ public static class ProductionModuleExtensions
         services.AddScoped<IAreaExpenseCatalogService, AreaExpenseCatalogService>();
         services.AddScoped<IAreaExpenseCaptureService, AreaExpenseCaptureService>();
         services.AddScoped<IQuotationsService, QuotationsService>();
+        services.AddScoped<IRemisionService, RemisionService>();
+        services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
+        services.AddScoped<IFinishedGoodsService, FinishedGoodsService>();
+        services.AddScoped<IOpDetailService, OpDetailService>();
+        services.AddScoped<IInventoryConsumptionService, InventoryConsumptionService>();
+        services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<IManagementReportsService, ManagementReportsService>();
 
         return services;
     }

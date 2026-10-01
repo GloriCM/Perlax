@@ -15,6 +15,12 @@ public class BudgetsDbContext : DbContext
     public DbSet<BudgetPersonnelItem> BudgetPersonnelItems => Set<BudgetPersonnelItem>();
     public DbSet<BudgetAdjustment> BudgetAdjustments => Set<BudgetAdjustment>();
     public DbSet<BudgetCategory> BudgetCategories => Set<BudgetCategory>();
+    public DbSet<BudgetIncomeLine> BudgetIncomeLines => Set<BudgetIncomeLine>();
+    public DbSet<BudgetPayrollPerson> BudgetPayrollPeople => Set<BudgetPayrollPerson>();
+    public DbSet<BudgetFixedItem> BudgetFixedItems => Set<BudgetFixedItem>();
+    public DbSet<BudgetVariableCommission> BudgetVariableCommissions => Set<BudgetVariableCommission>();
+    public DbSet<BudgetCostCenter> BudgetCostCenters => Set<BudgetCostCenter>();
+    public DbSet<BudgetMapSettings> BudgetMapSettings => Set<BudgetMapSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +48,12 @@ public class BudgetsDbContext : DbContext
             b.HasMany(x => x.Lines).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(x => x.Personnel).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(x => x.Adjustments).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.IncomeLines).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.PayrollPeople).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.FixedItems).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.Commissions).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.CostCenters).WithOne(x => x.Budget).HasForeignKey(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.MapSettings).WithOne(x => x.Budget).HasForeignKey<BudgetMapSettings>(x => x.BudgetId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<BudgetBusinessUnit>(b =>
@@ -77,6 +89,7 @@ public class BudgetsDbContext : DbContext
             b.Property(x => x.Observations).HasMaxLength(4000);
             b.Property(x => x.CreatedBy).IsRequired().HasMaxLength(255);
             b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.Ignore(x => x.AnnualValue);
             b.HasIndex(x => new { x.BudgetId, x.LineType });
             b.HasIndex(x => x.BusinessUnitId);
             b.HasOne(x => x.BusinessUnit).WithMany(x => x.Lines).HasForeignKey(x => x.BusinessUnitId).OnDelete(DeleteBehavior.SetNull);
@@ -133,6 +146,75 @@ public class BudgetsDbContext : DbContext
             b.Property(x => x.LineType).IsRequired().HasMaxLength(40);
             b.Property(x => x.Name).IsRequired().HasMaxLength(150);
             b.HasIndex(x => new { x.LineType, x.Name }).IsUnique();
+        });
+
+        modelBuilder.Entity<BudgetIncomeLine>(b =>
+        {
+            b.ToTable("BudgetIncomeLines");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(40);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.Property(x => x.MaterialPct).HasPrecision(9, 6);
+            b.HasIndex(x => x.BudgetId);
+        });
+
+        modelBuilder.Entity<BudgetPayrollPerson>(b =>
+        {
+            b.ToTable("BudgetPayrollPeople");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Section).IsRequired().HasMaxLength(40);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Role).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Salary).HasPrecision(18, 2);
+            b.Property(x => x.TransportSubsidy).HasPrecision(18, 2);
+            b.Property(x => x.CostCenterCode).HasMaxLength(40);
+            b.HasIndex(x => new { x.BudgetId, x.Section });
+        });
+
+        modelBuilder.Entity<BudgetFixedItem>(b =>
+        {
+            b.ToTable("BudgetFixedItems");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Group).IsRequired().HasMaxLength(80);
+            b.Property(x => x.Concept).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Amount).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.BudgetId, x.Group });
+        });
+
+        modelBuilder.Entity<BudgetVariableCommission>(b =>
+        {
+            b.ToTable("BudgetVariableCommissions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Group).IsRequired().HasMaxLength(80);
+            b.Property(x => x.Rate).HasPrecision(9, 6);
+            b.Property(x => x.BaseAmount).HasPrecision(18, 2);
+            b.HasIndex(x => x.BudgetId);
+        });
+
+        modelBuilder.Entity<BudgetCostCenter>(b =>
+        {
+            b.ToTable("BudgetCostCenters");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(40);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(255);
+            b.Property(x => x.ProductiveHours).HasPrecision(18, 2);
+            b.Property(x => x.PrestacionesFactor).HasPrecision(9, 6);
+            b.Property(x => x.ExtraPersonnel).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.BudgetId, x.Code }).IsUnique();
+        });
+
+        modelBuilder.Entity<BudgetMapSettings>(b =>
+        {
+            b.ToTable("BudgetMapSettings");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.GeneralMfgFactor).HasPrecision(9, 6);
+            b.Property(x => x.AdminFactor).HasPrecision(9, 6);
+            b.Property(x => x.FinancialFactor).HasPrecision(9, 6);
+            b.Property(x => x.UtilizationPct).HasPrecision(9, 6);
+            b.Property(x => x.LayoutJson).HasColumnType("text");
+            b.HasIndex(x => x.BudgetId).IsUnique();
         });
     }
 }

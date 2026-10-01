@@ -56,9 +56,20 @@ const AREA_OPTIONS = [
     { value: 'sst', label: 'SST' },
     { value: 'gestion humana', label: 'Gestión humana' },
     { value: 'presupuestos', label: 'Presupuestos' },
-    { value: 'financiera', label: 'Financiera' },
-    { value: 'contabilidad', label: 'Contabilidad' },
+    { value: 'financiero', label: 'Financiero' },
 ];
+
+/** Solo área canónica Financiero. Contabilidad/Financiera legacy → financiero. */
+const normalizeUserArea = (area) => {
+    const key = String(area || '').trim().toLowerCase();
+    if (key === 'contabilidad' || key === 'financiera') return 'financiero';
+    return key || '';
+};
+
+const areaLabel = (area) => {
+    const key = normalizeUserArea(area);
+    return AREA_OPTIONS.find((a) => a.value === key)?.label || key || '—';
+};
 
 function PermissionCell({ path, selected, onToggle }) {
     const p = normPath(path);
@@ -150,7 +161,7 @@ export default function UsuariosConfig() {
         setForm({
             firstName: (u.firstName || '').toUpperCase(),
             lastName: (u.lastName || '').toUpperCase(),
-            area: u.area || '',
+            area: normalizeUserArea(u.area),
             documentNumber: u.documentNumber || '',
             salary: u.salary ?? '',
             username: u.username || '',
@@ -258,7 +269,7 @@ export default function UsuariosConfig() {
                     lastName: form.lastName?.trim().toUpperCase() || null,
                     area: isAdminRole ? null : (isShopFloorRole
                         ? (form.role === 'Almacen' ? 'planeaccion' : form.role === 'Taller' ? 'talleres' : 'produccion')
-                        : form.area),
+                        : normalizeUserArea(form.area)),
                     documentNumber: documentNumber || null,
                     salary: salaryValue,
                     email: form.email?.trim() || null,
@@ -286,7 +297,7 @@ export default function UsuariosConfig() {
                     lastName: form.lastName?.trim().toUpperCase() || null,
                     area: isShopFloorRole
                         ? (form.role === 'Almacen' ? 'planeaccion' : form.role === 'Taller' ? 'talleres' : 'produccion')
-                        : form.area,
+                        : normalizeUserArea(form.area),
                     documentNumber,
                     salary: Number(form.salary),
                     email: form.email?.trim() || null,
@@ -428,7 +439,7 @@ export default function UsuariosConfig() {
                                         </Badge>
                                     </Table.Td>
                                     <Table.Td>
-                                        <Text size="xs" c="dimmed">{u.area || '—'}</Text>
+                                        <Text size="xs" c="dimmed">{areaLabel(u.area)}</Text>
                                     </Table.Td>
                                     <Table.Td>
                                         <Text size="xs" c="dimmed">

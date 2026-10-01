@@ -1,6 +1,6 @@
 # Planeador de Diseño
 
-**Estado:** En produccion (integrado con API)
+**Estado:** En produccion
 **Menu:** Administracion -> Diseño -> Planeador
 **URL:** `/diseno/planeador`
 
@@ -13,7 +13,7 @@ Relacionado (pero distinto):
 | Pantalla | URL | Uso |
 |----------|-----|-----|
 | **Planeador de Diseño** | `/diseno/planeador` | Cola y proceso del trabajo de diseño |
-| **Planes de Diseño** | `/ordenes/planes-diseno` | Seguimiento de OT / piezas y adjuntos |
+| **Planes de Diseño** | Operaciones → Órdenes de trabajo → Planes de Diseño | Seguimiento de la orden, el arte y la ficha. [Manual](../flujo-principal/planes-diseno.md) |
 
 Si un trabajo del planeador se abre desde Planes de Diseño, el sistema lleva al detalle del planeador (`?job=PJ-…`).
 
@@ -102,7 +102,7 @@ Marque **Aplica** en cada bloque que corresponda y registre fechas:
 | Muestra | Fechas de impresion digital / entrega |
 | Presentacion | Fecha de entrega |
 | Arte y Ficha | Fecha de entrega |
-| Expertis | Check “Se encuentra en la plataforma Expertis” y/o fecha |
+| Plataforma | Marque si el trabajo ya está registrado y anote la fecha |
 
 Ademas:
 
@@ -124,7 +124,7 @@ Depende solo de los pasos con **Aplica** marcado + la fecha de aprobacion:
 - Completados = pasos con datos suficientes + 1 si hay fecha de aprobacion
 - `% = completados / total`
 
-Un paso cuenta como completo cuando tiene las fechas / checks minimos (p. ej. Expertis: encontrado en plataforma o fecha).
+Un paso cuenta como completo cuando tiene las fechas o las marcas mínimas (en Plataforma: el trabajo ya registrado o la fecha).
 
 ## Estados del trabajo
 

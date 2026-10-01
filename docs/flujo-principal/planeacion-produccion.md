@@ -11,7 +11,7 @@ Coordina la **ejecución en planta** de los pedidos aprobados: apertura de órde
 | Entrada del menú | URL | Estado |
 |------------------|-----|--------|
 | Apertura | `/produccion/apertura` | **Operativo** |
-| OP existente | `/produccion/op-existente` | **Operativo** — registrar OP legacy en BD |
+| OP existente | `/produccion/op-existente` | **Operativo** — cargar una OP a partir de sus PDF |
 | Estado de órdenes | `/produccion/estado-ordenes` | **Operativo** |
 
 ### Apertura de OP
@@ -28,13 +28,13 @@ Desde **Apertura** se listan los pedidos de cliente **aprobados** que aún no ti
 
 URL: `/produccion/op-existente`
 
-Sirve para **cargar en la base de datos** una OP que ya existía fuera del flujo normal (legacy / expertiS).
+Sirve para **registrar en Perla** una orden de producción que ya tiene ficha y orden en PDF.
 
-1. Subir **dos PDFs**: ficha técnica (FO PD 63) y orden de producción.
-2. **Leer PDFs** extrae cliente, trabajo, cantidades, fechas, medidas, tintas, terminados, material y ruta de procesos (por posición en el PDF).
-3. Revisar/corregir los campos en pantalla.
-4. **Guardar** crea **una OP Abierta**, una OT con **una pieza por bloque `Pieza:`** del PDF, adjunta ambos PDFs y guarda los textos crudos en `OrderParts.LegacyImportJson` (botón **Textos** en Estado de órdenes). La OP aparece de inmediato en **Estado de órdenes** (badge **Existente**), que es el tablero de avance y cierre.
-5. En el **programador**, al elegir la OP se sugieren los procesos **de cada pieza** (p. ej. Colaminado en Pieza Unica y en Micro Flauta E no se fusionan).
+1. Subir **dos PDF**: la ficha técnica y la orden de producción.
+2. **Leer PDFs** trae cliente, trabajo, cantidades, fechas, medidas, tintas, terminados, material y la ruta de procesos.
+3. Revise y corrija los campos en pantalla.
+4. **Guardar** crea una OP **Abierta** y una OT con una pieza por cada bloque de pieza del PDF. Los dos PDF quedan adjuntos. En **Estado de órdenes** la OP aparece con la marca **Existente**; el botón **Textos** muestra lo leído del PDF.
+5. En el **programador**, al elegir esa OP se sugieren los procesos de cada pieza por separado.
 
 No reemplaza ni usa la asignación **Repetición** de OT (esa sigue siendo solo para trabajos nuevos basados en diseño).
 
@@ -50,7 +50,7 @@ Muestra todas las OP **ya abiertas** con:
 
 ### Formato del número OP
 
-El número sigue el criterio expertiS: **4 dígitos del pedido + espacio + 2 últimos dígitos de la OT**.
+El número de OP en Perla junta **4 dígitos del pedido**, un espacio y los **2 últimos dígitos de la OT**.
 
 Ejemplo: pedido `1234` y OT `OT-7851` → OP `1234 51`.
 
@@ -62,7 +62,7 @@ Ejemplo: pedido `1234` y OT `OT-7851` → OP `1234 51`.
 
 ### Programador (`/planeacion/programador`)
 
-Guía completa (vistas Gantt/Lista/Roster, wizard, meta mes y API):
+Guía completa (vistas Gantt, lista, roster, programación y meta del mes):
 
 → **[Programador de máquinas](programador-maquinas.md)**
 

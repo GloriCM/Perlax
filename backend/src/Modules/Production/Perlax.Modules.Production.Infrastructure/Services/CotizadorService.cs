@@ -49,6 +49,27 @@ public sealed partial class CotizadorService : ICotizadorService
             .Select(m => new CotizadorMicroOptionDto(m.Id, m.Name, m.PricePerM2))
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<CotizadorBarnizOptionDto>> GetActiveBarnicesAsync(CancellationToken ct = default) =>
+        await _db.CotizadorBarnices.AsNoTracking()
+            .Where(b => b.IsActive)
+            .OrderBy(b => b.Name)
+            .Select(b => new CotizadorBarnizOptionDto(b.Id, b.Name, b.Factor))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CotizadorTerminadoOptionDto>> GetActiveTerminadosAsync(CancellationToken ct = default) =>
+        await _db.CotizadorTerminados.AsNoTracking()
+            .Where(t => t.IsActive)
+            .OrderBy(t => t.Name)
+            .Select(t => new CotizadorTerminadoOptionDto(t.Id, t.Name, t.PricePerM2))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CotizadorCordonOptionDto>> GetActiveCordonesAsync(CancellationToken ct = default) =>
+        await _db.CotizadorCordones.AsNoTracking()
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.Name)
+            .Select(c => new CotizadorCordonOptionDto(c.Id, c.Name, c.PricePerManija))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<CotizadorOrderForQuoteDto>> GetOrdersForQuoteAsync(CancellationToken ct = default) =>
         await _db.ProductionOrders.AsNoTracking()
             .OrderByDescending(o => o.CreatedAt)
@@ -142,6 +163,7 @@ public sealed partial class CotizadorService : ICotizadorService
 
         var otNumber = await GetNextOtNumberAsync(ct);
         var linea = string.Equals(quote.ProductType, "Bolsa", StringComparison.OrdinalIgnoreCase) ? "Bolsa" : "Caja o plegadiza";
+        var pieces = ExtractPiecesFromForm(quote.FormDataJson, quote.PartName);
 
         var order = new ProductionOrder
         {
@@ -152,22 +174,15 @@ public sealed partial class CotizadorService : ICotizadorService
             FechaSolicitud = DateTime.UtcNow,
             Asignacion = "Nuevo",
             LineaPT = linea,
-            NumeroPartes = 1,
+            NumeroPartes = pieces.Count,
             ProductName = string.IsNullOrWhiteSpace(quote.WorkName) ? quote.ProductName : quote.WorkName,
             Status = "Borrador",
             CreatedAt = DateTime.UtcNow,
             CreatedBy = userName,
-            Parts =
-            [
-                new OrderPart
-                {
-                    Id = Guid.NewGuid(),
-                    PartName = string.IsNullOrWhiteSpace(quote.PartName) ? "Pieza 1" : quote.PartName,
-                    ProductionOrderId = Guid.Empty
-                }
-            ]
+            Parts = pieces.Select(p => MapToOrderPart(p)).ToList()
         };
-        order.Parts.First().ProductionOrderId = order.Id;
+        foreach (var part in order.Parts)
+            part.ProductionOrderId = order.Id;
 
         _db.ProductionOrders.Add(order);
         quote.ProductionOrderId = order.Id;
@@ -177,6 +192,112 @@ public sealed partial class CotizadorService : ICotizadorService
         await _db.SaveChangesAsync(ct);
 
         return new ConvertQuoteToOtResultDto(order.Id, otNumber, order.Status);
+    }
+
+    private static List<QuotePieceSnapshot> ExtractPiecesFromForm(string? formDataJson, string fallbackPartName)
+    {
+        var pieces = new List<QuotePieceSnapshot>();
+        if (string.IsNullOrWhiteSpace(formDataJson))
+        {
+            pieces.Add(new QuotePieceSnapshot { PartName = string.IsNullOrWhiteSpace(fallbackPartName) ? "Pieza 1" : fallbackPartName });
+            return pieces;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(formDataJson);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("pieces", out var arr) && arr.ValueKind == JsonValueKind.Array && arr.GetArrayLength() > 0)
+            {
+                foreach (var el in arr.EnumerateArray())
+                    pieces.Add(ParsePieceElement(el));
+                return pieces;
+            }
+
+            pieces.Add(ParsePieceElement(root, fallbackPartName));
+        }
+        catch
+        {
+            pieces.Add(new QuotePieceSnapshot { PartName = string.IsNullOrWhiteSpace(fallbackPartName) ? "Pieza 1" : fallbackPartName });
+        }
+
+        return pieces;
+    }
+
+    private static QuotePieceSnapshot ParsePieceElement(JsonElement el, string? fallbackName = null)
+    {
+        string Str(string name) =>
+            el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "") : "";
+        decimal Dec(string name)
+        {
+            if (!el.TryGetProperty(name, out var p)) return 0;
+            if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var d)) return d;
+            if (p.ValueKind == JsonValueKind.String && decimal.TryParse(p.GetString(), out var s)) return s;
+            return 0;
+        }
+        int Int(string name) => (int)Dec(name);
+        bool Bool(string name) => el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.True;
+
+        var partName = Str("partName");
+        if (string.IsNullOrWhiteSpace(partName)) partName = fallbackName ?? "Pieza 1";
+
+        return new QuotePieceSnapshot
+        {
+            PartName = partName,
+            LargoMm = Dec("largoMm"),
+            AnchoMm = Dec("anchoMm"),
+            Cabida = Dec("cabida"),
+            MaterialName = Str("materialName"),
+            MicroName = Str("microName"),
+            TerminadoNombre = Str("terminadoNombre"),
+            TipoCordon = Str("tipoCordon"),
+            LargoCordon = Dec("largoCordon"),
+            PrecioTroquel = Dec("precioTroquel"),
+            UsaPeliculas = Bool("usaPeliculas"),
+            NumeroPlanchas = Int("numeroPlanchas"),
+            TipoBarniz = Str("tipoBarniz")
+        };
+    }
+
+    private static OrderPart MapToOrderPart(QuotePieceSnapshot p) => new()
+    {
+        Id = Guid.NewGuid(),
+        PartName = p.PartName,
+        Largo = p.LargoMm,
+        Ancho = p.AnchoMm,
+        AnchoPliego = p.AnchoMm,
+        AltoPliego = p.LargoMm,
+        Cabida = p.Cabida > 0 ? p.Cabida.ToString("0.####") : null,
+        SustratoSup = string.IsNullOrWhiteSpace(p.MaterialName) ? null : p.MaterialName,
+        TipoFlauta = string.IsNullOrWhiteSpace(p.MicroName) ? null : p.MicroName,
+        Terminado1 = string.IsNullOrWhiteSpace(p.TerminadoNombre) ? null : p.TerminadoNombre,
+        Terminado2 = string.IsNullOrWhiteSpace(p.TipoBarniz) ? null : $"Barniz {p.TipoBarniz}",
+        ManijaTipo = string.IsNullOrWhiteSpace(p.TipoCordon) ? null : p.TipoCordon,
+        ManijaLargo = p.LargoCordon,
+        TroquelNuevo = p.PrecioTroquel > 0,
+        CodigoTroquel = p.PrecioTroquel > 0 ? "Por cotizar" : null,
+        Notas = p.UsaPeliculas ? "Incluye películas" : null,
+        FabricationProcessesJson = p.NumeroPlanchas > 0
+            ? JsonSerializer.Serialize(new { numeroPlanchas = p.NumeroPlanchas })
+            : null
+    };
+
+    private sealed class QuotePieceSnapshot
+    {
+        public string PartName { get; set; } = "Pieza 1";
+        public decimal LargoMm { get; set; }
+        public decimal AnchoMm { get; set; }
+        public decimal Cabida { get; set; }
+        public string MaterialName { get; set; } = "";
+        public string MicroName { get; set; } = "";
+        public string TerminadoNombre { get; set; } = "";
+        public string TipoCordon { get; set; } = "";
+        public decimal LargoCordon { get; set; }
+        public decimal PrecioTroquel { get; set; }
+        public bool UsaPeliculas { get; set; }
+        public int NumeroPlanchas { get; set; }
+        public string TipoBarniz { get; set; } = "";
     }
 
     private async Task<string> GetNextQuoteNumberAsync(CancellationToken ct)

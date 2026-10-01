@@ -74,14 +74,37 @@ export default function ModulePage() {
                     { title: 'Nueva cotizacion', desc: 'Wizard de cotizacion caja o bolsa.', path: '/cotizador/nueva', icon: <IconPlus size={22} /> },
                     { title: 'Guardadas', desc: 'Historial de cotizaciones.', path: '/cotizador/guardadas', icon: <IconList size={22} /> },
                 ];
+            case 'remisiones':
+                return [
+                    { title: 'Nueva remisión', desc: 'Despacho desde pedido aprobado.', path: '/remisiones/nueva', icon: <IconPlus size={22} /> },
+                    { title: 'Informe', desc: 'Listado y transportes.', path: '/remisiones/informe', icon: <IconList size={22} /> },
+                ];
+            case 'facturacion':
+                return [
+                    { title: 'Nueva factura', desc: 'Facturar remisiones pendientes.', path: '/facturacion/nueva', icon: <IconPlus size={22} /> },
+                    { title: 'Informe', desc: 'Listado, repasar y anular.', path: '/facturacion/informe', icon: <IconList size={22} /> },
+                ];
+            case 'inventario':
+                return [
+                    { title: 'Existencias PT', desc: 'Saldo producido vs remisionado vs devuelto.', path: '/inventario/existencias', icon: <IconList size={22} /> },
+                    { title: 'Devoluciones', desc: 'Mercancía remisionada que vuelve a stock.', path: '/inventario/devoluciones', icon: <IconClipboardList size={22} /> },
+                ];
+            case 'pedidos':
+                return [
+                    { title: 'Nuevo pedido', desc: 'Montar pedido de cliente.', path: '/pedidos/nuevo', icon: <IconPlus size={22} /> },
+                    { title: 'Informe', desc: 'Aprobar y asignar precios.', path: '/pedidos/informe', icon: <IconList size={22} /> },
+                    { title: 'Clientes', desc: 'Maestro de clientes.', path: '/clientes', icon: <IconClipboardList size={22} /> },
+                ];
             case 'ajustes':
                 return [
+                    { title: 'Panel de ajustes', desc: 'Índice de parametrización PerlaX.', path: '/ajustes', icon: <IconSettings2 size={22} /> },
                     {
                         title: 'Catálogos del cotizador',
                         desc: 'Configure campos y registros para máquinas, materiales, factores, micro flauta y planchas.',
                         path: '/ajustes/cotizador-catalogos',
                         icon: <IconSettings2 size={22} />,
                     },
+                    { title: 'Informes de gestión', desc: 'Consultas gerenciales.', path: '/informes', icon: <IconChartLine size={22} /> },
                 ];
             default:
                 return [

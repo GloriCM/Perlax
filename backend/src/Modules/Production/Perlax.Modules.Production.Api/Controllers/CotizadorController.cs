@@ -63,6 +63,27 @@ public class CotizadorController : ControllerBase
         return Ok(data.Select(m => new { id = m.Id, name = m.Name, pricePerM2 = m.PricePerM2 }));
     }
 
+    [HttpGet("barnices")]
+    public async Task<ActionResult<IEnumerable<object>>> GetBarnices(CancellationToken ct)
+    {
+        var data = await _cotizador.GetActiveBarnicesAsync(ct);
+        return Ok(data.Select(b => new { id = b.Id, name = b.Name, factor = b.Factor }));
+    }
+
+    [HttpGet("terminados")]
+    public async Task<ActionResult<IEnumerable<object>>> GetTerminados(CancellationToken ct)
+    {
+        var data = await _cotizador.GetActiveTerminadosAsync(ct);
+        return Ok(data.Select(t => new { id = t.Id, name = t.Name, pricePerM2 = t.PricePerM2 }));
+    }
+
+    [HttpGet("cordones")]
+    public async Task<ActionResult<IEnumerable<object>>> GetCordones(CancellationToken ct)
+    {
+        var data = await _cotizador.GetActiveCordonesAsync(ct);
+        return Ok(data.Select(c => new { id = c.Id, name = c.Name, pricePerManija = c.PricePerManija }));
+    }
+
     [HttpGet("orders-for-quote")]
     public async Task<ActionResult<IEnumerable<object>>> GetOrdersForQuote(CancellationToken ct)
     {
@@ -162,12 +183,12 @@ public class CotizadorController : ControllerBase
     }
 
     [HttpGet("{id:guid}/pdf/propuesta")]
-    public async Task<IActionResult> PdfPropuesta(Guid id, [FromQuery] string tier = "Al3", CancellationToken ct = default)
+    public async Task<IActionResult> PdfPropuesta(Guid id, [FromQuery] string tier = "Al3", [FromQuery] string? assetBase = null, CancellationToken ct = default)
     {
         try
         {
             var quote = await _cotizador.GetQuotationAsync(id, ct);
-            return Content(BuildPdfPlaceholderHtml(quote, "Propuesta Comercial", tier), "text/html; charset=utf-8");
+            return Content(CotizadorPdfHtml.BuildPropuesta(quote, tier, assetBase), "text/html; charset=utf-8");
         }
         catch (KeyNotFoundException)
         {
@@ -181,7 +202,7 @@ public class CotizadorController : ControllerBase
         try
         {
             var quote = await _cotizador.GetQuotationAsync(id, ct);
-            return Content(BuildPdfPlaceholderHtml(quote, "Hoja de Produccion", null), "text/html; charset=utf-8");
+            return Content(CotizadorPdfHtml.BuildProduccion(quote), "text/html; charset=utf-8");
         }
         catch (KeyNotFoundException)
         {
@@ -207,17 +228,6 @@ public class CotizadorController : ControllerBase
         FormDataJson = request.FormDataJson,
         CalculationResult = request.CalculationResult
     };
-
-    private static string BuildPdfPlaceholderHtml(Quotation q, string title, string? tier)
-    {
-        var extra = tier != null ? $"<p>Margen seleccionado: {tier}</p>" : "";
-        return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + title + " " + q.QuoteNumber + "</title>" +
-               "<style>body{font-family:Arial,sans-serif;padding:32px}h1{color:#1e3a5f}</style></head><body>" +
-               "<h1>" + title + "</h1><p>N " + q.QuoteNumber + " | Cliente: " + q.ClientName + "</p>" +
-               "<p>Trabajo: " + q.WorkName + "</p>" + extra +
-               "<p><em>Plantilla Perla en construccion.</em></p>" +
-               "<script>window.print()</script></body></html>";
-    }
 
     private string CurrentUserName() => User.Identity?.Name ?? "Sistema";
 

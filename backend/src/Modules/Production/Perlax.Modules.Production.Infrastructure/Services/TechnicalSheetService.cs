@@ -148,6 +148,24 @@ public sealed class TechnicalSheetService : ITechnicalSheetService
             part.PartName);
     }
 
+    public async Task DeleteAsync(Guid partId, string userName, CancellationToken ct = default)
+    {
+        var part = await _db.OrderParts.Include(p => p.Order).FirstOrDefaultAsync(p => p.Id == partId, ct);
+        if (part?.Order == null)
+            throw new KeyNotFoundException("Ficha tecnica no encontrada.");
+
+        var usedInOrders = await _db.CustomerOrderItems.AnyAsync(i => i.OrderPartId == partId, ct);
+        if (usedInOrders)
+            throw new InvalidOperationException("No se puede eliminar: la ficha ya está usada en pedidos.");
+
+        var usedInMos = await _db.ManufacturingOrders.AnyAsync(m => m.OrderPartId == partId, ct);
+        if (usedInMos)
+            throw new InvalidOperationException("No se puede eliminar: la ficha ya está ligada a una OP.");
+
+        _db.OrderParts.Remove(part);
+        await _db.SaveChangesAsync(ct);
+    }
+
     private static List<string> FilterAttachmentPublicUrls(string? adjuntosJson, string categoryMatch, string kindMatch)
     {
         var result = new List<string>();

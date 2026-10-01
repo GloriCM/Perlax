@@ -1,6 +1,6 @@
 # Ordenes de trabajo y fichas tecnicas
 
-**Estado:** En produccion (integrado con API)
+**Estado:** En produccion
 **Menu:** Operaciones -> Ordenes de Trabajo
 
 ## Para que sirve?
@@ -22,14 +22,14 @@ Registra la **Orden de Trabajo (OT)** con datos comerciales y tecnicos de diseñ
 | Planes de diseño | `/ordenes/planes-diseno` |
 | Ficha tecnica (impresion) | `/fichas/lista` |
 
-> **Planes de diseño** muestra OT/piezas y trabajos del planeador asignados. Al abrir un trabajo del planeador se abre el detalle en [Planeador de Diseño](../gastos-por-area/planeador-diseno.md).
+> El seguimiento de arte, ficha y aprobación está en [Planes de Diseño](planes-diseno.md). El proceso de planchas, troquel y muestra está en el [Planeador de Diseño](../gastos-por-area/planeador-diseno.md).
 
 ## Flujo: crear OT
 
 ### Paso 1 — Validacion
 
 - Consecutivo OT (automatico o editable)
-- Cliente, ejecutivo de cuenta, fecha solicitud
+- Cliente (autocomplete desde el **maestro de clientes**; al guardar se enlaza `CustomerId` y se crea el cliente si no existía), ejecutivo de cuenta, fecha solicitud
 - Asignacion: Diseño / Repeticion / Otro
 - Diseñador, linea PT, nombre del producto
 - El sistema valida duplicados
@@ -76,11 +76,9 @@ Cuando la asignacion es **Repeticion con Cambios** o **Repeticion sin Cambio**:
 5. No se exige unicidad cliente+producto en repeticion.
 6. Sigue pudiendo crear una OT **desde cero** (asignacion Nuevo) sin elegir origen.
 
-> Importar PDF de expertiS (OCR) queda fuera de este alcance.
-
 ## Fichas tecnicas
 
-Menu **Fichas Tecnicas -> Listado**: imprima o revise fichas por pieza. La aprobacion de ficha es requisito para pedidos.
+Menu **Fichas Tecnicas -> Listado**: imprima, apruebe, desapruebe o **elimine** fichas por pieza (no se puede eliminar si ya hay pedido u OP). La aprobacion de ficha es requisito para pedidos.
 
 ## Errores frecuentes
 
@@ -94,4 +92,5 @@ Menu **Fichas Tecnicas -> Listado**: imprima o revise fichas por pieza. La aprob
 
 - [Cotizador](cotizador.md)
 - [Pedidos de cliente](pedidos-cliente.md)
+- [Planes de Diseño](planes-diseno.md)
 - [Planeador de Diseño](../gastos-por-area/planeador-diseno.md)

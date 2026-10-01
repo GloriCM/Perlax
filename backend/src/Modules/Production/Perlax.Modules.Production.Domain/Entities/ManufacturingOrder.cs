@@ -13,6 +13,7 @@ public class ManufacturingOrder
     public Guid ProductionOrderId { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
     public string OtNumber { get; set; } = string.Empty;
+    public Guid? CustomerId { get; set; }
     public string ClientName { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string ReferenceName { get; set; } = string.Empty;
@@ -23,6 +24,9 @@ public class ManufacturingOrder
     public decimal QuantityToProduce { get; set; }
     public decimal ApprovedUnitPrice { get; set; }
     public DateTime? OpeningDate { get; set; }
+    public DateTime? ClosedAt { get; set; }
+    public string? ClosedBy { get; set; }
+    public DateTime? ProductionDeliveryDate { get; set; }
     public string Status { get; set; } = "PendienteApertura";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedBy { get; set; }
@@ -31,4 +35,8 @@ public class ManufacturingOrder
     public string? OpenedBy { get; set; }
 
     public CustomerOrder? CustomerOrder { get; set; }
+    public Customer? Customer { get; set; }
+    public ICollection<OpMaterialLine> Materials { get; set; } = new List<OpMaterialLine>();
+    public ICollection<OpLaborProcess> LaborProcesses { get; set; } = new List<OpLaborProcess>();
+    public ICollection<OpExternalWorkshop> ExternalWorkshops { get; set; } = new List<OpExternalWorkshop>();
 }

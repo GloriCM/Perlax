@@ -43,7 +43,7 @@ Columnas: Nombre, Login, Correo, Rol, Estado, Area, Permisos.
 
 ### Permisos (Administrativo y Taller)
 
-1. **Administrativo:** elija **área** (incluye Contabilidad).
+1. **Administrativo:** elija **área** (incluye **Financiero**; no hay área Contabilidad aparte).
 2. **Taller:** área fija Talleres; opcionalmente asigne vistas.
 3. Pulse **Seleccion de modulos y vistas**.
 4. Marque con **X** cada pantalla permitida.

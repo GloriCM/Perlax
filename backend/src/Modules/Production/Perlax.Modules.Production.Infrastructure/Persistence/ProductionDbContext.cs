@@ -29,6 +29,9 @@ public class ProductionDbContext : DbContext
     public DbSet<CotizadorFactor> CotizadorFactors => Set<CotizadorFactor>();
     public DbSet<CotizadorMicroFlauta> CotizadorMicroFlautas => Set<CotizadorMicroFlauta>();
     public DbSet<CotizadorPlancha> CotizadorPlanchas => Set<CotizadorPlancha>();
+    public DbSet<CotizadorBarniz> CotizadorBarnices => Set<CotizadorBarniz>();
+    public DbSet<CotizadorTerminado> CotizadorTerminados => Set<CotizadorTerminado>();
+    public DbSet<CotizadorCordon> CotizadorCordones => Set<CotizadorCordon>();
     public DbSet<DesignPlannerJob> DesignPlannerJobs => Set<DesignPlannerJob>();
     public DbSet<DesignPlannerActivity> DesignPlannerActivities => Set<DesignPlannerActivity>();
 
@@ -46,6 +49,19 @@ public class ProductionDbContext : DbContext
     public DbSet<AreaExpenseProveedor> AreaExpenseProveedores => Set<AreaExpenseProveedor>();
     public DbSet<AreaExpenseCaptura> AreaExpenseCapturas => Set<AreaExpenseCaptura>();
 
+    public DbSet<Remision> Remisiones => Set<Remision>();
+    public DbSet<RemisionItem> RemisionItems => Set<RemisionItem>();
+    public DbSet<SalesInvoice> SalesInvoices => Set<SalesInvoice>();
+    public DbSet<SalesInvoiceItem> SalesInvoiceItems => Set<SalesInvoiceItem>();
+    public DbSet<FinishedGoodsEntry> FinishedGoodsEntries => Set<FinishedGoodsEntry>();
+    public DbSet<FinishedGoodsReturn> FinishedGoodsReturns => Set<FinishedGoodsReturn>();
+    public DbSet<OpMaterialLine> OpMaterialLines => Set<OpMaterialLine>();
+    public DbSet<OpLaborProcess> OpLaborProcesses => Set<OpLaborProcess>();
+    public DbSet<OpExternalWorkshop> OpExternalWorkshops => Set<OpExternalWorkshop>();
+    public DbSet<InventoryConsumption> InventoryConsumptions => Set<InventoryConsumption>();
+    public DbSet<WarehouseStockMovement> WarehouseStockMovements => Set<WarehouseStockMovement>();
+    public DbSet<Customer> Customers => Set<Customer>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("production");
@@ -59,7 +75,13 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.EjecutivoCuenta).HasMaxLength(255);
             builder.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
             builder.Property(x => x.Status).HasMaxLength(50);
-            
+            builder.HasIndex(x => x.CustomerId);
+
+            builder.HasOne(x => x.Customer)
+                .WithMany()
+                .HasForeignKey(x => x.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             builder.HasMany(x => x.Parts)
                    .WithOne(x => x.Order)
                    .HasForeignKey(x => x.ProductionOrderId)
@@ -127,6 +149,12 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.CreatedBy).HasMaxLength(255);
             builder.Property(x => x.UpdatedBy).HasMaxLength(255);
             builder.HasIndex(x => x.OrderNumber).IsUnique();
+            builder.HasIndex(x => x.CustomerId);
+
+            builder.HasOne(x => x.Customer)
+                .WithMany()
+                .HasForeignKey(x => x.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             builder.HasMany(x => x.Items)
                 .WithOne(x => x.CustomerOrder)
@@ -170,8 +198,10 @@ public class ProductionDbContext : DbContext
             builder.Property(x => x.CreatedBy).HasMaxLength(255);
             builder.Property(x => x.UpdatedBy).HasMaxLength(255);
             builder.Property(x => x.OpenedBy).HasMaxLength(255);
+            builder.Property(x => x.ClosedBy).HasMaxLength(255);
             builder.HasIndex(x => x.OpNumber).IsUnique();
             builder.HasIndex(x => x.CustomerOrderId);
+            builder.HasIndex(x => x.CustomerId);
             builder.HasIndex(x => x.OrderPartId);
             builder.HasIndex(x => x.OpeningDate);
             builder.HasIndex(x => new { x.CustomerOrderId, x.OrderPartId }).IsUnique();
@@ -179,6 +209,24 @@ public class ProductionDbContext : DbContext
             builder.HasOne(x => x.CustomerOrder)
                 .WithMany()
                 .HasForeignKey(x => x.CustomerOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(x => x.Customer)
+                .WithMany()
+                .HasForeignKey(x => x.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasMany(x => x.Materials)
+                .WithOne(x => x.ManufacturingOrder)
+                .HasForeignKey(x => x.ManufacturingOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasMany(x => x.LaborProcesses)
+                .WithOne(x => x.ManufacturingOrder)
+                .HasForeignKey(x => x.ManufacturingOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasMany(x => x.ExternalWorkshops)
+                .WithOne(x => x.ManufacturingOrder)
+                .HasForeignKey(x => x.ManufacturingOrderId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -362,6 +410,30 @@ public class ProductionDbContext : DbContext
             b.Property(x => x.Price).HasPrecision(18, 2);
         });
 
+        modelBuilder.Entity<CotizadorBarniz>(b =>
+        {
+            b.ToTable("CotizadorBarnices");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Factor).HasPrecision(18, 6);
+        });
+
+        modelBuilder.Entity<CotizadorTerminado>(b =>
+        {
+            b.ToTable("CotizadorTerminados");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.PricePerM2).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<CotizadorCordon>(b =>
+        {
+            b.ToTable("CotizadorCordones");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            b.Property(x => x.PricePerManija).HasPrecision(18, 2);
+        });
+
         modelBuilder.Entity<DesignPlannerJob>(b =>
         {
             b.ToTable("DesignPlannerJobs");
@@ -400,6 +472,203 @@ public class ProductionDbContext : DbContext
         });
 
         ConfigureDailyProduction(modelBuilder);
+        ConfigureCommercialAndInventory(modelBuilder);
+    }
+
+    private static void ConfigureCommercialAndInventory(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Remision>(b =>
+        {
+            b.ToTable("Remisiones");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.RemisionNumber).IsRequired().HasMaxLength(30);
+            b.Property(x => x.CustomerOrderNumber).IsRequired().HasMaxLength(20);
+            b.Property(x => x.ClientName).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Status).IsRequired().HasMaxLength(40);
+            b.Property(x => x.TransportCarrier).HasMaxLength(200);
+            b.Property(x => x.TransportPlate).HasMaxLength(40);
+            b.Property(x => x.TransportDriver).HasMaxLength(200);
+            b.Property(x => x.TransportCost).HasPrecision(18, 2);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.RemisionNumber).IsUnique();
+            b.HasIndex(x => x.CustomerOrderId);
+            b.HasIndex(x => x.ClientName);
+            b.HasOne(x => x.CustomerOrder).WithMany().HasForeignKey(x => x.CustomerOrderId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Items).WithOne(x => x.Remision).HasForeignKey(x => x.RemisionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RemisionItem>(b =>
+        {
+            b.ToTable("RemisionItems");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+            b.Property(x => x.ReferenceName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Quantity).HasPrecision(18, 2);
+            b.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            b.Property(x => x.FinalDispatchCode).HasMaxLength(20);
+            b.HasIndex(x => x.RemisionId);
+            b.HasIndex(x => x.CustomerOrderItemId);
+            b.HasIndex(x => x.ManufacturingOrderId);
+        });
+
+        modelBuilder.Entity<SalesInvoice>(b =>
+        {
+            b.ToTable("SalesInvoices");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.InvoiceNumber).IsRequired().HasMaxLength(30);
+            b.Property(x => x.LegacyInvoiceNumber).HasMaxLength(30);
+            b.Property(x => x.RemisionNumber).IsRequired().HasMaxLength(30);
+            b.Property(x => x.ClientName).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Status).IsRequired().HasMaxLength(40);
+            b.Property(x => x.Subtotal).HasPrecision(18, 2);
+            b.Property(x => x.TaxAmount).HasPrecision(18, 2);
+            b.Property(x => x.TotalAmount).HasPrecision(18, 2);
+            b.Property(x => x.TaxRate).HasPrecision(5, 2);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.Property(x => x.VoidedBy).HasMaxLength(255);
+            b.HasIndex(x => x.InvoiceNumber).IsUnique();
+            b.HasIndex(x => x.RemisionId).IsUnique();
+            b.HasOne(x => x.Remision).WithMany().HasForeignKey(x => x.RemisionId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Items).WithOne(x => x.SalesInvoice).HasForeignKey(x => x.SalesInvoiceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SalesInvoiceItem>(b =>
+        {
+            b.ToTable("SalesInvoiceItems");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+            b.Property(x => x.ReferenceName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Quantity).HasPrecision(18, 2);
+            b.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            b.Property(x => x.LineTotal).HasPrecision(18, 2);
+            b.HasIndex(x => x.SalesInvoiceId);
+        });
+
+        modelBuilder.Entity<FinishedGoodsEntry>(b =>
+        {
+            b.ToTable("FinishedGoodsEntries");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Quantity).HasPrecision(18, 2);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.ManufacturingOrderId);
+            b.HasOne(x => x.ManufacturingOrder).WithMany().HasForeignKey(x => x.ManufacturingOrderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FinishedGoodsReturn>(b =>
+        {
+            b.ToTable("FinishedGoodsReturns");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ReturnNumber).IsRequired().HasMaxLength(30);
+            b.Property(x => x.OpNumber).IsRequired().HasMaxLength(20);
+            b.Property(x => x.ClientName).IsRequired().HasMaxLength(255);
+            b.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+            b.Property(x => x.ReferenceName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Quantity).HasPrecision(18, 2);
+            b.Property(x => x.Reason).HasMaxLength(255);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.ReturnNumber).IsUnique();
+            b.HasIndex(x => x.ManufacturingOrderId);
+            b.HasIndex(x => x.RemisionItemId);
+            b.HasOne(x => x.ManufacturingOrder).WithMany().HasForeignKey(x => x.ManufacturingOrderId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Remision).WithMany().HasForeignKey(x => x.RemisionId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<OpMaterialLine>(b =>
+        {
+            b.ToTable("OpMaterialLines");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.PartName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Category).IsRequired().HasMaxLength(80);
+            b.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+            b.Property(x => x.Unit).IsRequired().HasMaxLength(40);
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.UnitCost).HasPrecision(18, 2);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.ManufacturingOrderId);
+        });
+
+        modelBuilder.Entity<OpLaborProcess>(b =>
+        {
+            b.ToTable("OpLaborProcesses");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.PartName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.WorkStation).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.RollWidth).HasPrecision(18, 4);
+            b.Property(x => x.CutLength).HasPrecision(18, 4);
+            b.Property(x => x.SheetWidth).HasPrecision(18, 4);
+            b.Property(x => x.SheetLength).HasPrecision(18, 4);
+            b.Property(x => x.Cabida).HasPrecision(18, 4);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.ManufacturingOrderId);
+        });
+
+        modelBuilder.Entity<OpExternalWorkshop>(b =>
+        {
+            b.ToTable("OpExternalWorkshops");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.WorkshopName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.WorkType).IsRequired().HasMaxLength(200);
+            b.Property(x => x.QuantityDelivered).HasPrecision(18, 2);
+            b.Property(x => x.Fajado).HasPrecision(18, 2);
+            b.Property(x => x.Estresado).HasPrecision(18, 2);
+            b.Property(x => x.Empacado).HasPrecision(18, 2);
+            b.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            b.Property(x => x.ReturnQuantity).HasPrecision(18, 2);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.ManufacturingOrderId);
+        });
+
+        modelBuilder.Entity<InventoryConsumption>(b =>
+        {
+            b.ToTable("InventoryConsumptions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ApplicationNumber).IsRequired().HasMaxLength(30);
+            b.Property(x => x.OpNumber).IsRequired().HasMaxLength(20);
+            b.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+            b.Property(x => x.Unit).IsRequired().HasMaxLength(40);
+            b.Property(x => x.DeliveredTo).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.UnitCost).HasPrecision(18, 2);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.ApplicationNumber).IsUnique();
+            b.HasIndex(x => x.ManufacturingOrderId);
+            b.HasOne(x => x.ManufacturingOrder).WithMany().HasForeignKey(x => x.ManufacturingOrderId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WarehouseStockMovement>(b =>
+        {
+            b.ToTable("WarehouseStockMovements");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+            b.Property(x => x.MovementType).IsRequired().HasMaxLength(20);
+            b.Property(x => x.Quantity).HasPrecision(18, 4);
+            b.Property(x => x.UnitCost).HasPrecision(18, 2);
+            b.Property(x => x.Reference).HasMaxLength(100);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.ProductName);
+            b.HasIndex(x => x.MovementDate);
+            b.HasIndex(x => x.ConsumptionId);
+        });
+
+        modelBuilder.Entity<Customer>(b =>
+        {
+            b.ToTable("Customers");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(255);
+            b.Property(x => x.Nit).HasMaxLength(50);
+            b.Property(x => x.ContactName).HasMaxLength(255);
+            b.Property(x => x.Phone).HasMaxLength(60);
+            b.Property(x => x.Email).HasMaxLength(255);
+            b.Property(x => x.Address).HasMaxLength(500);
+            b.Property(x => x.ReceiptPercentage).HasPrecision(5, 2);
+            b.Property(x => x.CreatedBy).HasMaxLength(255);
+            b.Property(x => x.UpdatedBy).HasMaxLength(255);
+            b.HasIndex(x => x.Name).IsUnique();
+        });
     }
 
     private static void ConfigureDailyProduction(ModelBuilder modelBuilder)

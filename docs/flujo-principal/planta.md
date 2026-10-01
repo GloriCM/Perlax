@@ -93,8 +93,8 @@ Las sesiones capturadas en planta aparecen en **Operaciones → Reporte diario**
 | Acceso denegado | Fuera de red de fábrica | Conectar WiFi de planta |
 | Verificando acceso de red… | Comprobando permisos | Esperar unos segundos |
 | No hay operarios | Sin usuarios rol Operario | Crearlos en Configuración |
-| Vista desactivada | Build sin módulo planta | Contacte TI |
-| Catálogos vacíos | API o datos maestros | Verificar máquinas/actividades |
+| Vista desactivada | La vista de planta no está habilitada | Contacte a quien administra el sistema |
+| Catálogos vacíos | Faltan máquinas o actividades | Revíselas con quien administra el sistema |
 
 ## Buenas prácticas
 

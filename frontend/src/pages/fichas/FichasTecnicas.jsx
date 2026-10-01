@@ -25,7 +25,8 @@ import {
     IconCheck,
     IconX,
     IconExternalLink,
-    IconDotsVertical
+    IconDotsVertical,
+    IconTrash
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
@@ -204,6 +205,28 @@ const FichasTecnicas = () => {
                                 Desaprobar
                             </Menu.Item>
                         )}
+                        <Menu.Item
+                            color="red"
+                            leftSection={<IconTrash size={14} />}
+                            onClick={async () => {
+                                if (!window.confirm('¿Eliminar esta ficha técnica?')) return;
+                                try {
+                                    await api.delete(`/production/technical-sheets/${ficha.id}`);
+                                    notifications.show({ title: 'Ficha eliminada', color: 'green', icon: <IconCheck size={16} /> });
+                                    setSelectedId(null);
+                                    fetchFichas();
+                                } catch (error) {
+                                    notifications.show({
+                                        title: 'No se pudo eliminar',
+                                        message: error?.message || 'Error al eliminar ficha.',
+                                        color: 'red',
+                                        icon: <IconX size={16} />,
+                                    });
+                                }
+                            }}
+                        >
+                            Eliminar ficha
+                        </Menu.Item>
                     </Menu.Dropdown>
                 </Menu>
             </Table.Td>

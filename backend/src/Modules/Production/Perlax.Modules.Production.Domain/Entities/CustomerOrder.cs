@@ -11,6 +11,7 @@ public class CustomerOrder
     public Guid Id { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
     public DateTime OrderDate { get; set; } = DateTime.UtcNow;
+    public Guid? CustomerId { get; set; }
     public string ClientName { get; set; } = string.Empty;
     public string PurchaseOrderNumber { get; set; } = string.Empty;
     public DateTime? AgreedDeliveryDate { get; set; }
@@ -23,5 +24,6 @@ public class CustomerOrder
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
 
+    public Customer? Customer { get; set; }
     public ICollection<CustomerOrderItem> Items { get; set; } = new List<CustomerOrderItem>();
 }

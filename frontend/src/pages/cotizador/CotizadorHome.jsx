@@ -8,7 +8,9 @@ export default function CotizadorHome() {
         <Stack p="md" gap="lg" className="fade-in">
             <Card className="glass-card">
                 <Title order={2} c="white">Cotizador</Title>
-                <Text c="dimmed" size="sm">Cree cotizaciones de empaque con calculo automatico de costos y precios de venta.</Text>
+                <Text c="dimmed" size="sm">
+                    Un solo flujo: cotice Caja o Bolsa, calcule precios, guarde y convierta a OT cuando haga falta.
+                </Text>
             </Card>
             <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
                 <Card className="glass-card" p="xl">
@@ -28,8 +30,13 @@ export default function CotizadorHome() {
                 <Card className="glass-card" p="xl">
                     <Stack gap="md">
                         <IconSettings size={32} color="#f59e0b" />
-                        <Title order={4} c="white">Catalogos</Title>
-                        <Button variant="light" color="yellow" onClick={() => navigate('/ajustes/cotizador-catalogos')}>Administrar</Button>
+                        <Title order={4} c="white">Materiales y máquinas</Title>
+                        <Text size="sm" c="dimmed">
+                            Papeles, barnices, terminados, flautas, cordones, planchas y tarifas de máquina del cotizador.
+                        </Text>
+                        <Button variant="light" color="yellow" onClick={() => navigate('/cotizador/catalogos')}>
+                            Administrar catálogos
+                        </Button>
                     </Stack>
                 </Card>
             </SimpleGrid>

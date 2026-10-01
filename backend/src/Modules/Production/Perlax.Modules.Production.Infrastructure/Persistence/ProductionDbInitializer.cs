@@ -500,5 +500,33 @@ public static class ProductionDbInitializer
         {
             Console.WriteLine($"DesignPlanner trailing column ensure failed: {ex.Message}");
         }
+
+        // Hoja Materiales Elliot — catálogos adicionales (idempotente)
+        await context.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS production."CotizadorBarnices" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "Name" character varying(200) NOT NULL,
+                "Factor" numeric(18,6) NOT NULL,
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NULL
+            );
+            CREATE TABLE IF NOT EXISTS production."CotizadorTerminados" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "Name" character varying(200) NOT NULL,
+                "PricePerM2" numeric(18,2) NOT NULL,
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NULL
+            );
+            CREATE TABLE IF NOT EXISTS production."CotizadorCordones" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "Name" character varying(200) NOT NULL,
+                "PricePerManija" numeric(18,2) NOT NULL,
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NULL
+            );
+            """);
     }
 }

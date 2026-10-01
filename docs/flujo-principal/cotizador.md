@@ -1,81 +1,147 @@
 # Cotizador
 
-**Estado:** En produccion (integrado con API)
-**Menu:** Operaciones -> Cotizaciones
+**Menú:** Operaciones → Cotizaciones
 
-## Para que sirve?
+## Para qué sirve
 
-Permite cotizar productos tipo **Caja** o **Bolsa** paso a paso, guardar cotizaciones, generar PDF y convertir una cotizacion en borrador de **Orden de Trabajo (OT)**.
+Sirve para armar una cotización de **caja** o de **bolsa**, calcular el precio y guardarla. Desde ahí se puede enviar una propuesta al cliente, consultar el desglose interno y, cuando el cliente acepta, convertirla en borrador de orden de trabajo.
 
-## Quien lo usa?
+## Quién lo usa
 
-- Comercial / ventas
-- Ejecutivos de cuenta
-- Diseño (cuando retoman una cotizacion vinculada a OT)
+- Comercial y ejecutivos de cuenta, para cotizar y enviar la propuesta.
+- Quien administra precios de papel, máquinas y acabados.
+- Diseño, cuando retoma una cotización que ya se convirtió en orden de trabajo.
 
-## Como llegar
+## Cómo llegar
 
-| Pantalla | URL |
-|----------|-----|
-| Inicio cotizador | `/cotizador` |
-| Nueva cotizacion | `/cotizador/nueva` |
-| Cotizaciones guardadas | `/cotizador/guardadas` |
-| Editar cotizacion | `/cotizador/:id` |
+En el menú **Operaciones → Cotizaciones**:
 
-**Catalogos (admin):** Configuracion -> Ajustes -> Catalogos cotizador (`/ajustes/cotizador-catalogos`)
+| Opción | Qué abre |
+|--------|----------|
+| Cotizaciones | Pantalla de inicio: nueva, guardadas o catálogos |
+| Nueva cotización | El asistente en blanco |
+| Guardadas | El historial |
+| Materiales y máquinas | Los precios que usa el cálculo |
 
-## Flujo: nueva cotizacion
+## Nueva cotización
 
-1. Entre a **Nueva cotizacion**.
-2. Elija tipo de producto: **Caja** o **Bolsa**.
-3. Complete el asistente (wizard) por pasos:
-   - Datos generales (cliente, trabajo, vendedor)
-   - Medidas y material
-   - Impresion, micro/cordon, refuerzo, troquel
-   - Cantidades (escalas 5k a 100k)
-   - Servicios adicionales y flete (Sin / Local / Nacional)
-   - Resumen y calculo de precios
-4. Pulse **Calcular** para obtener precios.
-5. **Guarde** la cotizacion.
+1. Entre a **Nueva cotización**.
+2. Elija **Caja** o **Bolsa**. En caja se omite el paso de refuerzo y ventanilla. En bolsa sí se pregunta.
+3. Recorra el asistente. En cada paso pulse **Siguiente**. Si falta un dato obligatorio, el sistema se queda en ese paso y dice qué completar.
+
+### Paso 1. Datos generales
+
+Cliente, nombre del trabajo y vendedor. Si el trabajo tiene más de una pieza (por ejemplo tapa y base), agréguelas aquí. Cada pieza lleva después sus propias medidas.
+
+### Paso 2. Medidas y material
+
+Largo y ancho del pliego, cabida, papel y precio por metro cuadrado.
+
+Escriba las medidas en **metros**. Ejemplo: largo 0,35 y ancho 0,40. Si las tiene en milímetros, escriba 350 y 400: el sistema las pasa a metros.
+
+Abajo hay una **vista previa de materia prima**. Muestra el área de la pieza y cuánto vale el material por unidad. Si sale casi en cero, revise que el largo, el ancho y el precio del papel estén escritos.
+
+### Paso 3. Impresión, barniz y terminado
+
+Pasadas de impresión, número de planchas, precio de la plancha y cubrimiento. El cubrimiento se escribe en porcentaje y puede ser mayor que 100 (por ejemplo 150).
+
+También elige barniz y terminado (plastificado, UV u otro) cuando el trabajo los lleva.
+
+### Paso 4. Micro y cordón
+
+Flauta o microcorrugado, y el cordón o la manija si aplica, con su precio.
+
+### Paso 5. Refuerzo y ventanilla
+
+Solo en **bolsa**. Número de refuerzos y medidas de la ventanilla.
+
+### Paso 6. Troquel y películas
+
+Costo del troquel. Si el trabajo incluye películas, márquelas: entran al costo.
+
+### Paso 7. Cantidad
+
+Una o varias cantidades (por ejemplo 5.000, 10.000, 20.000). El resumen compara el precio de cada una.
+
+### Paso 8. Servicios y contrato
+
+Marque los procesos de máquina que lleva el trabajo: conversión, corte, impresión, corrugado, laminado, troquelado o pegado. Tiene que haber al menos uno.
+
+El **contrato de servicios** es un valor que entra directo al costo. Si no aplica, déjelo en cero.
+
+### Paso 9. Flete y plazo
+
+Elija **Sin flete**, **Local** o **Nacional**. La pantalla muestra el flete calculado por unidad.
+
+Si el flete real es distinto del calculado, escríbalo en **Flete por unidad que entra al costo**. Si lo deja vacío, se usa el cálculo.
+
+El **plazo de pago** (contado, 30, 60 o 90 días) cambia el precio de venta. Contado y 30 días no dan el mismo precio.
+
+### Paso 10. Resumen
+
+Pulse **Calcular**. Aparecen tres precios por cada cantidad:
+
+| Precio | Cómo usarlo |
+|--------|-------------|
+| Al 1.5 | El más bajo |
+| Al 3 | El habitual |
+| Al 5 | El más alto |
+
+Pulse el que quiere enviar al cliente. Ese queda marcado como **se envía**. Los otros dos también salen en el PDF.
+
+Luego **guarde** la cotización.
 
 ## Cotizaciones guardadas
 
-Desde **Guardadas** puede:
+En **Guardadas** cada fila tiene estas acciones:
 
-| Accion | Descripcion |
-|--------|-------------|
-| Editar | Abrir el wizard con los datos guardados |
-| PDF propuesta | Documento comercial para el cliente |
-| PDF hoja produccion | Documento tecnico interno |
-| Convertir a OT | Crea borrador de OT y abre Nueva OT |
-| Eliminar | Borra la cotizacion (confirmacion) |
+| Acción | Para qué |
+|--------|----------|
+| Editar | Vuelve a abrir el asistente con lo ya escrito |
+| Propuesta para el cliente | Documento para enviar. No muestra los costos internos. Se abre en el navegador: Imprimir → Guardar como PDF |
+| Hoja de producción | Desglose interno del costo, para planta y costos |
+| Convertir a OT | Crea un borrador de orden de trabajo con las piezas |
+| Eliminar | Borra la cotización, previa confirmación |
 
-## Convertir cotizacion en OT
+## Convertir en orden de trabajo
 
-1. En guardadas, pulse **Convertir a OT**.
-2. Confirme el mensaje.
-3. El sistema crea la OT y lo lleva a **Ordenes -> Nueva OT** para completar ficha tecnica.
+1. En **Guardadas**, pulse **Convertir a OT**.
+2. Confirme.
+3. El sistema abre **Órdenes de trabajo → Nueva OT** con el cliente, el trabajo y las piezas (medidas, material, micro, terminado, cordón y troquel).
 
-## Campos importantes
+Revise esa orden y complétela antes de seguir hacia la ficha técnica.
 
-- **Cliente / Trabajo:** identifican la oportunidad comercial.
-- **Tipo Caja o Bolsa:** cambia los pasos del wizard.
-- **Cantidades multiples:** compare escenarios de volumen.
-- **Flete y servicios:** impactan el precio final.
+## Materiales y máquinas
 
-## Errores frecuentes
+Quien mantiene los precios entra a **Materiales y máquinas** (o a **Configuración → Ajustes → Catálogos cotizador**).
 
-| Problema | Que hacer |
-|----------|-----------|
-| No calcula | Revise campos obligatorios del paso actual |
-| Cliente no aparece | Use autocomplete; verifique catalogos |
-| No convierte a OT | Cotizacion debe estar guardada; reintente |
+| Catálogo | Qué se guarda |
+|----------|----------------|
+| Materiales | Papeles y cartones, con precio por metro cuadrado |
+| Máquinas | Tiempo de alistamiento, tiros por hora y tarifa por hora de cada proceso |
+| Barnices | Nombre y factor |
+| Terminados | Plastificado, UV y similares, con precio por metro cuadrado |
+| Micro / flauta | Flautas y su precio por metro cuadrado |
+| Cordones | Precio por manija |
+| Planchas | Precio de cada tipo de plancha |
+| Factores | Valores que usa el cálculo: tinta, ventanilla, flete y márgenes |
 
-## Relacion con otros modulos
+Si un papel nuevo no está en la lista del paso 2, primero se agrega aquí.
 
-Cotizacion -> **OT** -> Ficha tecnica aprobada -> **Pedido de cliente**
+## Si algo no cuadra
 
-## Siguiente lectura
+| Lo que ve | Qué revisar |
+|-----------|-------------|
+| No deja calcular y vuelve a Medidas | Largo, ancho, cabida y precio del material de **cada** pieza |
+| El material sale en $0 | Precio por metro cuadrado y que las medidas estén en metros |
+| El flete sale en $0 | Largo, ancho y cabida. O escriba el flete a mano en el paso 9 |
+| No aparece el cliente al guardar | Vuelva al paso 1 y confirme cliente y nombre del trabajo |
+| No convierte a orden de trabajo | La cotización tiene que estar guardada |
 
-- [Ordenes de trabajo](ordenes-trabajo.md)
+## Después de cotizar
+
+Cotización guardada → orden de trabajo → ficha técnica aprobada → pedido de cliente.
+
+- [Órdenes de trabajo](ordenes-trabajo.md)
+- [Planes de diseño](planes-diseno.md)
 - [Pedidos de cliente](pedidos-cliente.md)

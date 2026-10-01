@@ -5,11 +5,17 @@ public sealed class CotizadorCalculateRequest
     public string ProductType { get; set; } = "Caja";
     public decimal LargoPliego { get; set; }
     public decimal AnchoPliego { get; set; }
+    /// <summary>Alias del formulario si no llega largoPliego.</summary>
+    public decimal LargoMm { get; set; }
+    /// <summary>Alias del formulario si no llega anchoPliego.</summary>
+    public decimal AnchoMm { get; set; }
     public decimal Cabida { get; set; }
     public decimal PrecioMaterialM2 { get; set; }
     public int NumeroPlanchas { get; set; }
     public decimal PrecioPlancha { get; set; }
     public decimal CubrimientoPct { get; set; }
+    /// <summary>Alias de cubrimientoPct cuando el formulario manda "cubrimiento".</summary>
+    public decimal Cubrimiento { get; set; }
     public int VecesImprimir { get; set; } = 1;
     public decimal FactorBarniz { get; set; }
     public decimal PrecioTerminadoM2 { get; set; }
@@ -20,24 +26,66 @@ public sealed class CotizadorCalculateRequest
     public decimal AnchoVentanillaCm { get; set; }
     public decimal LargoVentanillaCm { get; set; }
     public decimal PrecioTroquel { get; set; }
+    /// <summary>Excel AK: si true aplica costo películas (AW).</summary>
+    public bool UsaPeliculas { get; set; }
+    /// <summary>Excel CF: días de plazo de pago (ajusta margen PV).</summary>
+    public int PlazoPagoDias { get; set; }
     public List<int> Quantities { get; set; } = [5000, 10000, 20000, 50000, 100000];
     public int PrimaryQuantityIndex { get; set; }
     public decimal ContratoServicios { get; set; }
     public string FreightType { get; set; } = "Local";
+    /// <summary>Si tiene valor, reemplaza el flete calculado ($/u). Null usa la fórmula.</summary>
+    public decimal? FleteManual { get; set; }
     public CotizadorServiciosRequest Servicios { get; set; } = new();
+    public Guid? ImpresoraMachineId { get; set; }
+    /// <summary>Piezas adicionales (multipieza). Si vacío se usa el request raíz como única pieza.</summary>
+    public List<CotizadorPartInput>? Parts { get; set; }
+}
+
+/// <summary>Datos técnicos de una pieza para multipieza / transferencia a OT.</summary>
+public sealed class CotizadorPartInput
+{
+    public string PartName { get; set; } = "Pieza 1";
+    public decimal LargoPliego { get; set; }
+    public decimal AnchoPliego { get; set; }
+    public decimal Cabida { get; set; }
+    public decimal PrecioMaterialM2 { get; set; }
+    public string? MaterialName { get; set; }
+    public int NumeroPlanchas { get; set; }
+    public decimal PrecioPlancha { get; set; }
+    public decimal CubrimientoPct { get; set; }
+    public int VecesImprimir { get; set; } = 1;
+    public decimal FactorBarniz { get; set; }
+    public decimal PrecioTerminadoM2 { get; set; }
+    public string? TerminadoNombre { get; set; }
+    public decimal PrecioMicroM2 { get; set; }
+    public string? MicroName { get; set; }
+    public decimal LargoCordonCm { get; set; }
+    public decimal PrecioCordonManija { get; set; }
+    public string? TipoCordon { get; set; }
+    public int NumeroRefuerzos { get; set; }
+    public decimal AnchoVentanillaCm { get; set; }
+    public decimal LargoVentanillaCm { get; set; }
+    public decimal PrecioTroquel { get; set; }
+    public bool UsaPeliculas { get; set; }
     public Guid? ImpresoraMachineId { get; set; }
 }
 
 public sealed class CotizadorServiciosRequest
 {
     public bool Conversion { get; set; }
+    public bool Corte { get; set; }
+    /// <summary>Legado (Excel/UI antiguo). Se trata como Corte.</summary>
     public bool Corte1 { get; set; }
+    /// <summary>Legado. Se trata como Corte.</summary>
     public bool Corte2 { get; set; }
     public bool Impresion { get; set; }
     public bool Corrugado { get; set; }
     public bool Laminado { get; set; }
     public bool Troquelado { get; set; }
     public bool Pegado { get; set; }
+
+    public bool UsaCorte => Corte || Corte1 || Corte2;
 }
 
 public sealed class CotizadorMachineSnapshot
@@ -73,13 +121,14 @@ public sealed class CotizadorCostBreakdown
     public decimal Cordon { get; set; }
     public decimal Refuerzo { get; set; }
     public decimal Ventanilla { get; set; }
+    public decimal Peliculas { get; set; }
     public decimal Troquel { get; set; }
     public decimal SubtotalMateriaPrima { get; set; }
+    public decimal AjustePlazoPago { get; set; }
     public decimal Desperdicio { get; set; }
     public decimal MateriaPrimaConDesperdicio { get; set; }
     public decimal Conversion { get; set; }
-    public decimal Corte1 { get; set; }
-    public decimal Corte2 { get; set; }
+    public decimal Corte { get; set; }
     public decimal Impresion { get; set; }
     public decimal Corrugado { get; set; }
     public decimal Laminado { get; set; }
@@ -120,6 +169,11 @@ public record CotizadorMaterialOptionDto(Guid Id, string Name, decimal PricePerM
 public record CotizadorMachineOptionDto(Guid Id, string Name, string ServiceRole, decimal SetupTimeHours, decimal ShotsPerHour, decimal HourlyRate);
 public record CotizadorPlanchaOptionDto(Guid Id, string Name, decimal Price);
 public record CotizadorMicroOptionDto(Guid Id, string Name, decimal PricePerM2);
+public record CotizadorBarnizOptionDto(Guid Id, string Name, decimal Factor);
+public record CotizadorTerminadoOptionDto(Guid Id, string Name, decimal PricePerM2);
+public record CotizadorCordonOptionDto(Guid Id, string Name, decimal PricePerManija);
 public record CotizadorOrderForQuoteDto(Guid Id, string OtNumber, string Cliente, string ProductName, string? LineaPT, DateTime CreatedAt);
 public record ConvertQuoteToOtResultDto(Guid OrderId, string OtNumber, string Status);
+public record CotizadorMachineImportItem(string Name, string? ServiceRole, decimal SetupTimeHours, decimal ShotsPerHour, decimal HourlyRate);
+public record CotizadorMaterialImportItem(string Name, decimal PricePerM2);
 

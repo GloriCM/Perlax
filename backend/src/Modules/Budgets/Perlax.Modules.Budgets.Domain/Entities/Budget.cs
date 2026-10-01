@@ -25,4 +25,10 @@ public class Budget
     public ICollection<BudgetLine> Lines { get; set; } = new List<BudgetLine>();
     public ICollection<BudgetPersonnelItem> Personnel { get; set; } = new List<BudgetPersonnelItem>();
     public ICollection<BudgetAdjustment> Adjustments { get; set; } = new List<BudgetAdjustment>();
+    public ICollection<BudgetIncomeLine> IncomeLines { get; set; } = new List<BudgetIncomeLine>();
+    public ICollection<BudgetPayrollPerson> PayrollPeople { get; set; } = new List<BudgetPayrollPerson>();
+    public ICollection<BudgetFixedItem> FixedItems { get; set; } = new List<BudgetFixedItem>();
+    public ICollection<BudgetVariableCommission> Commissions { get; set; } = new List<BudgetVariableCommission>();
+    public ICollection<BudgetCostCenter> CostCenters { get; set; } = new List<BudgetCostCenter>();
+    public BudgetMapSettings? MapSettings { get; set; }
 }

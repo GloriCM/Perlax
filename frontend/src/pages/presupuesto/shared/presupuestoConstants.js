@@ -10,17 +10,44 @@ export const QUARTERS = [
     { id: 'q4', label: 'Oct - Dic', months: ['Oct', 'Nov', 'Dic'] }
 ];
 
-export const YEAR_OPTIONS = ['2024', '2025', '2026', '2027'].map((y) => ({
-    value: y,
-    label: y
-}));
+export function buildYearOptions(centerYear = new Date().getFullYear()) {
+    const years = [];
+    for (let y = centerYear - 2; y <= centerYear + 2; y += 1) {
+        years.push({ value: String(y), label: String(y) });
+    }
+    return years;
+}
+
+/** @deprecated use buildYearOptions() */
+export const YEAR_OPTIONS = buildYearOptions();
+
+const STORAGE_PREFIX = 'perlax.presupuesto.area';
+
+export function areaStorageKey(areaKey, year) {
+    return `${STORAGE_PREFIX}.${String(areaKey).toLowerCase()}.${year}`;
+}
+
+export function loadAreaBudget(areaKey, year) {
+    try {
+        const raw = localStorage.getItem(areaStorageKey(areaKey, year));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveAreaBudget(areaKey, year, data) {
+    localStorage.setItem(areaStorageKey(areaKey, year), JSON.stringify(data));
+}
 
 export function createEmptyBudgetData(rubros, getInitialValue = () => 0) {
     const data = {};
     rubros.forEach((rubro) => {
         data[rubro] = {};
         MONTHS.forEach((month) => {
-            data[rubro][month] = getInitialValue(rubro, month);
+            data[rubro][month] = getInitialValue(rubro, month) || 0;
         });
     });
     return data;

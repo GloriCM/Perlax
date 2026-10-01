@@ -1,30 +1,25 @@
 # Facturacion
 
-**Estado:** En desarrollo (menu visible, pantalla placeholder)
+**Estado:** Operativo
 **Menu:** Operaciones -> Facturacion
 
-## Para que sirve? (previsto)
+## Para que sirve?
 
-Emitir y consultar **facturas** al cliente tras remision / entrega.
+Emitir la factura de venta a partir de remisiones pendientes, con IVA configurable (default 19%).
 
-## URLs en el menu
+## URLs
 
-- `/facturacion/nueva` — Nueva factura
-- `/facturacion/informe` — Informe de facturacion
+- `/facturacion/nueva` — Nueva factura desde remision pendiente
+- `/facturacion/informe` — Listado, repasar fechas y anular
 
-## Situacion actual
+## Flujo
 
-Modulo **en construccion**. Condiciones de factura se capturan hoy en la **OT**.
-
-Flujo comercial objetivo:
-
-```
-Pedido Aprobado -> Produccion -> Remision -> Facturacion -> Cartera
-```
-
-Solo los primeros eslabones estan operativos en Perla hoy.
+1. Elegir remision pendiente de facturar.
+2. Confirmar fecha, vencimiento, % IVA y observaciones.
+3. Guardar. El PV unitario viene del pedido.
+4. Desde el informe se puede **imprimir**, **repasar** (fecha/vencimiento) o **anular** (libera la remision).
 
 ## Siguiente lectura
 
-- [Pedidos de cliente](pedidos-cliente.md)
 - [Remisiones](remisiones.md)
+- [Pedidos de cliente](pedidos-cliente.md)

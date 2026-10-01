@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Audit.Application.Abstractions;
+using Perlax.Modules.Budgets.Application.Elliot;
+using Perlax.Modules.Budgets.Domain;
 using Perlax.Modules.Budgets.Domain.Entities;
 using Perlax.Modules.Budgets.Infrastructure.Persistence;
 
@@ -21,11 +23,13 @@ public class BudgetsController : ControllerBase
 
     private readonly BudgetsDbContext _context;
     private readonly IAuditService _audit;
+    private readonly IElliotBudgetService _elliot;
 
-    public BudgetsController(BudgetsDbContext context, IAuditService audit)
+    public BudgetsController(BudgetsDbContext context, IAuditService audit, IElliotBudgetService elliot)
     {
         _context = context;
         _audit = audit;
+        _elliot = elliot;
     }
 
     [HttpGet("categories")]
@@ -56,9 +60,18 @@ public class BudgetsController : ControllerBase
                 b.Id, b.Code, b.Company, b.FiscalYear, b.StartDate, b.EndDate, b.Currency, b.Status,
                 b.CostCenter, b.GeneralApprover, b.CreatedBy, b.CreatedAt, b.UpdatedBy, b.UpdatedAt,
                 businessUnitCount = b.BusinessUnits.Count,
-                totalIncome = b.Lines.Where(l => l.LineType == "Income").Sum(l => (decimal?)l.ProjectedValue) ?? 0m,
-                totalLineCosts = b.Lines.Where(l => l.LineType != "Income").Sum(l => (decimal?)l.ProjectedValue) ?? 0m,
-                totalPersonnel = b.Personnel.Sum(p => (decimal?)((p.Headcount * p.MonthlySalary + p.Benefits + p.Allowances + p.Bonuses + p.Overtime) * 12)) ?? 0m
+                totalIncome = b.Lines.Where(l => l.LineType == "Income").Sum(l =>
+                    (decimal?)(l.ProjectedValue * (
+                        l.Frequency == "Mensual" ? 12 :
+                        l.Frequency == "Trimestral" ? 4 :
+                        l.Frequency == "Semestral" ? 2 : 1))) ?? 0m,
+                totalLineCosts = b.Lines.Where(l => l.LineType != "Income").Sum(l =>
+                    (decimal?)(l.ProjectedValue * (
+                        l.Frequency == "Mensual" ? 12 :
+                        l.Frequency == "Trimestral" ? 4 :
+                        l.Frequency == "Semestral" ? 2 : 1))) ?? 0m,
+                totalPersonnel = b.Personnel.Sum(p =>
+                    (decimal?)((p.Headcount * (p.MonthlySalary + p.Benefits + p.Allowances + p.Bonuses + p.Overtime)) * 12)) ?? 0m
             }).ToListAsync();
 
         return Ok(list);
@@ -121,6 +134,7 @@ public class BudgetsController : ControllerBase
 
         _context.Budgets.Add(budget);
         await _context.SaveChangesAsync();
+        await _elliot.EnsureTemplateAsync(budget.Id, user);
         await Audit("CREATE_BUDGET", $"Presupuesto {budget.Code} creado para {budget.Company} vigencia {budget.FiscalYear}");
         var created = await LoadBudgetAsync(budget.Id);
         return CreatedAtAction(nameof(GetById), new { id = budget.Id }, MapDetail(created!));
@@ -254,8 +268,8 @@ public class BudgetsController : ControllerBase
     {
         var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
         if (budget == null) return NotFound();
-        if (budget.Status is "Cerrado" or "Cancelado")
-            return BadRequest("No se puede aprobar un presupuesto cerrado o cancelado.");
+        if (budget.Status is not ("Pendiente" or "En Ajuste"))
+            return BadRequest("Solo se pueden aprobar presupuestos en estado Pendiente o En Ajuste.");
 
         budget.Status = "Aprobado";
         budget.GeneralApprover = CurrentUser();
@@ -274,11 +288,16 @@ public class BudgetsController : ControllerBase
     {
         var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
         if (budget == null) return NotFound();
+        if (budget.Status is "Cerrado" or "Cancelado")
+            return BadRequest("No se puede rechazar un presupuesto cerrado o cancelado.");
         if (string.IsNullOrWhiteSpace(request.Observations))
             return BadRequest("El motivo de rechazo es obligatorio.");
 
         budget.Status = "Pendiente";
         budget.RejectionReason = request.Observations.Trim();
+        budget.GeneralApprover = null;
+        budget.GeneralApprovalDate = null;
+        budget.ApprovalObservations = null;
         budget.UpdatedBy = CurrentUser();
         budget.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -291,6 +310,8 @@ public class BudgetsController : ControllerBase
     {
         var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
         if (budget == null) return NotFound();
+        if (budget.Status != "Aprobado")
+            return BadRequest("Solo se puede cerrar un presupuesto aprobado.");
         budget.Status = "Cerrado";
         budget.UpdatedBy = CurrentUser();
         budget.UpdatedAt = DateTime.UtcNow;
@@ -304,6 +325,8 @@ public class BudgetsController : ControllerBase
     {
         var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
         if (budget == null) return NotFound();
+        if (budget.Status is not ("Aprobado" or "Cerrado"))
+            return BadRequest("Solo se pueden reabrir presupuestos Aprobados o Cerrados.");
         budget.Status = "En Ajuste";
         budget.UpdatedBy = CurrentUser();
         budget.UpdatedAt = DateTime.UtcNow;
@@ -338,9 +361,36 @@ public class BudgetsController : ControllerBase
         return Ok(MapDetail((await LoadBudgetAsync(id))!));
     }
 
+    [HttpPut("{id:guid}/business-units/{buId:guid}")]
+    public async Task<ActionResult> UpdateBusinessUnit(Guid id, Guid buId, [FromBody] BusinessUnitRequest request)
+    {
+        var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
+        if (budget == null) return NotFound();
+        if (!CanEdit(budget)) return BadRequest("El presupuesto no admite cambios.");
+        if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("El nombre de la unidad es obligatorio.");
+
+        var bu = await _context.BudgetBusinessUnits.FirstOrDefaultAsync(x => x.Id == buId && x.BudgetId == id);
+        if (bu == null) return NotFound();
+
+        bu.Name = request.Name.Trim();
+        bu.Responsible = (request.Responsible ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(request.Approver))
+            bu.Approver = request.Approver.Trim();
+
+        Touch(budget);
+        await _context.SaveChangesAsync();
+        await Audit("UPDATE_BUDGET_BU", $"Unidad {bu.Name} actualizada en {budget.Code}");
+        return Ok(MapDetail((await LoadBudgetAsync(id))!));
+    }
+
     [HttpPut("{id:guid}/business-units/{buId:guid}/approve")]
     public async Task<ActionResult> ApproveBusinessUnit(Guid id, Guid buId)
     {
+        var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
+        if (budget == null) return NotFound();
+        if (!CanEdit(budget) && budget.Status != "Aprobado")
+            return BadRequest("El presupuesto no admite cambios.");
+
         var bu = await _context.BudgetBusinessUnits.FirstOrDefaultAsync(x => x.Id == buId && x.BudgetId == id);
         if (bu == null) return NotFound();
         bu.Status = "Aprobado";
@@ -359,7 +409,13 @@ public class BudgetsController : ControllerBase
         if (!CanEdit(budget)) return BadRequest("El presupuesto no admite cambios.");
         var bu = await _context.BudgetBusinessUnits.FirstOrDefaultAsync(x => x.Id == buId && x.BudgetId == id);
         if (bu == null) return NotFound();
-        if (bu.Status == "Aprobado") return BadRequest("No se puede eliminar una unidad aprobada.");
+
+        // Desvincular líneas y personal para poder borrar aunque la unidad esté aprobada
+        var lines = await _context.BudgetLines.Where(l => l.BusinessUnitId == buId).ToListAsync();
+        foreach (var line in lines) line.BusinessUnitId = null;
+        var people = await _context.BudgetPersonnelItems.Where(p => p.BusinessUnitId == buId).ToListAsync();
+        foreach (var p in people) p.BusinessUnitId = null;
+
         _context.BudgetBusinessUnits.Remove(bu);
         Touch(budget);
         await _context.SaveChangesAsync();
@@ -530,7 +586,7 @@ public class BudgetsController : ControllerBase
 
         if (adj.BudgetLineId.HasValue)
         {
-            var line = await _context.BudgetLines.FirstOrDefaultAsync(l => l.Id == adj.BudgetLineId.Value);
+            var line = await _context.BudgetLines.FirstOrDefaultAsync(l => l.Id == adj.BudgetLineId.Value && l.BudgetId == id);
             if (line != null)
             {
                 line.ProjectedValue = adj.NewValue;
@@ -538,10 +594,57 @@ public class BudgetsController : ControllerBase
                 line.UpdatedAt = DateTime.UtcNow;
             }
         }
+        else if (adj.PersonnelItemId.HasValue)
+        {
+            var person = await _context.BudgetPersonnelItems.FirstOrDefaultAsync(
+                p => p.Id == adj.PersonnelItemId.Value && p.BudgetId == id);
+            if (person != null && person.Headcount > 0)
+            {
+                // NewValue = anual total; se recalcula el salario mensual por persona
+                // manteniendo prestaciones/auxilios/bonos/extras.
+                var extras = person.Benefits + person.Allowances + person.Bonuses + person.Overtime;
+                var monthlyTarget = adj.NewValue / 12m / person.Headcount;
+                person.MonthlySalary = Math.Max(0, Math.Round(monthlyTarget - extras, 2));
+                person.UpdatedBy = CurrentUser();
+                person.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        var pending = await _context.BudgetAdjustments.AnyAsync(
+            a => a.BudgetId == id && a.Status == "Pendiente" && a.Id != adjId);
+        if (!pending && budget.Status == "En Ajuste")
+            budget.Status = "Aprobado";
 
         Touch(budget);
         await _context.SaveChangesAsync();
         await Audit("APPROVE_BUDGET_ADJUSTMENT", $"Ajuste aprobado en {budget.Code}");
+        return Ok(MapDetail((await LoadBudgetAsync(id))!));
+    }
+
+    [HttpPost("{id:guid}/adjustments/{adjId:guid}/reject")]
+    public async Task<ActionResult> RejectAdjustment(Guid id, Guid adjId, [FromBody] ApprovalRequest request)
+    {
+        var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
+        if (budget == null) return NotFound();
+        var adj = await _context.BudgetAdjustments.FirstOrDefaultAsync(a => a.Id == adjId && a.BudgetId == id);
+        if (adj == null) return NotFound();
+        if (adj.Status != "Pendiente") return BadRequest("El ajuste no esta pendiente.");
+        if (string.IsNullOrWhiteSpace(request.Observations))
+            return BadRequest("El motivo de rechazo es obligatorio.");
+
+        adj.Status = "Rechazado";
+        adj.RejectionReason = request.Observations.Trim();
+        adj.ApprovedBy = CurrentUser();
+        adj.ApprovedAt = DateTime.UtcNow;
+
+        var pending = await _context.BudgetAdjustments.AnyAsync(
+            a => a.BudgetId == id && a.Status == "Pendiente" && a.Id != adjId);
+        if (!pending && budget.Status == "En Ajuste" && budget.GeneralApprovalDate.HasValue)
+            budget.Status = "Aprobado";
+
+        Touch(budget);
+        await _context.SaveChangesAsync();
+        await Audit("REJECT_BUDGET_ADJUSTMENT", $"Ajuste rechazado en {budget.Code}");
         return Ok(MapDetail((await LoadBudgetAsync(id))!));
     }
 
@@ -551,28 +654,40 @@ public class BudgetsController : ControllerBase
         var budget = await LoadBudgetAsync(id);
         if (budget == null) return NotFound();
 
-        decimal Sum(string type, string? category = null)
+        decimal SumLines(string type)
         {
-            var q = budget.Lines.Where(l => l.LineType == type);
+            var q = budget.Lines.Where(l =>
+                l.LineType == type && !BudgetCalculations.IsLaborLineCategory(l.Category));
             if (businessUnitId.HasValue) q = q.Where(l => l.BusinessUnitId == businessUnitId);
-            if (!string.IsNullOrWhiteSpace(category)) q = q.Where(l => l.Category == category);
-            return q.Sum(l => l.ProjectedValue);
+            return q.Sum(l => l.AnnualValue);
         }
 
         var personnelQ = budget.Personnel.AsEnumerable();
         if (businessUnitId.HasValue) personnelQ = personnelQ.Where(p => p.BusinessUnitId == businessUnitId);
-        var personnelTotal = personnelQ.Sum(p => p.AnnualTotal);
+        var personnelList = personnelQ.ToList();
 
-        var income = Sum("Income");
-        var rawMaterial = Sum("RawMaterial");
-        var production = Sum("ProductionCost");
-        var costOfSales = rawMaterial + production;
+        var personnelProduction = personnelList
+            .Where(p => BudgetCalculations.ClassifyPersonnelBucket(p.Category) == "production")
+            .Sum(p => p.AnnualTotal);
+        var personnelSales = personnelList
+            .Where(p => BudgetCalculations.ClassifyPersonnelBucket(p.Category) == "sales")
+            .Sum(p => p.AnnualTotal);
+        var personnelAdmin = personnelList
+            .Where(p => BudgetCalculations.ClassifyPersonnelBucket(p.Category) == "admin")
+            .Sum(p => p.AnnualTotal);
+        var personnelTotal = personnelProduction + personnelSales + personnelAdmin;
+
+        var income = SumLines("Income");
+        var rawMaterial = SumLines("RawMaterial");
+        var production = SumLines("ProductionCost");
+        var costOfSales = rawMaterial + production + personnelProduction;
         var gross = income - costOfSales;
-        var admin = Sum("AdminExpense");
-        var sales = Sum("SalesExpense");
+
+        var admin = SumLines("AdminExpense") + personnelAdmin;
+        var sales = SumLines("SalesExpense") + personnelSales;
         var operatingExpenses = admin + sales;
         var operating = gross - operatingExpenses;
-        var financial = Sum("FinancialExpense");
+        var financial = SumLines("FinancialExpense");
         var beforeTax = operating - financial;
         var net = beforeTax;
 
@@ -587,17 +702,38 @@ public class BudgetsController : ControllerBase
             businessUnitId,
             generatedAt = DateTime.UtcNow,
             generatedBy = CurrentUser(),
+            note = "Valores anualizados. La nómina de la pestaña Personal se clasifica por categoría (producción / ventas / admin) y no se duplica con rubros 'Personal*' o 'Mano de Obra' en líneas.",
             incomeOperational = income,
-            costOfSales = new { rawMaterial, production, total = costOfSales },
+            costOfSales = new
+            {
+                rawMaterial,
+                production,
+                personnel = personnelProduction,
+                total = costOfSales
+            },
             grossProfit = gross,
             grossMargin = income == 0 ? 0 : Math.Round(gross / income * 100, 2),
-            operatingExpenses = new { admin, sales, personnel = personnelTotal, total = operatingExpenses + personnelTotal },
-            operatingProfit = operating - personnelTotal,
-            operatingMargin = income == 0 ? 0 : Math.Round((operating - personnelTotal) / income * 100, 2),
+            operatingExpenses = new
+            {
+                admin,
+                sales,
+                personnelAdmin,
+                personnelSales,
+                total = operatingExpenses
+            },
+            operatingProfit = operating,
+            operatingMargin = income == 0 ? 0 : Math.Round(operating / income * 100, 2),
             financialExpenses = financial,
-            profitBeforeTax = beforeTax - personnelTotal,
-            netProfit = net - personnelTotal,
-            netMargin = income == 0 ? 0 : Math.Round((net - personnelTotal) / income * 100, 2)
+            profitBeforeTax = beforeTax,
+            netProfit = net,
+            netMargin = income == 0 ? 0 : Math.Round(net / income * 100, 2),
+            personnelBreakdown = new
+            {
+                production = personnelProduction,
+                sales = personnelSales,
+                admin = personnelAdmin,
+                total = personnelTotal
+            }
         });
     }
 
@@ -607,12 +743,13 @@ public class BudgetsController : ControllerBase
         var budget = await LoadBudgetAsync(id);
         if (budget == null) return NotFound();
 
-        var lines = budget.Lines.Where(l => l.LineType != "Income");
+        var lines = budget.Lines.Where(l =>
+            l.LineType != "Income" && !BudgetCalculations.IsLaborLineCategory(l.Category));
         if (businessUnitId.HasValue) lines = lines.Where(l => l.BusinessUnitId == businessUnitId);
 
         var byCategory = lines
             .GroupBy(l => new { l.LineType, l.Category })
-            .Select(g => new { g.Key.LineType, g.Key.Category, total = g.Sum(x => x.ProjectedValue) })
+            .Select(g => new { g.Key.LineType, g.Key.Category, total = g.Sum(x => x.AnnualValue) })
             .OrderByDescending(x => x.total)
             .ToList();
 
@@ -698,13 +835,17 @@ public class BudgetsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Category)) return "La categoria es obligatoria.";
         if (request.Category.Trim().Length > 150) return "La categoria no puede superar 150 caracteres.";
         if (string.IsNullOrWhiteSpace(request.Concept)) return "El concepto es obligatorio.";
-        if (request.ProjectedValue <= 0 && lineType != "RawMaterial")
-            return "El valor proyectado debe ser mayor a cero.";
+
+        var effectiveValue = request.ProjectedValue;
         if (lineType == "RawMaterial")
         {
             if ((request.Quantity ?? 0) <= 0 || (request.UnitCost ?? 0) <= 0)
                 return "Cantidad y costo unitario deben ser mayores a cero.";
+            effectiveValue = Math.Round(request.Quantity!.Value * request.UnitCost!.Value, 2);
         }
+
+        if (effectiveValue <= 0)
+            return "El valor proyectado debe ser mayor a cero.";
         if (!string.IsNullOrWhiteSpace(request.Frequency) && !ValidFrequencies.Contains(request.Frequency))
             return "Frecuencia invalida.";
         return null;
@@ -750,8 +891,10 @@ public class BudgetsController : ControllerBase
 
     private static object MapDetail(Budget budget)
     {
-        var income = budget.Lines.Where(l => l.LineType == "Income").Sum(l => l.ProjectedValue);
-        var costs = budget.Lines.Where(l => l.LineType != "Income").Sum(l => l.ProjectedValue);
+        var income = budget.Lines.Where(l => l.LineType == "Income").Sum(l => l.AnnualValue);
+        var costs = budget.Lines
+            .Where(l => l.LineType != "Income" && !BudgetCalculations.IsLaborLineCategory(l.Category))
+            .Sum(l => l.AnnualValue);
         var personnel = budget.Personnel.Sum(p => p.AnnualTotal);
 
         return new
@@ -805,7 +948,10 @@ public class BudgetsController : ControllerBase
 
     private static object MapLine(BudgetLine l) => new
     {
-        l.Id, l.BusinessUnitId, l.LineType, l.Category, l.Concept, l.Description, l.ProjectedValue,
+        l.Id, l.BusinessUnitId, l.LineType, l.Category, l.Concept, l.Description,
+        l.ProjectedValue,
+        annualValue = l.AnnualValue,
+        frequencyFactor = BudgetCalculations.FrequencyFactor(l.Frequency),
         l.Frequency, l.CostCenter, l.Code, l.UnitOfMeasure, l.Provider, l.Quantity, l.UnitCost,
         l.Currency, l.ExternalReference, l.FinancialEntity, l.Observations, l.IsApproved,
         l.CreatedBy, l.CreatedAt, l.UpdatedBy, l.UpdatedAt
