@@ -1,4 +1,4 @@
-# Manual Perla
+# Table of contents
 
 * [Introducción](README.md)
 
@@ -7,7 +7,7 @@
 * [Qué es Perla](introduccion/que-es-perlax.md)
 * [Flujo del negocio](introduccion/flujo-del-negocio.md)
 * [Acceso al sistema](introduccion/acceso-al-sistema.md)
-* [Roles del sistema](roles-del-sistema.md)
+* [Roles del sistema](introduccion/roles-del-sistema.md)
 
 ## Flujo principal
 
@@ -25,16 +25,16 @@
 
 ## Operaciones de apoyo
 
-* [Compras y Almacén](operaciones-apoyo/compras-almacen.md)
-* [Calidad](operaciones-apoyo/calidad.md)
-* [Inventario PT](operaciones-apoyo/inventario-pt.md)
-* [Cuadro Master](operaciones-apoyo/cuadro-master.md)
-* [Chat interno](operaciones-apoyo/chat-interno.md)
-* [Informes de gestión](operaciones-apoyo/informes-gestion.md)
+* [Compras y Almacén](operaciones-de-apoyo/compras-almacen.md)
+* [Calidad](operaciones-de-apoyo/calidad.md)
+* [Inventario PT](operaciones-de-apoyo/inventario-pt.md)
+* [Cuadro Master](operaciones-de-apoyo/cuadro-master.md)
+* [Chat interno](operaciones-de-apoyo/chat-interno.md)
+* [Informes de gestión](operaciones-de-apoyo/informes-gestion.md)
 
 ## Gastos por área
 
-* [Introducción](gastos-por-area/README.md)
+* [Introducción](gastos-por-area/gastos-por-area.md)
 * [Diseño — cuadro de gastos](gastos-por-area/diseno.md)
 * [Planeador de Diseño](gastos-por-area/planeador-diseno.md)
 * [Producción — control de gastos](gastos-por-area/produccion.md)

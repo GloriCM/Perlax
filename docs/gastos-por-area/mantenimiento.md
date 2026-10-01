@@ -1,26 +1,26 @@
-# Gastos — Mantenimiento de maquinaria
+# Mantenimiento
 
 **Menu:** Administracion -> Mantenimiento Maquinaria
 
 ## Hojas de vida
 
-| Pantalla | URL |
-|----------|-----|
-| Hojas de vida | `/mantenimiento/hojas-vida-maquinaria/hojas-de-vida` |
-| Cronogramas | `/mantenimiento/hojas-vida-maquinaria/cronogramas` |
-| Tickets de dano | `/mantenimiento/hojas-vida-maquinaria/tickets-dano` |
-| Mantenimientos | `/mantenimiento/hojas-vida-maquinaria/mantenimientos` |
+| Pantalla        | URL                                                   |
+| --------------- | ----------------------------------------------------- |
+| Hojas de vida   | `/mantenimiento/hojas-vida-maquinaria/hojas-de-vida`  |
+| Cronogramas     | `/mantenimiento/hojas-vida-maquinaria/cronogramas`    |
+| Tickets de dano | `/mantenimiento/hojas-vida-maquinaria/tickets-dano`   |
+| Mantenimientos  | `/mantenimiento/hojas-vida-maquinaria/mantenimientos` |
 
 ## Gastos de mantenimiento
 
-| Pantalla | URL |
-|----------|-----|
-| Captura | `/mantenimiento/gastos/captura` |
-| Graficas | `/mantenimiento/gastos/graficas` |
-| Rubros | `/mantenimiento/gastos/rubros` |
-| Productos | `/mantenimiento/gastos/productos` |
+| Pantalla     | URL                                  |
+| ------------ | ------------------------------------ |
+| Captura      | `/mantenimiento/gastos/captura`      |
+| Graficas     | `/mantenimiento/gastos/graficas`     |
+| Rubros       | `/mantenimiento/gastos/rubros`       |
+| Productos    | `/mantenimiento/gastos/productos`    |
 | Cotizaciones | `/mantenimiento/gastos/cotizaciones` |
-| Proveedores | `/mantenimiento/gastos/proveedores` |
+| Proveedores  | `/mantenimiento/gastos/proveedores`  |
 
 ## Inventario mantenimiento
 
@@ -30,4 +30,4 @@
 
 Codigo de actividad **Mantenimiento** en `/planta` registra tiempo de maquina parada; gastos monetarios se capturan aqui.
 
-Ver [Gastos por area](README.md).
+Ver [Gastos por area](gastos-por-area.md).

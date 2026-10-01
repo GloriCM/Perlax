@@ -1,4 +1,4 @@
-# Gastos — Produccion (control de gastos)
+# Producción — control de gastos
 
 **Menu:** Administracion -> Produccion -> Control de Gastos
 
@@ -8,21 +8,21 @@ Registrar y analizar **gastos del area de produccion** (distinto del flujo del p
 
 ## Pantallas
 
-| Pantalla | URL |
-|----------|-----|
-| Captura | `/gastos/control/captura` |
-| Graficas | `/gastos/control/graficas` |
-| Rubros | `/gastos/control/rubros` |
+| Pantalla     | URL                            |
+| ------------ | ------------------------------ |
+| Captura      | `/gastos/control/captura`      |
+| Graficas     | `/gastos/control/graficas`     |
+| Rubros       | `/gastos/control/rubros`       |
 | Cotizaciones | `/gastos/control/cotizaciones` |
-| Proveedores | `/gastos/control/proveedores` |
+| Proveedores  | `/gastos/control/proveedores`  |
 
 ## Control de personal (mismo menu Produccion)
 
-| Pantalla | URL |
-|----------|-----|
+| Pantalla    | URL                            |
+| ----------- | ------------------------------ |
 | Horas extra | `/gastos/personal/horas-extra` |
-| Recargo | `/gastos/personal/recargo` |
-| Salarios | `/gastos/personal/salarios` |
+| Recargo     | `/gastos/personal/recargo`     |
+| Salarios    | `/gastos/personal/salarios`    |
 
 ## Flujo tipico — captura
 
@@ -37,5 +37,5 @@ Este cuadro **no descuenta inventario de Compras & Almacen** automaticamente; es
 
 ## Siguiente lectura
 
-- [Gastos por area](README.md)
-- [Compras y Almacen](../operaciones-apoyo/compras-almacen.md)
+* [Gastos por area](gastos-por-area.md)
+* [Compras y Almacen](../operaciones-de-apoyo/compras-almacen.md)

@@ -1,7 +1,6 @@
 # Remisiones
 
-**Estado:** Operativo
-**Menu:** Operaciones -> Remisiones
+**Estado:** Operativo **Menu:** Operaciones -> Remisiones
 
 ## Para que sirve?
 
@@ -9,8 +8,8 @@ Documentar la **salida de producto** terminado hacia el cliente despues de produ
 
 ## URLs
 
-- `/remisiones/nueva` — Nueva remision (o editar `/remisiones/nueva/:id`)
-- `/remisiones/informe` — Informe, transporte y acceso a edicion
+* `/remisiones/nueva` — Nueva remision (o editar `/remisiones/nueva/:id`)
+* `/remisiones/informe` — Informe, transporte y acceso a edicion
 
 ## Flujo
 
@@ -22,6 +21,6 @@ Documentar la **salida de producto** terminado hacia el cliente despues de produ
 
 ## Siguiente lectura
 
-- [Pedidos de cliente](pedidos-cliente.md)
-- [Facturacion](facturacion.md)
-- [Inventario PT](../operaciones-apoyo/inventario-pt.md)
+* [Pedidos de cliente](pedidos-cliente.md)
+* [Facturacion](facturacion.md)
+* [Inventario PT](../operaciones-de-apoyo/inventario-pt.md)

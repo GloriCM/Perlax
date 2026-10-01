@@ -1,15 +1,15 @@
-# Diseño
+# Diseño — cuadro de gastos
 
 **Menu:** Administracion -> Diseño
 
 ## Modulos
 
-| Modulo | URL | Estado |
-|--------|-----|--------|
+| Modulo                  | URL                 | Estado                            |
+| ----------------------- | ------------------- | --------------------------------- |
 | **Planeador de Diseño** | `/diseno/planeador` | En produccion — ver guia completa |
-| Cuadro de gastos | `/diseno/gastos/*` | Captura por area |
+| Cuadro de gastos        | `/diseno/gastos/*`  | Captura por area                  |
 
----
+***
 
 ## Planeador de Diseño
 
@@ -26,16 +26,16 @@ Resumen rapido:
 3. Semaforo: rojo critico (+15 dias), naranja sin novedades, amarillo con novedades, verde con fecha de aprobacion.
 4. Admin puede eliminar trabajos errados con la herramienta oculta del detalle.
 
----
+***
 
 ## Cuadro de gastos de diseño
 
 Misma logica que otras areas: **Captura**, **Graficas**, **Rubros**, **Cotizaciones**, **Proveedores**.
 
-Ver [Gastos por area](README.md).
+Ver [Gastos por area](gastos-por-area.md).
 
 ## Siguiente lectura
 
-- [Planeador de Diseño](planeador-diseno.md)
-- [Ordenes de trabajo](../flujo-principal/ordenes-trabajo.md)
-- [Cotizador](../flujo-principal/cotizador.md)
+* [Planeador de Diseño](planeador-diseno.md)
+* [Ordenes de trabajo](../flujo-principal/ordenes-trabajo.md)
+* [Cotizador](../flujo-principal/cotizador.md)
