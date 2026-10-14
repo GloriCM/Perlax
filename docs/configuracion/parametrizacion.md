@@ -1,7 +1,7 @@
 # Parametrización / Ajustes
 
-**Estado:** Operativo  
-**Menu:** Configuración → Ajustes  
+**Estado:** Operativo\
+**Menu:** Configuración → Ajustes\
 **URL:** `/ajustes`
 
 ## Para qué sirve?
@@ -10,14 +10,14 @@
 
 ## Enlaces del panel
 
-| Destino | URL | Uso |
-|---------|-----|-----|
-| Usuarios y roles | `/configuracion/usuarios` | Áreas, roles, matriz de vistas |
-| Auditoría | `/admin/auditoria` | Bitácora |
-| Catálogos del cotizador | `/ajustes/cotizador-catalogos` | Máquinas, materiales, factores |
-| Clientes | `/clientes` | Maestro canónico; OT/pedidos/OP enlazan por CustomerId |
-| Proveedores | `/compras/pedidos` | Maestros de compras |
-| Informes de gestión | `/informes` | Consultas gerenciales |
+| Destino                 | URL                            | Uso                                                    |
+| ----------------------- | ------------------------------ | ------------------------------------------------------ |
+| Usuarios y roles        | `/configuracion/usuarios`      | Áreas, roles, matriz de vistas                         |
+| Auditoría               | `/admin/auditoria`             | Bitácora                                               |
+| Catálogos del cotizador | `/ajustes/cotizador-catalogos` | Máquinas, materiales, factores                         |
+| Clientes                | `/clientes`                    | Maestro canónico; OT/pedidos/OP enlazan por CustomerId |
+| Proveedores             | `/compras/pedidos`             | Maestros de compras                                    |
+| Informes de gestión     | `/informes`                    | Consultas gerenciales                                  |
 
 ## Qué no incluye
 
@@ -25,6 +25,6 @@ Copias de seguridad del servidor o de la base de datos son tarea de **infraestru
 
 ## Siguiente lectura
 
-- [Usuarios y permisos](usuarios.md)
-- [Informes de gestión](../operaciones-apoyo/informes-gestion.md)
-- [Cotizador](../flujo-principal/cotizador.md)
+* [Usuarios y permisos](usuarios.md)
+* [Informes de gestión](../operaciones-de-apoyo/informes-gestion.md)
+* [Cotizador](../flujo-principal/cotizador.md)

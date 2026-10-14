@@ -1,8 +1,6 @@
 # Usuarios y permisos
 
-**Estado:** En produccion
-**Menu:** Configuracion -> Usuarios
-**URL:** `/configuracion/usuarios`
+**Estado:** En produccion **Menu:** Configuracion -> Usuarios **URL:** `/configuracion/usuarios`
 
 ## Para que sirve?
 
@@ -16,30 +14,30 @@ Solo usuarios con rol **Administrador**.
 
 Columnas: Nombre, Login, Correo, Rol, Estado, Area, Permisos.
 
-| Accion | Descripcion |
-|--------|-------------|
-| Editar | Modificar datos y permisos |
+| Accion                 | Descripcion                        |
+| ---------------------- | ---------------------------------- |
+| Editar                 | Modificar datos y permisos         |
 | Desactivar / Reactivar | Bloquea login sin borrar historial |
-| Nuevo usuario | Alta completa |
+| Nuevo usuario          | Alta completa                      |
 
 ## Crear usuario
 
 ### Datos basicos
 
-- Nombre, apellido, documento
-- Usuario (login), correo, contrasena
-- Area (administrativos), salario si aplica
+* Nombre, apellido, documento
+* Usuario (login), correo, contrasena
+* Area (administrativos), salario si aplica
 
 ### Rol
 
-| Rol | Comportamiento |
-|-----|----------------|
-| **Administrador** | Acceso total. **Sin horas extras.** |
-| **Administrativo** | Solo vistas marcadas en matriz |
-| **Operario (planta)** | Solo `/planta`. Extras en Producción |
-| **Auxiliar** | Personal de producción. No aparece en `/planta`. Extras en Producción |
-| **Almacén** | Personal de Planeación. Extras en Gastos de Planeación |
-| **Taller** | Personal de Talleres. Puede tener **vistas** ERP. Con vistas: chat. Extras en Talleres |
+| Rol                   | Comportamiento                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| **Administrador**     | Acceso total. **Sin horas extras.**                                                    |
+| **Administrativo**    | Solo vistas marcadas en matriz                                                         |
+| **Operario (planta)** | Solo `/planta`. Extras en Producción                                                   |
+| **Auxiliar**          | Personal de producción. No aparece en `/planta`. Extras en Producción                  |
+| **Almacén**           | Personal de Planeación. Extras en Gastos de Planeación                                 |
+| **Taller**            | Personal de Talleres. Puede tener **vistas** ERP. Con vistas: chat. Extras en Talleres |
 
 ### Permisos (Administrativo y Taller)
 
@@ -54,9 +52,9 @@ Columnas: Nombre, Login, Correo, Rol, Estado, Area, Permisos.
 
 Rol **Operario (planta)**:
 
-- Aparecen en selector de `/planta`
-- Aparecen en Reporte diario
-- **No** acceden al menu ERP
+* Aparecen en selector de `/planta`
+* Aparecen en Reporte diario
+* **No** acceden al menu ERP
 
 ## Desactivar vs eliminar
 
@@ -70,5 +68,5 @@ Al editar, deje contrasena vacia para no cambiarla, o ingrese nueva (usuario deb
 
 ## Siguiente lectura
 
-- [Roles del sistema](../roles-del-sistema.md)
-- [Vista de planta](../flujo-principal/planta.md)
+* [Roles del sistema](../introduccion/roles-del-sistema.md)
+* [Vista de planta](../flujo-principal/planta.md)

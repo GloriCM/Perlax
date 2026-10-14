@@ -1,17 +1,17 @@
-# Gastos — Gestion Humana
+# Gestión Humana
 
 **Menu:** Administracion -> Gestion Humana -> Cuadro de Gastos
 
 ## Pantallas
 
-| Pantalla | URL |
-|----------|-----|
-| Captura | `/gestion-humana/gastos/captura` |
-| Cotizaciones | `/gestion-humana/gastos/cotizaciones` |
-| Graficas | `/gestion-humana/gastos/graficas` |
-| Rubros | `/gestion-humana/gastos/rubros` |
-| Tipos de servicios | `/gestion-humana/gastos/servicios` |
-| Proveedores | `/gestion-humana/gastos/proveedores` |
+| Pantalla           | URL                                   |
+| ------------------ | ------------------------------------- |
+| Captura            | `/gestion-humana/gastos/captura`      |
+| Cotizaciones       | `/gestion-humana/gastos/cotizaciones` |
+| Graficas           | `/gestion-humana/gastos/graficas`     |
+| Rubros             | `/gestion-humana/gastos/rubros`       |
+| Tipos de servicios | `/gestion-humana/gastos/servicios`    |
+| Proveedores        | `/gestion-humana/gastos/proveedores`  |
 
 ## Para que sirve?
 
@@ -19,4 +19,4 @@ Egresos del area de **recursos humanos**: servicios, arreglos, utilities del are
 
 Proceso **independiente** del flujo comercial del pedido.
 
-Ver [Gastos por area](README.md) y [Presupuestos](../flujo-principal/presupuestos.md).
+Ver [Gastos por area](gastos-por-area.md) y [Presupuestos](../flujo-principal/presupuestos.md).

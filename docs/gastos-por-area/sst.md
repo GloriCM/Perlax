@@ -1,17 +1,17 @@
-# Gastos — SST (Seguridad y Salud en el Trabajo)
+# SST
 
 **Menu:** Administracion -> SST
 
 ## Cuadro de gastos
 
-| Pantalla | URL |
-|----------|-----|
-| Captura | `/sst/gastos/captura` |
-| Cotizaciones | `/sst/gastos/cotizaciones` |
-| Graficas | `/sst/gastos/graficas` |
-| Rubros | `/sst/gastos/rubros` |
-| Tipos de servicios | `/sst/gastos/servicios` |
-| Proveedores | `/sst/gastos/proveedores` |
+| Pantalla           | URL                        |
+| ------------------ | -------------------------- |
+| Captura            | `/sst/gastos/captura`      |
+| Cotizaciones       | `/sst/gastos/cotizaciones` |
+| Graficas           | `/sst/gastos/graficas`     |
+| Rubros             | `/sst/gastos/rubros`       |
+| Tipos de servicios | `/sst/gastos/servicios`    |
+| Proveedores        | `/sst/gastos/proveedores`  |
 
 ## Orden y aseo
 
@@ -21,4 +21,4 @@
 
 Capacitaciones, señalizacion, riesgo psicosocial, elementos de proteccion (segun presupuesto SST).
 
-Ver [Gastos por area](README.md).
+Ver [Gastos por area](gastos-por-area.md).
