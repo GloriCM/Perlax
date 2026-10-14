@@ -184,6 +184,126 @@ public sealed class InventoryConsumptionService : IInventoryConsumptionService
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task<decimal> GetAvailableByNameAsync(string productName, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(productName))
+            return 0;
+
+        var key = productName.Trim().ToLower();
+        var movs = await _db.WarehouseStockMovements.AsNoTracking()
+            .Where(m => m.ProductName.ToLower() == key)
+            .ToListAsync(ct);
+        var purchased = movs.Where(x => x.MovementType == "Entrada").Sum(x => x.Quantity);
+        var consumed = movs.Where(x => x.MovementType == "Salida").Sum(x => x.Quantity);
+        return purchased - consumed;
+    }
+
+    public async Task<decimal> ConsumeUpToAsync(
+        Guid manufacturingOrderId,
+        string opNumber,
+        Guid? productId,
+        string productName,
+        decimal quantity,
+        string unit,
+        decimal unitCost,
+        string userName,
+        CancellationToken ct = default)
+    {
+        if (quantity <= 0 || string.IsNullOrWhiteSpace(productName))
+            return 0;
+
+        var mo = await _db.ManufacturingOrders.FirstOrDefaultAsync(m => m.Id == manufacturingOrderId, ct)
+            ?? throw new KeyNotFoundException("OP no encontrada.");
+        if (mo.OpeningDate == null)
+            throw new InvalidOperationException("Abra la orden antes de tomar material de bodega.");
+        if (mo.ClosedAt != null)
+            throw new InvalidOperationException("La orden está cerrada.");
+
+        var key = productName.Trim().ToLower();
+        await AdvisoryLock.AcquireAsync(_db, key, 0, ct);
+        var locked = await _db.WarehouseStockMovements
+            .Where(m => m.ProductName.ToLower() == key)
+            .ToListAsync(ct);
+
+        var net = locked.Where(x => x.MovementType == "Entrada").Sum(x => x.Quantity)
+            - locked.Where(x => x.MovementType == "Salida").Sum(x => x.Quantity);
+        var remaining = Math.Min(quantity, Math.Max(0, net));
+        if (remaining <= 0)
+            return 0;
+
+        var buckets = locked
+            .GroupBy(m => m.ProductId)
+            .Select(g => new
+            {
+                ProductId = g.Key,
+                Name = g.Select(x => x.ProductName).FirstOrDefault() ?? productName.Trim(),
+                Available = g.Where(x => x.MovementType == "Entrada").Sum(x => x.Quantity)
+                    - g.Where(x => x.MovementType == "Salida").Sum(x => x.Quantity),
+                LastCost = g.OrderByDescending(x => x.MovementDate).Select(x => x.UnitCost).FirstOrDefault()
+            })
+            .Where(b => b.Available > 0)
+            .OrderByDescending(b => b.ProductId == productId)
+            .ToList();
+
+        var year = DateTime.UtcNow.Year;
+        var prefix = $"AP-{year}-";
+        var last = await _db.InventoryConsumptions
+            .Where(x => x.ApplicationNumber.StartsWith(prefix))
+            .OrderByDescending(x => x.ApplicationNumber)
+            .Select(x => x.ApplicationNumber)
+            .FirstOrDefaultAsync(ct);
+        var next = 1;
+        if (!string.IsNullOrEmpty(last) && int.TryParse(last.AsSpan(prefix.Length), out var n))
+            next = n + 1;
+
+        var taken = 0m;
+        var normalizedUnit = string.IsNullOrWhiteSpace(unit) ? "UND" : unit.Trim();
+        foreach (var bucket in buckets)
+        {
+            if (remaining <= 0)
+                break;
+            var slice = Math.Min(remaining, bucket.Available);
+            var row = new InventoryConsumption
+            {
+                Id = Guid.NewGuid(),
+                ApplicationNumber = $"{prefix}{next:D5}",
+                ManufacturingOrderId = mo.Id,
+                OpNumber = string.IsNullOrWhiteSpace(opNumber) ? mo.OpNumber : opNumber,
+                ProductId = bucket.ProductId,
+                ProductName = bucket.Name,
+                Quantity = slice,
+                Unit = normalizedUnit,
+                UnitCost = bucket.LastCost > 0 ? bucket.LastCost : Math.Max(0, unitCost),
+                DeliveredTo = "Bodega",
+                ApplicationDate = DateTime.UtcNow,
+                Notes = "Toma de inventario al solicitar material de la OP.",
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userName
+            };
+            _db.InventoryConsumptions.Add(row);
+            _db.WarehouseStockMovements.Add(new WarehouseStockMovement
+            {
+                Id = Guid.NewGuid(),
+                ProductId = row.ProductId,
+                ProductName = row.ProductName,
+                MovementType = "Salida",
+                Quantity = slice,
+                UnitCost = row.UnitCost,
+                Reference = row.ApplicationNumber,
+                ManufacturingOrderId = mo.Id,
+                ConsumptionId = row.Id,
+                MovementDate = row.ApplicationDate,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userName
+            });
+            taken += slice;
+            remaining -= slice;
+            next++;
+        }
+
+        return taken;
+    }
+
     private async Task<ManufacturingOrder> ValidateCommandAsync(SaveConsumptionCommand command, CancellationToken ct)
     {
         if (command.Quantity <= 0)

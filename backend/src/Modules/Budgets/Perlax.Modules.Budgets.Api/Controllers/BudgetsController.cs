@@ -161,6 +161,20 @@ public class BudgetsController : ControllerBase
         return Ok(MapDetail((await LoadBudgetAsync(id))!));
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var budget = await _context.Budgets.FirstOrDefaultAsync(b => b.Id == id);
+        if (budget == null) return NotFound();
+
+        var code = budget.Code;
+        var company = budget.Company;
+        _context.Budgets.Remove(budget);
+        await _context.SaveChangesAsync();
+        await Audit("DELETE_BUDGET", $"Presupuesto {code} de {company} eliminado");
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/duplicate")]
     public async Task<ActionResult> Duplicate(Guid id, [FromBody] DuplicateBudgetRequest request)
     {

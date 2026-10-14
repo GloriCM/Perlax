@@ -9,137 +9,158 @@ namespace Perlax.Modules.Production.Api.Controllers;
 /// <summary>HTML imprimible estilo hoja Formato_Impresion del Excel Elliot.</summary>
 internal static class CotizadorPdfHtml
 {
-    public static string BuildPropuesta(Quotation q, string tier, string? assetBase = null) => BuildCliente(q, tier, assetBase);
+    public static string BuildPropuesta(Quotation q, string tier, string? assetBase = null)
+    {
+        _ = assetBase;
+        return BuildCliente(q, tier);
+    }
     public static string BuildProduccion(Quotation q) => Build(q, "Hoja de producción", null, produccion: true);
 
-    /// <summary>Documento para el cliente: un solo precio, sin costos ni nombres internos de margen.</summary>
-    private static string BuildCliente(Quotation q, string tier, string? assetBase)
+    /// <summary>Cotización al cliente con el formato de nota: membrete, datos, tabla de valores, IVA y firmas.</summary>
+    private static string BuildCliente(Quotation q, string tier)
     {
         var calc = TryParseCalc(q.CalculationResultJson);
         var pieces = ExtractClientPieces(q.FormDataJson, q.PartName);
         var processes = ExtractProcesses(q.FormDataJson);
-        var plazo = ExtractPlazo(q.FormDataJson);
+        var incluyeIva = ExtractIncluyeIva(q.FormDataJson);
+        var observaciones = ExtractObservaciones(q.FormDataJson);
+        var condicionesPago = ExtractCondicionesPago(q.FormDataJson);
         var co = CultureInfo.GetCultureInfo("es-CO");
+        var results = calc?.Results ?? new List<CotizadorQuantityResult>();
+        var primary = results.FirstOrDefault(r => r.IsPrimary) ?? results.FirstOrDefault();
+        var descripcion = BuildDescripcion(q, pieces, processes);
         var sb = new StringBuilder();
+
         sb.Append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Cotización ")
           .Append(Esc(q.QuoteNumber))
           .Append("</title><style>")
-          .Append("body{font-family:Segoe UI,Arial,sans-serif;margin:28px;color:#1a1a1a;background:#fff;line-height:1.45}")
-          .Append(".letterhead{width:100%;border-collapse:collapse;border:none;border-bottom:3px solid #0f3d5c;margin:0 0 18px}")
-          .Append(".letterhead td{border:none;vertical-align:middle;padding:0 0 14px 0}")
-          .Append(".logo-wrap{width:200px;height:88px;display:flex;align-items:center}")
-          .Append(".letterhead img{height:84px;width:auto;max-width:200px;object-fit:contain;display:block}")
-          .Append(".logo-fallback{display:none;font-size:22px;font-weight:800;color:#0f3d5c;letter-spacing:.04em;line-height:1}")
-          .Append(".logo-fallback small{display:block;font-size:11px;font-weight:600;letter-spacing:.14em;color:#5b6b76}")
-          .Append(".company{font-size:12.5px;color:#24323c;line-height:1.45;padding-left:8px}")
-          .Append(".company strong{display:block;font-size:16px;color:#0f3d5c;letter-spacing:.01em}")
-          .Append(".docbox{text-align:right;border:2px solid #0f3d5c;padding:10px 14px;min-width:180px}")
-          .Append(".docbox .kind{font-size:11px;letter-spacing:.14em;color:#0f3d5c;font-weight:700}")
-          .Append(".docbox .num{font-size:20px;font-weight:800;color:#0f3d5c;margin:4px 0 2px}")
-          .Append(".docbox .meta-line{font-size:12px;color:#24323c}")
-          .Append("h1{font-size:22px;margin:0;color:#0f3d5c}")
-          .Append("h2{font-size:15px;margin:22px 0 8px;color:#0f3d5c}")
-          .Append(".lead{font-size:15px;margin:14px 0}")
-          .Append(".meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 28px;margin:8px 0 4px;font-size:13px}")
-          .Append("table{border-collapse:collapse;width:100%;margin:8px 0}")
-          .Append("th,td{border:1px solid #d5dde3;padding:8px 10px;font-size:13px;text-align:left}")
-          .Append("th{background:#eef4f8}")
+          .Append("@page{size:letter portrait;margin:12mm}")
+          .Append("body{font-family:Arial,Helvetica,sans-serif;margin:16px auto;color:#000;background:#fff;font-size:12px;max-width:190mm}")
+          .Append("table{border-collapse:collapse;width:100%}")
+          .Append(".head td{border:2px solid #000;vertical-align:middle}")
+          .Append(".logo{width:150px;text-align:center;padding:8px 6px}")
+          .Append(".logo img{height:58px;width:auto;max-width:140px;object-fit:contain}")
+          .Append(".title{text-align:center;font-size:18px;font-weight:700;letter-spacing:.08em;line-height:1.25}")
+          .Append(".meta{width:210px;padding:0}")
+          .Append(".meta table td{border:none;border-bottom:1px solid #000;padding:3px 8px;font-size:11px}")
+          .Append(".meta table tr:last-child td{border-bottom:none}")
+          .Append(".datos{margin-top:14px;line-height:1.55}")
+          .Append(".datos b{display:inline-block;min-width:168px}")
+          .Append(".pago{display:inline-block;border:2px solid #000;min-width:220px;text-align:center;font-weight:700;padding:2px 8px}")
+          .Append(".tipo{margin-top:6px}")
+          .Append(".tipo span{display:inline-block;border:2px solid #000;font-weight:700;padding:2px 16px;letter-spacing:.04em}")
+          .Append(".grid{margin-top:12px}")
+          .Append(".grid th,.grid td{border:1px solid #000;padding:5px 6px;font-size:11px}")
+          .Append(".grid th{text-align:center;font-weight:700}")
           .Append(".right{text-align:right}")
-          .Append(".main{background:#f3f8fc;font-weight:600}")
-          .Append(".box{background:#f7fafc;border:1px solid #d5dde3;border-radius:8px;padding:12px 14px;font-size:13px}")
-          .Append("ul{margin:6px 0 0;padding-left:18px}")
-          .Append(".foot{margin-top:28px;font-size:12px;color:#555}")
-          .Append(".toolbar{display:flex;gap:8px;margin:0 0 16px}")
-          .Append(".toolbar button{padding:8px 14px;border:1px solid #0f3d5c;background:#0f3d5c;color:#fff;border-radius:6px;cursor:pointer;font-size:13px}")
-          .Append(".toolbar button.secondary{background:#fff;color:#0f3d5c}")
-          .Append("@media print{body{margin:12px}.toolbar{display:none!important}}")
+          .Append(".center{text-align:center}")
+          .Append(".ref{font-weight:700}")
+          .Append(".tot td{font-weight:700}")
+          .Append(".notes{margin-top:12px}")
+          .Append(".notes td{border:none;padding:4px 0;vertical-align:top}")
+          .Append(".firmas{margin-top:36px}")
+          .Append(".firmas td{border:none;width:50%;font-weight:700;padding-top:8px}")
+          .Append(".linea{display:inline-block;border-bottom:1px solid #000;width:80%;max-width:220px;height:18px}")
+          .Append(".toolbar{display:flex;gap:8px;margin:0 0 12px}")
+          .Append(".toolbar button{padding:8px 14px;border:1px solid #000;background:#000;color:#fff;cursor:pointer;font-size:13px}")
+          .Append(".toolbar button.secondary{background:#fff;color:#000}")
+          .Append("@media print{.toolbar{display:none!important}body{margin:0}}")
           .Append("</style></head><body>");
+
         sb.Append("<div class=\"toolbar\"><button type=\"button\" onclick=\"window.print()\">Imprimir / Guardar PDF</button>")
           .Append("<button type=\"button\" class=\"secondary\" onclick=\"window.close()\">Cerrar</button></div>");
 
-        sb.Append("<table class=\"letterhead\"><tr>");
-        sb.Append("<td style=\"width:210px\"><div class=\"logo-wrap\">")
-          .Append("<img id=\"co-logo\" alt=\"Aleph Impresores\" />")
-          .Append("<div id=\"co-logo-fallback\" class=\"logo-fallback\">ALEPH<small>IMPRESORES</small></div>")
-          .Append("</div></td>");
-        sb.Append("<td><div class=\"company\"><strong>Aleph Impresores S.A.S.</strong>")
-          .Append("NIT 901.442.622-6<br>")
-          .Append("Carrera 1 #43-76<br>")
-          .Append("Cali, Valle del Cauca<br>")
-          .Append("Tel. 302 829 5169</div></td>");
-        sb.Append("<td style=\"width:200px\"><div class=\"docbox\"><div class=\"kind\">COTIZACIÓN</div>")
-          .Append("<div class=\"num\">No. ").Append(Esc(q.QuoteNumber)).Append("</div>")
-          .Append("<div class=\"meta-line\">Fecha ").Append(q.RequestDate.ToString("dd/MM/yyyy")).Append("</div>")
-          .Append("</div></td>");
+        sb.Append("<table class=\"head\"><tr>");
+        sb.Append("<td class=\"logo\"><img alt=\"Aleph Impresores\" src=\"").Append(LogoDataUri()).Append("\" /></td>");
+        sb.Append("<td class=\"title\">COTIZACIÓN</td>");
+        sb.Append("<td class=\"meta\"><table>");
+        sb.Append("<tr><td><b>No.</b> ").Append(Esc(q.QuoteNumber)).Append("</td></tr>");
+        sb.Append("<tr><td><b>Fecha</b> ").Append(q.RequestDate.ToString("dd/MM/yyyy")).Append("</td></tr>");
+        sb.Append("<tr><td>Aleph Impresores S.A.S.</td></tr>");
+        sb.Append("<tr><td>NIT 901.442.622-6</td></tr>");
+        sb.Append("<tr><td>Cra. 1 #43-76, Cali · Tel. 302 829 5169</td></tr>");
+        sb.Append("</table></td>");
         sb.Append("</tr></table>");
-        sb.Append(LogoScript(assetBase));
-        sb.Append("<p class=\"lead\">Propuesta de precio para <b>").Append(Esc(q.WorkName)).Append("</b>.</p>");
 
-        sb.Append("<div class=\"meta\">");
-        sb.Append("<div><b>Cliente:</b> ").Append(Esc(q.ClientName)).Append("</div>");
-        sb.Append("<div><b>Fecha:</b> ").Append(q.RequestDate.ToString("dd/MM/yyyy")).Append("</div>");
-        sb.Append("<div><b>Producto:</b> ").Append(Esc(ProductLabel(q.ProductType))).Append("</div>");
-        sb.Append("<div><b>Asesor:</b> ").Append(Esc(q.SellerName)).Append("</div>");
+        sb.Append("<div class=\"datos\">");
+        sb.Append("<div><b>FECHA:</b> ").Append(q.RequestDate.ToString("dd/MM/yyyy")).Append("</div>");
+        sb.Append("<div><b>RAZÓN SOCIAL:</b> ").Append(Esc(string.IsNullOrWhiteSpace(q.ClientName) ? q.ProspectClientName : q.ClientName)).Append("</div>");
+        sb.Append("<div><b>TRABAJO:</b> ").Append(Esc(q.WorkName)).Append("</div>");
+        sb.Append("<div><b>PRODUCTO:</b> ").Append(Esc(ProductLabel(q.ProductType))).Append("</div>");
+        sb.Append("<div><b>CONTACTO:</b> ").Append(Esc(q.SellerName)).Append("</div>");
+        sb.Append("<div><b>CONDICIONES DE PAGO:</b> <span class=\"pago\">").Append(Esc(string.IsNullOrWhiteSpace(condicionesPago) ? "50% anticipo y 50% contraentrega" : condicionesPago)).Append("</span></div>");
+        sb.Append("<div class=\"tipo\"><b>TIPO DE TRABAJO</b> <span>").Append(Esc(ProductLabel(q.ProductType).ToUpperInvariant())).Append("</span></div>");
         sb.Append("</div>");
 
-        sb.Append("<h2>Qué incluye esta cotización</h2>");
-        sb.Append("<table><thead><tr><th>Pieza</th><th>Material</th><th>Medidas del pliego</th><th>Acabados</th></tr></thead><tbody>");
-        foreach (var p in pieces)
-        {
-            sb.Append("<tr><td>").Append(Esc(p.Name))
-              .Append("</td><td>").Append(Esc(string.IsNullOrWhiteSpace(p.Material) ? "—" : p.Material))
-              .Append("</td><td>").Append(Esc(string.IsNullOrWhiteSpace(p.Measures) ? "—" : p.Measures))
-              .Append("</td><td>").Append(Esc(string.IsNullOrWhiteSpace(p.Finishes) ? "—" : p.Finishes))
-              .Append("</td></tr>");
-        }
-        sb.Append("</tbody></table>");
+        sb.Append("<table class=\"grid\"><thead><tr>");
+        sb.Append("<th>DESCRIPCIÓN</th><th>CANTIDAD</th><th>V/UNITARIO</th><th>V/TOTAL</th><th>OBSERVACIONES</th>");
+        sb.Append("</tr></thead><tbody>");
 
-        if (processes.Count > 0)
+        if (primary != null)
         {
-            sb.Append("<p>Procesos incluidos: ").Append(Esc(string.Join(", ", processes))).Append(".</p>");
-        }
-
-        sb.Append("<div class=\"box\"><b>El precio es por cada unidad terminada.</b> ");
-        sb.Append(Esc(FreightSentence(q.FreightType)));
-        sb.Append(' ').Append(Esc(PlazoSentence(plazo)));
-        sb.Append("</div>");
-
-        if (calc?.Results is { Count: > 0 })
-        {
-            sb.Append("<h2>Precio</h2>");
-            sb.Append("<p>El precio es por cada unidad. El total es la cantidad multiplicada por ese precio.</p>");
-            sb.Append("<table><thead><tr><th>Cantidad</th><th class=\"right\">Precio por unidad</th><th class=\"right\">Total del pedido</th></tr></thead><tbody>");
-            foreach (var r in calc.Results)
-            {
-                var unit = PickPrice(r, tier);
-                sb.Append("<tr").Append(r.IsPrimary ? " class=\"main\"" : "").Append('>');
-                sb.Append("<td>").Append(r.Quantity.ToString("N0", co)).Append(" unidades");
-                if (r.IsPrimary) sb.Append("<br><span style=\"font-weight:400\">cantidad de referencia</span>");
-                sb.Append("</td><td class=\"right\">$").Append(Money(unit));
-                sb.Append("</td><td class=\"right\"><b>$").Append(Money(unit * r.Quantity)).Append("</b>");
-                sb.Append("</td></tr>");
-            }
-            sb.Append("</tbody></table>");
+            var unit = PickPrice(primary, tier);
+            var line = unit * primary.Quantity;
+            sb.Append("<tr class=\"ref\">");
+            sb.Append("<td>").Append(Esc(descripcion)).Append("</td>");
+            sb.Append("<td class=\"right\">").Append(primary.Quantity.ToString("N0", co)).Append("</td>");
+            sb.Append("<td class=\"right\">$ ").Append(Money(unit)).Append("</td>");
+            sb.Append("<td class=\"right\">$ ").Append(Money(line)).Append("</td>");
+            sb.Append("<td>").Append(Esc(observaciones)).Append("</td></tr>");
         }
         else
         {
-            sb.Append("<p>Esta cotización aún no tiene precios calculados.</p>");
+            sb.Append("<tr><td>").Append(Esc(descripcion)).Append("</td><td></td><td></td><td></td><td>Sin precio calculado</td></tr>");
         }
 
-        sb.Append("<h2>Condiciones</h2><ul>");
-        sb.Append("<li>").Append(Esc(string.IsNullOrWhiteSpace(q.DeliveryConditions)
-            ? "Esta propuesta es válida por 30 días a partir de la fecha de emisión."
-            : q.DeliveryConditions)).Append("</li>");
-        sb.Append("<li>").Append(Esc(string.IsNullOrWhiteSpace(q.PriceConditions)
-            ? "Los precios están sujetos a cambios según disponibilidad de materiales y confirmación de especificaciones finales."
-            : q.PriceConditions)).Append("</li>");
-        sb.Append("<li>El precio no incluye impuestos, salvo que se indique lo contrario.</li>");
-        sb.Append("</ul>");
+        var subtotal = primary == null ? 0m : PickPrice(primary, tier) * primary.Quantity;
+        var ivaValor = incluyeIva ? decimal.Round(subtotal * 0.19m, 2, MidpointRounding.AwayFromZero) : 0m;
+        var total = subtotal + ivaValor;
 
-        sb.Append("<div class=\"foot\">Cotización preparada por ").Append(Esc(string.IsNullOrWhiteSpace(q.SellerName) ? "Aleph Impresores" : q.SellerName))
-          .Append(". Para enviarla, use Imprimir / Guardar PDF y elija «Guardar como PDF».</div>");
+        sb.Append("<tr class=\"tot\"><td colspan=\"3\" class=\"right\">SUBTOTAL</td>");
+        sb.Append("<td class=\"right\">$ ").Append(Money(subtotal)).Append("</td><td></td></tr>");
+        sb.Append("<tr class=\"tot\"><td colspan=\"3\" class=\"right\">IVA 19 %</td>");
+        sb.Append("<td class=\"right\">");
+        if (incluyeIva) sb.Append("$ ").Append(Money(ivaValor));
+        else sb.Append("No incluido");
+        sb.Append("</td><td></td></tr>");
+        sb.Append("<tr class=\"tot\"><td colspan=\"3\" class=\"right\">TOTAL</td>");
+        sb.Append("<td class=\"right\">$ ").Append(Money(total)).Append("</td><td></td></tr>");
+        sb.Append("</tbody></table>");
+
+        sb.Append("<table class=\"notes\"><tr>");
+        sb.Append("<td style=\"width:55%\"><b>10 +/- % CANTIDAD A RECIBIR</b></td>");
+        sb.Append("<td><b>NÚMERO DE COTIZACIÓN:</b> ").Append(Esc(q.QuoteNumber)).Append("</td>");
+        sb.Append("</tr></table>");
+        sb.Append("<div class=\"datos\" style=\"margin-top:8px\">");
+        sb.Append(Esc(string.IsNullOrWhiteSpace(q.DeliveryConditions)
+            ? "Esta propuesta es válida por 30 días a partir de la fecha de emisión."
+            : q.DeliveryConditions));
+        sb.Append("<br>");
+        sb.Append(Esc(string.IsNullOrWhiteSpace(q.PriceConditions)
+            ? "Los precios están sujetos a cambios según disponibilidad de materiales y confirmación de especificaciones finales."
+            : q.PriceConditions));
+        sb.Append("</div>");
+
+        sb.Append("<table class=\"firmas\"><tr>");
+        sb.Append("<td>FIRMA VENDEDOR<br><span class=\"linea\"></span><br>")
+          .Append(Esc(q.SellerName)).Append("</td>");
+        sb.Append("<td>FIRMA CLIENTE<br><span class=\"linea\"></span></td>");
+        sb.Append("</tr></table>");
         sb.Append("</body></html>");
         return sb.ToString();
+    }
+
+    private static string BuildDescripcion(Quotation q, List<ClientPiece> pieces, List<string> processes)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(q.WorkName)) parts.Add(q.WorkName.Trim());
+        foreach (var p in pieces)
+        {
+            var bit = string.Join(", ", new[] { p.Name, p.Material, p.Measures, p.Finishes }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            if (!string.IsNullOrWhiteSpace(bit)) parts.Add(bit);
+        }
+        if (processes.Count > 0) parts.Add(string.Join(", ", processes));
+        return string.Join(" — ", parts);
     }
 
     private static string Build(Quotation q, string title, string? tier, bool produccion)
@@ -354,29 +375,81 @@ internal static class CotizadorPdfHtml
         return 0;
     }
 
-    /// <summary>
-    /// El HTML lo abre la API, así que el logo se pide al sitio donde está el archivo
-    /// (el origen de la pantalla y, si falla, perlax.perla.work).
-    /// </summary>
-    private static string LogoScript(string? assetBase)
+    private static bool ExtractIncluyeIva(string? formJson)
     {
-        var origin = "";
-        if (!string.IsNullOrWhiteSpace(assetBase)
-            && Uri.TryCreate(assetBase.Trim(), UriKind.Absolute, out var uri)
-            && (uri.Scheme == "http" || uri.Scheme == "https"))
-            origin = uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(formJson)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(formJson);
+            foreach (var name in new[] { "incluyeIva", "IncluyeIva" })
+            {
+                if (!doc.RootElement.TryGetProperty(name, out var p)) continue;
+                if (p.ValueKind == JsonValueKind.True) return true;
+                if (p.ValueKind == JsonValueKind.False) return false;
+            }
+        }
+        catch { /* ignore */ }
+        return false;
+    }
 
-        var sb = new StringBuilder();
-        sb.Append("<script>(function(){var img=document.getElementById('co-logo');var fb=document.getElementById('co-logo-fallback');if(!img)return;");
-        sb.Append("var files=['/empresa-logo.jpeg','/empresa-logo.png','/Logo%20Aleph%20(fondo%20oscuro).png'];");
-        sb.Append("var origins=[");
-        if (origin.Length > 0)
-            sb.Append('\'').Append(origin.Replace("'", "")).Append("',");
-        sb.Append("'https://perlax.perla.work'];");
-        sb.Append("var urls=[];origins.forEach(function(o){files.forEach(function(f){urls.push(o+f);});});");
-        sb.Append("var i=0;function next(){if(i>=urls.length){img.style.display='none';if(fb)fb.style.display='block';return;}img.src=urls[i++];}");
-        sb.Append("img.onload=function(){img.style.display='block';if(fb)fb.style.display='none';};img.onerror=next;next();})();</script>");
-        return sb.ToString();
+    private static string ExtractObservaciones(string? formJson)
+    {
+        if (string.IsNullOrWhiteSpace(formJson)) return "";
+        try
+        {
+            using var doc = JsonDocument.Parse(formJson);
+            foreach (var name in new[] { "observaciones", "Observaciones" })
+            {
+                if (!doc.RootElement.TryGetProperty(name, out var p) || p.ValueKind != JsonValueKind.String)
+                    continue;
+                return (p.GetString() ?? "").Trim();
+            }
+        }
+        catch { /* ignore */ }
+        return "";
+    }
+
+    private static string ExtractCondicionesPago(string? formJson)
+    {
+        if (string.IsNullOrWhiteSpace(formJson)) return "";
+        try
+        {
+            using var doc = JsonDocument.Parse(formJson);
+            foreach (var name in new[] { "condicionesPago", "CondicionesPago" })
+            {
+                if (!doc.RootElement.TryGetProperty(name, out var p) || p.ValueKind != JsonValueKind.String)
+                    continue;
+                return (p.GetString() ?? "").Trim();
+            }
+        }
+        catch { /* ignore */ }
+        return "";
+    }
+
+    private static string? _logoDataUri;
+
+    /// <summary>Logo de Aleph embebido para que salga en la impresión aunque el navegador no cargue archivos externos.</summary>
+    private static string LogoDataUri()
+    {
+        if (_logoDataUri != null) return _logoDataUri;
+        var asm = typeof(CotizadorPdfHtml).Assembly;
+        var name = asm.GetManifestResourceNames()
+            .FirstOrDefault(n => n.EndsWith("LogoAleph.jpeg", StringComparison.OrdinalIgnoreCase));
+        if (name == null)
+        {
+            _logoDataUri = "";
+            return _logoDataUri;
+        }
+        using var stream = asm.GetManifestResourceStream(name);
+        if (stream == null)
+        {
+            _logoDataUri = "";
+            return _logoDataUri;
+        }
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        _logoDataUri = "data:image/jpeg;base64," + Convert.ToBase64String(ms.ToArray());
+        return _logoDataUri;
     }
 
     private static string ProductLabel(string? productType) =>

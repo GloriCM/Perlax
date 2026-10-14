@@ -46,5 +46,9 @@ public static class ElliotFixedGroups
     public const string AdmonCooperativa = "AdmonCooperativa";
     public const string MantenimientoMaquinas = "MantenimientoMaquinas";
     public const string CostosIndirectos = "CostosIndirectos";
+    public const string FletesIndirectos = "FletesIndirectos";
+    public const string DepreciacionIndirecta = "DepreciacionIndirecta";
+    public const string ServiciosIndirectos = "ServiciosIndirectos";
+    public const string DiversosIndirectos = "DiversosIndirectos";
     public const string ContratosServicios = "ContratosServicios";
 }

@@ -38,13 +38,12 @@ function normalizeSub(g) {
 }
 
 export const SECTION_KIND_OPTIONS_FIXED = [
-    { value: 'income', label: 'Lista de ingresos (+ % materia prima)' },
     { value: 'payroll', label: 'Nómina (personas / sueldos)' },
     { value: 'items', label: 'Rubros / montos (con subgrupos)' }
 ];
 
 export const SECTION_KIND_OPTIONS_VARIABLE = [
-    { value: 'commissions', label: 'Comisiones (% × base, con subgrupos)' },
+    { value: 'commissions', label: 'Comisiones (% × meta, con subgrupos)' },
     { value: 'items', label: 'Rubros / montos (con subgrupos)' }
 ];
 

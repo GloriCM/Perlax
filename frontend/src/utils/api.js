@@ -2,6 +2,7 @@
  * Centralized API utility for Perla ERP
  * Handles base URL, content-type headers, and JWT Authentication
  */
+import { canEditRoute } from './permissions';
 
 function resolveApiBaseUrl() {
     const fromEnv = String(import.meta.env.VITE_API_BASE_URL || '').trim();
@@ -30,15 +31,35 @@ export function getApiOrigin() {
     return base;
 }
 
-function getStoredAuthToken() {
+function getStoredUser() {
     try {
         const raw = localStorage.getItem('user');
         if (!raw) return null;
-        const user = JSON.parse(raw);
-        return user?.token ?? user?.Token ?? null;
+        return JSON.parse(raw);
     } catch {
         return null;
     }
+}
+
+function getStoredAuthToken() {
+    const user = getStoredUser();
+    return user?.token ?? user?.Token ?? null;
+}
+
+function isReadOnlySafeMutation(endpoint) {
+    const path = String(endpoint || '').split('?')[0];
+    return path.includes('/users/auth')
+        || path.includes('/production/cotizador/calculate')
+        || path.includes('/production/quotations/validate-costs');
+}
+
+function assertCanMutate(endpoint, options) {
+    if (options?.allowWhenReadOnly || isReadOnlySafeMutation(endpoint)) return;
+    const user = getStoredUser();
+    if (!user) return;
+    const path = window.location?.pathname || '/';
+    if (canEditRoute(path, user)) return;
+    throw new Error('Esta vista es solo de consulta.');
 }
 
 function isAuthLoginRequest(endpoint) {
@@ -78,10 +99,16 @@ function summarizeErrorMessage(text) {
 
 export const api = {
     async request(endpoint, options = {}) {
+        const method = String(options.method || 'GET').toUpperCase();
+        if (method !== 'GET' && method !== 'HEAD') {
+            assertCanMutate(endpoint, options);
+        }
+
         const token = getStoredAuthToken();
 
         const headers = {
             'Content-Type': 'application/json',
+            'X-Perlax-View': window.location?.pathname || '/',
             ...options.headers,
         };
 
@@ -150,8 +177,11 @@ export const api = {
 
     /** multipart/form-data (no establecer Content-Type; el navegador añade boundary) */
     async postFormData(endpoint, formData) {
+        assertCanMutate(endpoint, {});
         const token = getStoredAuthToken();
-        const headers = {};
+        const headers = {
+            'X-Perlax-View': window.location?.pathname || '/',
+        };
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }

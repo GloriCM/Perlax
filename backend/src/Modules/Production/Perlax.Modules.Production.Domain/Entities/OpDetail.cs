@@ -12,6 +12,9 @@ public class OpMaterialLine
     public string Unit { get; set; } = "UND";
     public decimal UnitCost { get; set; }
     public string? Notes { get; set; }
+    public decimal QuantityFromStock { get; set; }
+    public Guid? RequisicionId { get; set; }
+    public string? RequisicionCodigo { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedBy { get; set; }
 

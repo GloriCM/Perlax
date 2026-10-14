@@ -55,4 +55,6 @@ public interface IInventoryConsumptionService
     Task<IReadOnlyList<StockBalanceDto>> ListStockBalancesAsync(CancellationToken ct = default);
     Task<IReadOnlyList<StockMovementDto>> ListMovementsAsync(string? productName = null, CancellationToken ct = default);
     Task RegisterPurchaseEntryAsync(string productName, Guid? productId, decimal quantity, decimal unitCost, string? reference, string userName, CancellationToken ct = default);
+    Task<decimal> GetAvailableByNameAsync(string productName, CancellationToken ct = default);
+    Task<decimal> ConsumeUpToAsync(Guid manufacturingOrderId, string opNumber, Guid? productId, string productName, decimal quantity, string unit, decimal unitCost, string userName, CancellationToken ct = default);
 }

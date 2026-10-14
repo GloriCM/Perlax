@@ -28,7 +28,6 @@ function PayrollDetailCard({ title, block, goesTo, cooperativeLabor, cooperative
                         {lines.map((l) => (
                             <Text key={l.label} size="sm">{l.label} {money(l.amount)}</Text>
                         ))}
-                        {block.auxilios > 0 && <Text size="sm">Auxilios {money(block.auxilios)}</Text>}
                     </>
                 )}
                 {cooperativePrestaciones > 0 && (
@@ -62,7 +61,7 @@ export default function ResumenPresupuestoPanel({ summary }) {
             <div>
                 <Title order={4}>Resumen presupuestal</Title>
                 <Text size="sm" c="dimmed">
-                    Calculado automáticamente desde costos fijos y variables (prestaciones, MP, utilidad).
+                    Calculado desde el presupuesto y los costos fijos: prestaciones, materia prima y utilidad.
                 </Text>
             </div>
 

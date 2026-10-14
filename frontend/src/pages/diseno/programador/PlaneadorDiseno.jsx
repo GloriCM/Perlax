@@ -832,7 +832,7 @@ export default function PlaneadorDiseno() {
     );
 
     const renderFilters = () => (
-        <Card className="planeador-filters" padding="lg">
+        <Card className="planeador-filters" padding="lg" data-keep-interactive>
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
                 <Select
                     label="Estado"

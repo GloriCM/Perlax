@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
-import { Drawer, ScrollArea } from '@mantine/core';
+import { Alert, Drawer, ScrollArea } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { canAccessRoute, getCurrentUser, getFirstAllowedPath } from '../utils/permissions';
+import { canAccessRoute, canEditRoute, getCurrentUser, getFirstAllowedPath } from '../utils/permissions';
+import { applyReadOnlySurface } from '../utils/readOnlySurface';
 import { useIsMobileLayout } from '../utils/useIsMobileLayout';
 import './DashboardLayout.css';
 
@@ -26,6 +27,20 @@ export default function DashboardLayout() {
     }
 
     const isNoTopBar = location.pathname.startsWith('/sst') || location.pathname.startsWith('/cuadro-master');
+    const canEdit = !user || canEditRoute(location.pathname, user);
+
+    useEffect(() => {
+        if (canEdit) return undefined;
+        const run = () => {
+            document.querySelectorAll('.dashboard-content, .mantine-Modal-content').forEach((node) => {
+                applyReadOnlySurface(node);
+            });
+        };
+        run();
+        const observer = new MutationObserver(run);
+        observer.observe(document.body, { childList: true, subtree: true });
+        return () => observer.disconnect();
+    }, [canEdit, location.pathname]);
 
     const sidebarOpen = isMobile ? mobileNavOpen : !sidebarCollapsed;
 
@@ -77,9 +92,14 @@ export default function DashboardLayout() {
                 )}
                 <ScrollArea flex={1} scrollbarSize={4} className="dashboard-scroll">
                     <div
-                        className="dashboard-content fade-in"
+                        className={`dashboard-content fade-in${canEdit ? '' : ' dashboard-content--readonly'}`}
                         style={{ paddingTop: isNoTopBar ? '0' : 'inherit' }}
                     >
+                        {!canEdit && (
+                            <Alert className="readonly-banner" color="blue" mb="md">
+                                Solo consulta. Puede revisar la información; no puede crear, modificar ni borrar.
+                            </Alert>
+                        )}
                         <Outlet />
                     </div>
                 </ScrollArea>

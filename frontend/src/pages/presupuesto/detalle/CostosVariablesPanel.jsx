@@ -1,391 +1,177 @@
-import {
-    Accordion,
-    Button,
-    Group,
-    Menu,
-    NumberInput,
-    Stack,
-    Table,
-    Text,
-    TextInput,
-    Title
-} from '@mantine/core';
+import { Button, Group, NumberInput, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { money, numberProps } from './elliotFormat';
-import {
-    SECTION_KIND_OPTIONS_VARIABLE,
-    createSection,
-    createSubgroup,
-    normalizeLayout
-} from './budgetLayout';
+import { normalizeLayout } from './budgetLayout';
+
+const GROUP_ORDER = ['Cooperativa', 'Agentes'];
+const GROUP_TITLES = {
+    Cooperativa: 'Comisiones vendedores cooperativa',
+    Agentes: 'Comisiones agentes comerciales'
+};
+
+function titleFor(layout, key) {
+    if (GROUP_TITLES[key]) return GROUP_TITLES[key];
+    for (const section of layout?.variable || []) {
+        const sub = (section.subgroups || []).find((g) => g.key === key);
+        if (sub?.title) return sub.title;
+    }
+    return key;
+}
+
+function pctLabel(rate) {
+    return `${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format((Number(rate) || 0) * 100)}%`;
+}
 
 export default function CostosVariablesPanel({ draft, setDraft, canEdit }) {
     const layout = normalizeLayout(draft.layout);
-    const sections = [...(layout.variable || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const commissions = draft.commissions || [];
-    const fixedItems = draft.fixedItems || [];
+    const keys = [...new Set(commissions.map((c) => c.group).filter(Boolean))];
+    const groups = [
+        ...GROUP_ORDER.filter((key) => keys.includes(key)),
+        ...keys.filter((key) => !GROUP_ORDER.includes(key))
+    ];
 
-    const patchLayout = (updater, immediate = false) => {
+    const rowsOf = (key) => commissions
+        .map((row, idx) => ({ ...row, _idx: idx }))
+        .filter((row) => row.group === key)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const patchRow = (idx, patch) => {
         setDraft((prev) => {
-            const cur = normalizeLayout(prev.layout);
-            const nextVar = typeof updater === 'function' ? updater(cur.variable) : updater;
-            return { ...prev, layout: { ...cur, variable: nextVar } };
-        }, immediate ? { immediate: true } : undefined);
-    };
-
-    const addSection = (kind) => {
-        patchLayout((variable) => [...variable, createSection(kind)], true);
-    };
-
-    const removeSection = (sectionId) => {
-        const section = sections.find((s) => s.id === sectionId);
-        setDraft((prev) => {
-            const cur = normalizeLayout(prev.layout);
-            let next = { ...prev, layout: { ...cur, variable: cur.variable.filter((s) => s.id !== sectionId) } };
-            if (section?.kind === 'commissions') {
-                const keys = new Set((section.subgroups || []).map((g) => g.key));
-                next = { ...next, commissions: (prev.commissions || []).filter((c) => !keys.has(c.group)) };
-            }
-            if (section?.kind === 'items') {
-                const keys = new Set((section.subgroups || []).map((g) => g.key));
-                next = { ...next, fixedItems: (prev.fixedItems || []).filter((i) => !keys.has(i.group)) };
-            }
-            return next;
-        }, { immediate: true });
-    };
-
-    const renameSection = (sectionId, title) => {
-        patchLayout((variable) => variable.map((s) => (s.id === sectionId ? { ...s, title } : s)));
-    };
-
-    const addSubgroup = (sectionId) => {
-        const sub = createSubgroup(sections.find((s) => s.id === sectionId)?.kind === 'commissions' ? 'comision' : 'var');
-        patchLayout((variable) => variable.map((s) => (
-            s.id === sectionId ? { ...s, subgroups: [...(s.subgroups || []), sub] } : s
-        )), true);
-    };
-
-    const patchSubgroup = (sectionId, subId, patch) => {
-        setDraft((prev) => {
-            const cur = normalizeLayout(prev.layout);
-            const section = cur.variable.find((s) => s.id === sectionId);
-            const oldSub = section?.subgroups?.find((g) => g.id === subId);
-            const oldKey = oldSub?.key;
-            const nextVar = cur.variable.map((s) => {
-                if (s.id !== sectionId) return s;
-                return {
-                    ...s,
-                    subgroups: (s.subgroups || []).map((g) => (g.id === subId ? { ...g, ...patch } : g))
-                };
-            });
-            let next = { ...prev, layout: { ...cur, variable: nextVar } };
-            if (patch.key && oldKey && patch.key !== oldKey) {
-                if (section?.kind === 'commissions') {
-                    next = {
-                        ...next,
-                        commissions: (prev.commissions || []).map((c) => (c.group === oldKey ? { ...c, group: patch.key } : c))
-                    };
-                }
-                if (section?.kind === 'items') {
-                    next = {
-                        ...next,
-                        fixedItems: (prev.fixedItems || []).map((i) => (i.group === oldKey ? { ...i, group: patch.key } : i))
-                    };
-                }
-            }
-            return next;
+            const next = [...(prev.commissions || [])];
+            next[idx] = { ...next[idx], ...patch };
+            return { ...prev, commissions: next };
         });
     };
 
-    const removeSubgroup = (sectionId, subId) => {
-        setDraft((prev) => {
-            const cur = normalizeLayout(prev.layout);
-            const section = cur.variable.find((s) => s.id === sectionId);
-            const sub = section?.subgroups?.find((g) => g.id === subId);
-            const key = sub?.key;
-            const nextVar = cur.variable.map((s) => {
-                if (s.id !== sectionId) return s;
-                return { ...s, subgroups: (s.subgroups || []).filter((g) => g.id !== subId) };
-            });
-            let next = { ...prev, layout: { ...cur, variable: nextVar } };
-            if (key && section?.kind === 'commissions') {
-                next = { ...next, commissions: (prev.commissions || []).filter((c) => c.group !== key) };
-            }
-            if (key && section?.kind === 'items') {
-                next = { ...next, fixedItems: (prev.fixedItems || []).filter((i) => i.group !== key) };
-            }
-            return next;
-        }, { immediate: true });
+    const setGroupRate = (key, percent) => {
+        const rate = (Number(percent) || 0) / 100;
+        setDraft((prev) => ({
+            ...prev,
+            commissions: (prev.commissions || []).map((row) => (row.group === key ? { ...row, rate } : row))
+        }));
+    };
+
+    const addPerson = (key, rate) => {
+        setDraft((prev) => ({
+            ...prev,
+            commissions: [
+                ...(prev.commissions || []),
+                {
+                    name: '',
+                    group: key,
+                    rate: rate || 0,
+                    baseAmount: 0,
+                    sortOrder: (prev.commissions || []).length + 1
+                }
+            ]
+        }), { immediate: true });
+    };
+
+    const removePerson = (idx) => {
+        setDraft((prev) => ({
+            ...prev,
+            commissions: (prev.commissions || []).filter((_, i) => i !== idx)
+        }), { immediate: true });
     };
 
     return (
         <Stack gap="lg">
-            <Group justify="space-between" wrap="wrap">
-                <div>
-                    <Title order={4}>Costos variables</Title>
-                    <Text size="sm" c="dimmed">Secciones y subgrupos a tu medida. Se guarda solo.</Text>
-                </div>
-                {canEdit && (
-                    <Menu shadow="md" width={320}>
-                        <Menu.Target>
-                            <Button leftSection={<IconPlus size={16} />} color="indigo" variant="light">
-                                Agregar sección
-                            </Button>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            {SECTION_KIND_OPTIONS_VARIABLE.map((opt) => (
-                                <Menu.Item key={opt.value} onClick={() => addSection(opt.value)}>
-                                    {opt.label}
-                                </Menu.Item>
-                            ))}
-                        </Menu.Dropdown>
-                    </Menu>
-                )}
-            </Group>
-
-            {sections.length === 0 && (
-                <Text c="dimmed" ta="center" py="xl">
-                    Sin secciones. Agrega comisiones u otros rubros variables.
+            <div>
+                <Title order={4}>Costos variables</Title>
+                <Text size="sm" c="dimmed">
+                    Gastos de ventas. La comisión es el porcentaje del grupo sobre la meta.
                 </Text>
+            </div>
+
+            {groups.length === 0 && (
+                <Text c="dimmed" ta="center" py="xl">Sin comisiones.</Text>
             )}
 
-            <Accordion multiple defaultValue={sections.map((s) => s.id)}>
-                {sections.map((section) => (
-                    <Accordion.Item key={section.id} value={section.id}>
-                        <Accordion.Control>
-                            {canEdit ? (
-                                <TextInput
-                                    value={section.title}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => renameSection(section.id, e.currentTarget.value)}
-                                    variant="unstyled"
-                                    styles={{ input: { fontWeight: 600, fontSize: 15 } }}
-                                />
-                            ) : section.title}
-                        </Accordion.Control>
-                        <Accordion.Panel>
-                            <Stack gap="md">
-                                {canEdit && (
-                                    <Group justify="flex-end">
-                                        <Button
-                                            size="xs"
-                                            variant="default"
-                                            leftSection={<IconPlus size={14} />}
-                                            onClick={() => addSubgroup(section.id)}
-                                        >
-                                            Agregar subgrupo
-                                        </Button>
-                                        <Button size="xs" color="red" variant="subtle" onClick={() => removeSection(section.id)}>
-                                            Eliminar sección
-                                        </Button>
-                                    </Group>
+            {groups.map((key) => {
+                const rows = rowsOf(key);
+                const rate = Number(rows[0]?.rate) || 0;
+                const total = rows.reduce((s, row) => s + (Number(row.baseAmount) || 0) * (Number(row.rate) || 0), 0);
+                return (
+                    <Stack key={key} gap="sm">
+                        <Group justify="space-between" align="flex-end">
+                            <div>
+                                <Text fw={600}>{titleFor(layout, key)}</Text>
+                                {canEdit ? (
+                                    <NumberInput
+                                        label="Porcentaje"
+                                        w={140}
+                                        min={0}
+                                        max={100}
+                                        decimalScale={2}
+                                        suffix=" %"
+                                        value={Math.round(rate * 10000) / 100}
+                                        onChange={(v) => setGroupRate(key, v)}
+                                    />
+                                ) : (
+                                    <Text size="sm" c="dimmed">{pctLabel(rate)}</Text>
                                 )}
-
-                                {(section.subgroups || []).map((sub) => {
-                                    if (section.kind === 'commissions') {
-                                        const rows = commissions
-                                            .map((c, idx) => ({ ...c, _idx: idx }))
-                                            .filter((c) => c.group === sub.key);
-                                        return (
-                                            <Stack key={sub.id} gap="sm">
-                                                <Group justify="space-between">
-                                                    {canEdit ? (
-                                                        <TextInput
-                                                            label="Subgrupo"
-                                                            value={sub.title}
-                                                            w={260}
-                                                            onChange={(e) => patchSubgroup(section.id, sub.id, { title: e.currentTarget.value })}
-                                                        />
-                                                    ) : (
-                                                        <Text fw={600}>{sub.title}</Text>
-                                                    )}
-                                                    <Group>
-                                                        {canEdit && (
-                                                            <Button
-                                                                size="xs"
-                                                                variant="light"
-                                                                leftSection={<IconPlus size={14} />}
-                                                                onClick={() => setDraft((prev) => ({
-                                                                    ...prev,
-                                                                    commissions: [...prev.commissions, {
-                                                                        name: '', group: sub.key, rate: 0.03, baseAmount: 0,
-                                                                        sortOrder: prev.commissions.length + 1
-                                                                    }]
-                                                                }), { immediate: true })}
-                                                            >
-                                                                Agregar
-                                                            </Button>
-                                                        )}
-                                                        {canEdit && (
-                                                            <Button size="xs" color="red" variant="subtle" onClick={() => removeSubgroup(section.id, sub.id)}>
-                                                                Borrar subgrupo
-                                                            </Button>
-                                                        )}
-                                                    </Group>
-                                                </Group>
-                                                <Table striped withTableBorder>
-                                                    <Table.Thead>
-                                                        <Table.Tr>
-                                                            <Table.Th>Concepto</Table.Th>
-                                                            <Table.Th>Tasa</Table.Th>
-                                                            <Table.Th>Base</Table.Th>
-                                                            <Table.Th>Comisión</Table.Th>
-                                                            {canEdit && <Table.Th />}
-                                                        </Table.Tr>
-                                                    </Table.Thead>
-                                                    <Table.Tbody>
-                                                        {rows.map((c) => (
-                                                            <Table.Tr key={c._idx}>
-                                                                <Table.Td>
-                                                                    {canEdit ? (
-                                                                        <TextInput value={c.name} onChange={(e) => setDraft((prev) => {
-                                                                            const next = [...prev.commissions];
-                                                                            next[c._idx] = { ...next[c._idx], name: e.currentTarget.value };
-                                                                            return { ...prev, commissions: next };
-                                                                        })} />
-                                                                    ) : c.name}
-                                                                </Table.Td>
-                                                                <Table.Td>
-                                                                    {canEdit ? (
-                                                                        <NumberInput min={0} max={1} step={0.001} decimalScale={4} value={c.rate}
-                                                                            onChange={(v) => setDraft((prev) => {
-                                                                                const next = [...prev.commissions];
-                                                                                next[c._idx] = { ...next[c._idx], rate: Number(v) || 0 };
-                                                                                return { ...prev, commissions: next };
-                                                                            })} />
-                                                                    ) : `${((Number(c.rate) || 0) * 100).toFixed(2)}%`}
-                                                                </Table.Td>
-                                                                <Table.Td>
-                                                                    {canEdit ? (
-                                                                        <NumberInput {...numberProps} value={c.baseAmount}
-                                                                            onChange={(v) => setDraft((prev) => {
-                                                                                const next = [...prev.commissions];
-                                                                                next[c._idx] = { ...next[c._idx], baseAmount: Number(v) || 0 };
-                                                                                return { ...prev, commissions: next };
-                                                                            })} />
-                                                                    ) : money(c.baseAmount)}
-                                                                </Table.Td>
-                                                                <Table.Td>{money((Number(c.baseAmount) || 0) * (Number(c.rate) || 0))}</Table.Td>
-                                                                {canEdit && (
-                                                                    <Table.Td>
-                                                                        <Button size="compact-xs" color="red" variant="subtle" onClick={() => setDraft((prev) => ({
-                                                                            ...prev,
-                                                                            commissions: prev.commissions.filter((_, i) => i !== c._idx)
-                                                                        }), { immediate: true })}>
-                                                                            <IconTrash size={14} />
-                                                                        </Button>
-                                                                    </Table.Td>
-                                                                )}
-                                                            </Table.Tr>
-                                                        ))}
-                                                        {rows.length === 0 && (
-                                                            <Table.Tr>
-                                                                <Table.Td colSpan={5}><Text c="dimmed" ta="center" py="sm">Sin comisiones.</Text></Table.Td>
-                                                            </Table.Tr>
-                                                        )}
-                                                    </Table.Tbody>
-                                                </Table>
-                                            </Stack>
-                                        );
-                                    }
-
-                                    // items kind in variables → same fixedItems store, different groups
-                                    const rows = fixedItems
-                                        .map((it, idx) => ({ ...it, _idx: idx }))
-                                        .filter((it) => it.group === sub.key);
-                                    return (
-                                        <Stack key={sub.id} gap="sm">
-                                            <Group justify="space-between">
-                                                {canEdit ? (
-                                                    <TextInput
-                                                        label="Subgrupo"
-                                                        value={sub.title}
-                                                        w={260}
-                                                        onChange={(e) => patchSubgroup(section.id, sub.id, { title: e.currentTarget.value })}
-                                                    />
-                                                ) : (
-                                                    <Text fw={600}>{sub.title}</Text>
-                                                )}
-                                                <Group>
-                                                    {canEdit && (
-                                                        <Button
-                                                            size="xs"
-                                                            variant="light"
-                                                            leftSection={<IconPlus size={14} />}
-                                                            onClick={() => setDraft((prev) => ({
-                                                                ...prev,
-                                                                fixedItems: [...prev.fixedItems, {
-                                                                    group: sub.key, concept: '', amount: 0, sortOrder: prev.fixedItems.length + 1
-                                                                }]
-                                                            }), { immediate: true })}
-                                                        >
-                                                            Agregar
-                                                        </Button>
-                                                    )}
-                                                    {canEdit && (
-                                                        <Button size="xs" color="red" variant="subtle" onClick={() => removeSubgroup(section.id, sub.id)}>
-                                                            Borrar subgrupo
-                                                        </Button>
-                                                    )}
-                                                </Group>
-                                            </Group>
-                                            <Table striped withTableBorder>
-                                                <Table.Thead>
-                                                    <Table.Tr>
-                                                        <Table.Th>Concepto</Table.Th>
-                                                        <Table.Th>Valor</Table.Th>
-                                                        {canEdit && <Table.Th />}
-                                                    </Table.Tr>
-                                                </Table.Thead>
-                                                <Table.Tbody>
-                                                    {rows.map((it) => (
-                                                        <Table.Tr key={it._idx}>
-                                                            <Table.Td>
-                                                                {canEdit ? (
-                                                                    <TextInput value={it.concept} onChange={(e) => setDraft((prev) => {
-                                                                        const next = [...prev.fixedItems];
-                                                                        next[it._idx] = { ...next[it._idx], concept: e.currentTarget.value };
-                                                                        return { ...prev, fixedItems: next };
-                                                                    })} />
-                                                                ) : it.concept}
-                                                            </Table.Td>
-                                                            <Table.Td>
-                                                                {canEdit ? (
-                                                                    <NumberInput {...numberProps} value={it.amount}
-                                                                        onChange={(v) => setDraft((prev) => {
-                                                                            const next = [...prev.fixedItems];
-                                                                            next[it._idx] = { ...next[it._idx], amount: Number(v) || 0 };
-                                                                            return { ...prev, fixedItems: next };
-                                                                        })} />
-                                                                ) : money(it.amount)}
-                                                            </Table.Td>
-                                                            {canEdit && (
-                                                                <Table.Td>
-                                                                    <Button size="compact-xs" color="red" variant="subtle" onClick={() => setDraft((prev) => ({
-                                                                        ...prev,
-                                                                        fixedItems: prev.fixedItems.filter((_, i) => i !== it._idx)
-                                                                    }), { immediate: true })}>
-                                                                        <IconTrash size={14} />
-                                                                    </Button>
-                                                                </Table.Td>
-                                                            )}
-                                                        </Table.Tr>
-                                                    ))}
-                                                    {rows.length === 0 && (
-                                                        <Table.Tr>
-                                                            <Table.Td colSpan={3}><Text c="dimmed" ta="center" py="sm">Sin ítems.</Text></Table.Td>
-                                                        </Table.Tr>
-                                                    )}
-                                                </Table.Tbody>
-                                            </Table>
-                                        </Stack>
-                                    );
-                                })}
-                            </Stack>
-                        </Accordion.Panel>
-                    </Accordion.Item>
-                ))}
-            </Accordion>
+                            </div>
+                            {canEdit && (
+                                <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={() => addPerson(key, rate)}>
+                                    Agregar persona
+                                </Button>
+                            )}
+                        </Group>
+                        <Table striped withTableBorder>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Nombre</Table.Th>
+                                    <Table.Th>Comisión</Table.Th>
+                                    <Table.Th>Meta</Table.Th>
+                                    {canEdit && <Table.Th />}
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {rows.map((row) => (
+                                    <Table.Tr key={row._idx}>
+                                        <Table.Td>
+                                            {canEdit ? (
+                                                <TextInput value={row.name || ''} onChange={(e) => patchRow(row._idx, { name: e.currentTarget.value })} />
+                                            ) : row.name}
+                                        </Table.Td>
+                                        <Table.Td>{money((Number(row.baseAmount) || 0) * (Number(row.rate) || 0))}</Table.Td>
+                                        <Table.Td>
+                                            {canEdit ? (
+                                                <NumberInput
+                                                    {...numberProps}
+                                                    value={row.baseAmount}
+                                                    onChange={(v) => patchRow(row._idx, { baseAmount: Number(v) || 0 })}
+                                                />
+                                            ) : money(row.baseAmount)}
+                                        </Table.Td>
+                                        {canEdit && (
+                                            <Table.Td>
+                                                <Button size="compact-xs" color="red" variant="subtle" onClick={() => removePerson(row._idx)}>
+                                                    <IconTrash size={14} />
+                                                </Button>
+                                            </Table.Td>
+                                        )}
+                                    </Table.Tr>
+                                ))}
+                                {rows.length === 0 && (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={canEdit ? 4 : 3}>
+                                            <Text c="dimmed" ta="center" py="sm">Sin personas.</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                )}
+                                <Table.Tr>
+                                    <Table.Td><Text fw={700}>Total</Text></Table.Td>
+                                    <Table.Td><Text fw={700}>{money(total)}</Text></Table.Td>
+                                    <Table.Td />
+                                    {canEdit && <Table.Td />}
+                                </Table.Tr>
+                            </Table.Tbody>
+                        </Table>
+                    </Stack>
+                );
+            })}
         </Stack>
     );
 }

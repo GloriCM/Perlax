@@ -29,6 +29,22 @@ public class OpDetailController : ControllerBase
     public async Task<ActionResult> DeleteMaterial(Guid opId, Guid lineId, CancellationToken ct)
     {
         try { await _service.DeleteMaterialAsync(opId, lineId, ct); return NoContent(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpGet("materials/{lineId:guid}/disponibilidad")]
+    public async Task<ActionResult> MaterialAvailability(Guid opId, Guid lineId, CancellationToken ct)
+    {
+        try { return Ok(await _service.GetMaterialAvailabilityAsync(opId, lineId, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpPost("materials/{lineId:guid}/solicitar")]
+    public async Task<ActionResult> RequestMaterial(Guid opId, Guid lineId, [FromBody] RequestOpMaterialCommand body, CancellationToken ct)
+    {
+        try { return Ok(await _service.RequestMaterialAsync(opId, lineId, body ?? new RequestOpMaterialCommand(null), User.Identity?.Name ?? "system", ct)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 

@@ -23,6 +23,7 @@ public static class CommercialChainSchemaFixes
             await EnsureCustomerLinkColumnsAsync(context);
             // ... remaining tables use same connection after ensure re-opens as needed
             await EnsureTablesAsync(connection);
+            await EnsureOpMaterialRequestColumnsAsync(context);
 
             var cols = await ReadManufacturingOrderColumnsAsync(connection);
             Console.WriteLine("ManufacturingOrders commercial columns: " + string.Join(", ", cols));
@@ -129,6 +130,35 @@ public static class CommercialChainSchemaFixes
             if (!cols.Contains("ClosedAt", StringComparer.Ordinal))
                 throw new InvalidOperationException(
                     "No se pudo asegurar la columna ClosedAt en ManufacturingOrders. Revise permisos DDL en PostgreSQL.");
+        }
+        finally
+        {
+            if (shouldClose && connection.State == ConnectionState.Open)
+                await context.Database.CloseConnectionAsync();
+        }
+    }
+
+    public static async Task EnsureOpMaterialRequestColumnsAsync(ProductionDbContext context, CancellationToken ct = default)
+    {
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+            await context.Database.OpenConnectionAsync(ct);
+
+        try
+        {
+            await ExecuteAsync(connection, """
+                ALTER TABLE IF EXISTS production."OpMaterialLines"
+                    ADD COLUMN IF NOT EXISTS "QuantityFromStock" numeric(18,4) NOT NULL DEFAULT 0
+                """);
+            await ExecuteAsync(connection, """
+                ALTER TABLE IF EXISTS production."OpMaterialLines"
+                    ADD COLUMN IF NOT EXISTS "RequisicionId" uuid NULL
+                """);
+            await ExecuteAsync(connection, """
+                ALTER TABLE IF EXISTS production."OpMaterialLines"
+                    ADD COLUMN IF NOT EXISTS "RequisicionCodigo" character varying(40) NULL
+                """);
         }
         finally
         {
@@ -310,11 +340,26 @@ public static class CommercialChainSchemaFixes
             "Unit" character varying(40) NOT NULL,
             "UnitCost" numeric(18,2) NOT NULL DEFAULT 0,
             "Notes" text NULL,
+            "QuantityFromStock" numeric(18,4) NOT NULL DEFAULT 0,
+            "RequisicionId" uuid NULL,
+            "RequisicionCodigo" character varying(40) NULL,
             "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
             "CreatedBy" character varying(255) NULL
         )
         """,
         """CREATE INDEX IF NOT EXISTS "IX_OpMaterialLines_ManufacturingOrderId" ON production."OpMaterialLines" ("ManufacturingOrderId")""",
+        """
+        ALTER TABLE IF EXISTS production."OpMaterialLines"
+            ADD COLUMN IF NOT EXISTS "QuantityFromStock" numeric(18,4) NOT NULL DEFAULT 0
+        """,
+        """
+        ALTER TABLE IF EXISTS production."OpMaterialLines"
+            ADD COLUMN IF NOT EXISTS "RequisicionId" uuid NULL
+        """,
+        """
+        ALTER TABLE IF EXISTS production."OpMaterialLines"
+            ADD COLUMN IF NOT EXISTS "RequisicionCodigo" character varying(40) NULL
+        """,
 
         """
         CREATE TABLE IF NOT EXISTS production."OpLaborProcesses" (

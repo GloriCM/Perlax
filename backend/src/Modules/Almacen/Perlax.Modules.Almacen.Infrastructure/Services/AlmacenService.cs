@@ -18,17 +18,20 @@ public class AlmacenService : IAlmacenService
     private readonly IProductionOrderLookup _productionOrders;
     private readonly IConfiguration _configuration;
     private readonly AlmacenEmailService _email;
+    private readonly IWarehouseStockEntry _stock;
 
     public AlmacenService(
         AlmacenDbContext db,
         IProductionOrderLookup productionOrders,
         IConfiguration configuration,
-        AlmacenEmailService email)
+        AlmacenEmailService email,
+        IWarehouseStockEntry stock)
     {
         _db = db;
         _productionOrders = productionOrders;
         _configuration = configuration;
         _email = email;
+        _stock = stock;
     }
 
     public Task<CatalogosResponse> GetCatalogosAsync(CancellationToken ct = default)
@@ -70,7 +73,7 @@ public class AlmacenService : IAlmacenService
             TipoRequisicionId = request.TipoRequisicionId.Trim(),
             Descripcion = request.Descripcion?.Trim(),
             CostoEstandar = request.CostoEstandar,
-            UnidadSugerida = request.UnidadSugerida.Trim(),
+            UnidadSugerida = AlmacenCatalog.NormalizeUnidad(request.UnidadSugerida, request.Nombre),
             Activo = true,
             FechaRegistro = DateTime.UtcNow
         };
@@ -90,7 +93,7 @@ public class AlmacenService : IAlmacenService
         entity.TipoRequisicionId = request.TipoRequisicionId.Trim();
         entity.Descripcion = request.Descripcion?.Trim();
         entity.CostoEstandar = request.CostoEstandar;
-        entity.UnidadSugerida = request.UnidadSugerida.Trim();
+        entity.UnidadSugerida = AlmacenCatalog.NormalizeUnidad(request.UnidadSugerida, request.Nombre);
         await _db.SaveChangesAsync(ct);
         return MapProducto(entity);
     }
@@ -138,8 +141,7 @@ public class AlmacenService : IAlmacenService
             {
                 var categoria = colCategoria > 0 ? GetCell(ws, row, colCategoria) : string.Empty;
                 var tipoId = ResolveTipoRequisicion(categoria);
-                var unidad = colUnidad > 0 ? GetCell(ws, row, colUnidad) : "unidades";
-                if (string.IsNullOrWhiteSpace(unidad)) unidad = "unidades";
+                var unidad = AlmacenCatalog.NormalizeUnidad(colUnidad > 0 ? GetCell(ws, row, colUnidad) : null, nombre);
                 var costo = colCosto > 0 ? ParseDecimal(GetCell(ws, row, colCosto)) : 0m;
 
                 var normalized = AlmacenCatalog.NormalizeName(nombre);
@@ -654,6 +656,23 @@ public class AlmacenService : IAlmacenService
 
         entity.Estado = RecalcEstado(entity, entity.Pedido);
         await _db.SaveChangesAsync(ct);
+
+        try
+        {
+            await _stock.RegisterEntryAsync(
+                entity.ProductoNombre,
+                entity.ProductoId,
+                request.CantidadRecibida,
+                pp.PrecioUnitario,
+                $"{entity.Codigo} / {codigo}",
+                user.UserName,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"La recepción {codigo} quedó registrada, pero no se sumó al inventario ({ex.Message}). Agréguela en Consumos y saldos con la cantidad recibida.");
+        }
 
         var completa = entity.Estado == AlmacenCatalog.EstadoEnAlmacen;
         _email.NotifyRecepcion(entity, recepcion, request.PedidoCompleto && pp.Recibido);

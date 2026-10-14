@@ -8,6 +8,11 @@
     <ProjectReference Include="..\Perlax.Modules.Almacen.Application\Perlax.Modules.Almacen.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Seed\productos-almacen.csv">
+      <LogicalName>productos-almacen.csv</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="EPPlus" Version="7.5.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
       <PrivateAssets>all</PrivateAssets>

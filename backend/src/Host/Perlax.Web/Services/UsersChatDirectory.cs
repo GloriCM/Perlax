@@ -1,6 +1,6 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Production.Application.Chat;
+using Perlax.Modules.Users.Api;
 using Perlax.Modules.Users.Domain.Entities;
 using Perlax.Modules.Users.Infrastructure.Persistence;
 
@@ -9,8 +9,6 @@ namespace Perlax.Web.Services;
 /// <summary>Usuarios Admin/Administrativo/Taller(con vistas) disponibles para el chat interno.</summary>
 public sealed class UsersChatDirectory : IChatUserDirectory
 {
-    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
     private readonly UsersDbContext _db;
 
     public UsersChatDirectory(UsersDbContext db)
@@ -89,14 +87,6 @@ public sealed class UsersChatDirectory : IChatUserDirectory
             return ChatAccess.IsTaller(role) ? 0 : int.MaxValue;
         }
 
-        try
-        {
-            var routes = JsonSerializer.Deserialize<string[]>(allowedRoutesJson, JsonOpts) ?? Array.Empty<string>();
-            return routes.Count(r => !string.IsNullOrWhiteSpace(r));
-        }
-        catch
-        {
-            return 0;
-        }
+        return AllowedRoutesPolicy.Parse(allowedRoutesJson).Length;
     }
 }

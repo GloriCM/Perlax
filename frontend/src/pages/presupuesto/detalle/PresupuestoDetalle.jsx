@@ -25,6 +25,7 @@ import { api } from '../../../utils/api';
 import '../general/Presupuestos.css';
 import { money } from './elliotFormat';
 import { normalizeLayout } from './budgetLayout';
+import PresupuestoHojaPanel from './PresupuestoHojaPanel';
 import CostosFijosPanel from './CostosFijosPanel';
 import CostosVariablesPanel from './CostosVariablesPanel';
 import ResumenPresupuestoPanel from './ResumenPresupuestoPanel';
@@ -304,13 +305,26 @@ export default function PresupuestoDetalle() {
                     </Card>
                 </SimpleGrid>
 
-                <Tabs defaultValue="fijos" variant="pills">
+                <Tabs defaultValue="presupuesto" variant="pills">
                     <Tabs.List className="presupuestos-tabs-list">
+                        <Tabs.Tab value="presupuesto">Presupuesto</Tabs.Tab>
                         <Tabs.Tab value="fijos">Costos fijos</Tabs.Tab>
                         <Tabs.Tab value="variables">Costos variables</Tabs.Tab>
                         <Tabs.Tab value="resumen" leftSection={<IconReportMoney size={14} />}>Resumen</Tabs.Tab>
                         <Tabs.Tab value="mapa">Mapa de costos</Tabs.Tab>
                     </Tabs.List>
+
+                    <Tabs.Panel value="presupuesto" pt="md">
+                        <Card className="presupuestos-card" padding="lg">
+                            <PresupuestoHojaPanel
+                                draft={draft}
+                                setDraft={updateDraft}
+                                canEdit={canEdit}
+                                company={workbook.company}
+                                year={workbook.fiscalYear}
+                            />
+                        </Card>
+                    </Tabs.Panel>
 
                     <Tabs.Panel value="fijos" pt="md">
                         <Card className="presupuestos-card" padding="lg">

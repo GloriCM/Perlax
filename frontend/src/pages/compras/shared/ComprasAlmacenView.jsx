@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActionIcon,
     Autocomplete,
     Button,
     Card,
@@ -27,7 +26,6 @@ import {
     IconPlus,
     IconSearch,
     IconShoppingCart,
-    IconTrash,
 } from '@tabler/icons-react';
 import '@mantine/dates/styles.css';
 import { almacenApi } from '../../../services/almacenApi';
@@ -203,7 +201,6 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
     const [reqForm, setReqForm] = useState(EMPTY_REQ);
     const [editingReqId, setEditingReqId] = useState(null);
 
-    const [productosModal, { open: openProductosModal, close: closeProductosModal }] = useDisclosure(false);
     const [proveedoresModal, { open: openProveedoresModal, close: closeProveedoresModal }] = useDisclosure(false);
     const [productoForm, setProductoForm] = useState(null);
     const [proveedorForm, setProveedorForm] = useState(null);
@@ -291,13 +288,10 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
     }, [opSearch, reqModal]);
 
     const productosReqOptions = useMemo(
-        () => uniqueAutocompleteValues(
-            productos
-                .filter((p) => p.activo !== false)
-                .filter((p) => !reqForm.tipoRequisicionId || p.tipoRequisicionId === reqForm.tipoRequisicionId)
-                .map((p) => p.nombre)
-        ),
-        [productos, reqForm.tipoRequisicionId]
+        () => productos
+            .filter((p) => p.activo !== false && p.id && p.nombre)
+            .map((p) => ({ value: String(p.id), label: p.nombre })),
+        [productos]
     );
 
     const showTipoFiltro = tab === 'requisicion' || tab === 'pedidos' || tab === 'recepcion';
@@ -404,8 +398,8 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
             notifyError(new Error('Cliente y referencia se llenan al elegir una OP. Seleccione una OP de la lista.'));
             return;
         }
-        if (!String(reqForm.productoNombre || '').trim()) {
-            notifyError(new Error('Seleccione o agregue un producto / insumo.'));
+        if (!reqForm.productoId) {
+            notifyError(new Error('Elija un producto del inventario.'));
             return;
         }
         if (!reqForm.fechaRequerida) {
@@ -807,9 +801,6 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
                             )}
                             {tab === 'pedidos' && (
                                 <>
-                                    <Button variant="default" onClick={() => { openProductosModal(); refreshProductos(); }}>
-                                        Ver productos ({productos.length})
-                                    </Button>
                                     <Button variant="default" onClick={() => { openProveedoresModal(); refreshProveedores(); }}>
                                         Ver proveedores ({proveedores.length})
                                     </Button>
@@ -964,24 +955,24 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
                     />
 
                     <div>
-                        <Autocomplete
+                        <Select
                             label="Producto o insumo"
                             required
-                            placeholder="Buscar producto..."
+                            searchable
+                            placeholder="Buscar en el inventario..."
+                            nothingFoundMessage="No está en el inventario"
                             data={productosReqOptions}
-                            value={reqForm.productoNombre}
-                            onChange={(v) => setReqForm((f) => ({ ...f, productoNombre: v, productoId: null }))}
-                            onOptionSubmit={(nombre) => {
-                                const p = productos.find((x) => x.nombre === nombre);
-                                if (p) {
-                                    setReqForm((f) => ({
-                                        ...f,
-                                        productoNombre: p.nombre,
-                                        productoId: p.id,
-                                        unidad: UNIDADES_MEDIDA.includes(p.unidadSugerida) ? p.unidadSugerida : f.unidad,
-                                        tipoRequisicionId: p.tipoRequisicionId || f.tipoRequisicionId,
-                                    }));
-                                }
+                            value={reqForm.productoId ? String(reqForm.productoId) : null}
+                            limit={20}
+                            onChange={(id) => {
+                                const p = productos.find((x) => String(x.id) === String(id));
+                                setReqForm((f) => ({
+                                    ...f,
+                                    productoId: p?.id || null,
+                                    productoNombre: p?.nombre || '',
+                                    unidad: p && UNIDADES_MEDIDA.includes(p.unidadSugerida) ? p.unidadSugerida : f.unidad,
+                                    tipoRequisicionId: p?.tipoRequisicionId || f.tipoRequisicionId,
+                                }));
                             }}
                         />
                         <Group gap="xs" mt={6}>
@@ -1286,53 +1277,6 @@ export default function ComprasAlmacenView({ tab = 'requisicion' }) {
                         </Group>
                     </Stack>
                 )}
-            </Modal>
-
-            {/* Modal catálogo productos */}
-            <Modal opened={productosModal} onClose={closeProductosModal} title="Catálogo de productos" size="xl" centered>
-                <Group mb="md">
-                    <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => setProductoForm({
-                        nombre: '', tipoRequisicionId: 'consumo_diario', descripcion: '', costoEstandar: 0, unidadSugerida: 'unidades',
-                    })}>
-                        Nuevo producto
-                    </Button>
-                    <Button size="xs" variant="outline" onClick={() => productosFileRef.current?.click()}>Importar Excel</Button>
-                </Group>
-                <div className="almacen-table-wrap" style={{ maxHeight: 360, overflow: 'auto' }}>
-                    <table className="almacen-table">
-                        <thead><tr><th>Nombre</th><th>Tipo</th><th>Unidad</th><th>Costo</th><th /></tr></thead>
-                        <tbody>
-                            {productos.map((p) => (
-                                <tr key={p.id}>
-                                    <td>{p.nombre}</td>
-                                    <td>{getTipoRequisicion(p.tipoRequisicionId).label}</td>
-                                    <td>{p.unidadSugerida}</td>
-                                    <td>{formatMoney(p.costoEstandar)}</td>
-                                    <td>
-                                        <Group gap={4}>
-                                            <Button size="xs" variant="subtle" onClick={() => setProductoForm({ ...p })}>Editar</Button>
-                                            <ActionIcon color="red" variant="subtle" onClick={() => setConfirmState({
-                                                opened: true,
-                                                title: 'Eliminar producto',
-                                                message: `¿Eliminar ${p.nombre}?`,
-                                                onConfirm: async () => {
-                                                    try {
-                                                        await almacenApi.deleteProducto(p.id);
-                                                        notifySuccess('Producto eliminado.');
-                                                        refreshProductos();
-                                                    } catch (err) { notifyError(err); }
-                                                    finally { setConfirmState((s) => ({ ...s, opened: false })); }
-                                                },
-                                            })}>
-                                                <IconTrash size={14} />
-                                            </ActionIcon>
-                                        </Group>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
             </Modal>
 
             {/* Modal proveedores */}

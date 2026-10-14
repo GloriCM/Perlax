@@ -29,6 +29,9 @@ import {
     getNavLeafRouteOptions,
     getNavPermissionMatrix,
     normPath,
+    normalizeRouteGrant,
+    ACCESS_VIEW,
+    ACCESS_EDIT,
 } from '../../../utils/permissions';
 
 const emptyForm = {
@@ -71,30 +74,57 @@ const areaLabel = (area) => {
     return AREA_OPTIONS.find((a) => a.value === key)?.label || key || '—';
 };
 
-function PermissionCell({ path, selected, onToggle }) {
-    const p = normPath(path);
-    const isOn = selected.has(p);
+function AccessButton({ label, active, tone, onClick }) {
+    const palette = tone === 'edit'
+        ? { border: 'rgba(45, 212, 191, 0.9)', bg: 'rgba(45, 212, 191, 0.18)', text: 'teal.3' }
+        : { border: 'rgba(96, 165, 250, 0.9)', bg: 'rgba(96, 165, 250, 0.18)', text: 'blue.3' };
     return (
         <UnstyledButton
             type="button"
-            onClick={() => onToggle(p)}
+            onClick={onClick}
             style={{
-                minWidth: 44,
-                height: 44,
+                minWidth: 58,
+                height: 32,
+                padding: '0 8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 8,
-                border: `2px solid ${isOn ? 'rgba(99, 102, 241, 0.85)' : 'rgba(148, 163, 184, 0.35)'}`,
-                background: isOn ? 'rgba(99, 102, 241, 0.18)' : 'rgba(15, 23, 42, 0.5)',
+                border: `2px solid ${active ? palette.border : 'rgba(148, 163, 184, 0.35)'}`,
+                background: active ? palette.bg : 'rgba(15, 23, 42, 0.5)',
                 cursor: 'pointer',
-                transition: 'background 0.12s, border-color 0.12s',
             }}
         >
-            <Text fw={900} size="md" ff="monospace" c={isOn ? 'indigo.3' : 'dimmed'} style={{ lineHeight: 1 }}>
-                {isOn ? 'X' : ''}
+            <Text fw={700} size="xs" c={active ? palette.text : 'dimmed'}>
+                {label}
             </Text>
         </UnstyledButton>
+    );
+}
+
+function describeGrantCounts(grants) {
+    const editCount = grants.filter((grant) => grant.access === ACCESS_EDIT).length;
+    const viewCount = grants.filter((grant) => grant.access === ACCESS_VIEW).length;
+    return `${grants.length} vista${grants.length === 1 ? '' : 's'} (${editCount} editar, ${viewCount} ver)`;
+}
+
+function PermissionCell({ path, access, onSet }) {
+    const p = normPath(path);
+    return (
+        <Group gap={6} justify="center" wrap="nowrap">
+            <AccessButton
+                label="Ver"
+                tone="view"
+                active={access === ACCESS_VIEW}
+                onClick={() => onSet(p, access === ACCESS_VIEW ? null : ACCESS_VIEW)}
+            />
+            <AccessButton
+                label="Editar"
+                tone="edit"
+                active={access === ACCESS_EDIT}
+                onClick={() => onSet(p, access === ACCESS_EDIT ? null : ACCESS_EDIT)}
+            />
+        </Group>
     );
 }
 
@@ -114,7 +144,13 @@ export default function UsuariosConfig() {
     const allLeafPaths = useMemo(() => getNavLeafRouteOptions().map((o) => o.value), []);
     const permissionMatrix = useMemo(() => getNavPermissionMatrix(), []);
 
-    const selectedSet = useMemo(() => new Set(matrixDraft.map(normPath)), [matrixDraft]);
+    const accessByPath = useMemo(() => {
+        const map = new Map();
+        for (const grant of matrixDraft.map(normalizeRouteGrant).filter(Boolean)) {
+            map.set(grant.path, grant.access);
+        }
+        return map;
+    }, [matrixDraft]);
 
     const load = useCallback(async () => {
         try {
@@ -152,9 +188,12 @@ export default function UsuariosConfig() {
         else if (rawRole === 'taller') role = 'Taller';
         let routes = [];
         if (role === 'Administrativo' || role === 'Taller') {
-            if (Array.isArray(u.allowedRoutes)) routes = [...u.allowedRoutes];
-            else if (u.allowedRoutes === null || u.allowedRoutes === undefined) {
-                routes = role === 'Administrativo' ? [...allLeafPaths] : [];
+            if (Array.isArray(u.allowedRoutes)) {
+                routes = u.allowedRoutes.map(normalizeRouteGrant).filter(Boolean);
+            } else if (u.allowedRoutes === null || u.allowedRoutes === undefined) {
+                routes = role === 'Administrativo'
+                    ? allLeafPaths.map((path) => ({ path: normPath(path), access: ACCESS_EDIT }))
+                    : [];
             }
         }
         setEditingId(u.id);
@@ -175,17 +214,18 @@ export default function UsuariosConfig() {
     };
 
     const openMatrixModal = () => {
-        setMatrixDraft(form.allowedRoutes.map(normPath));
+        setMatrixDraft(form.allowedRoutes.map(normalizeRouteGrant).filter(Boolean));
         setMatrixModalOpen(true);
     };
 
-    const toggleMatrixPath = (path) => {
+    const setMatrixAccess = (path, access) => {
         const p = normPath(path);
         setMatrixDraft((prev) => {
-            const set = new Set(prev.map(normPath));
-            if (set.has(p)) set.delete(p);
-            else set.add(p);
-            return [...set];
+            const next = prev.filter((grant) => normPath(grant.path) !== p);
+            if (access === ACCESS_VIEW || access === ACCESS_EDIT) {
+                next.push({ path: p, access });
+            }
+            return next;
         });
     };
 
@@ -360,15 +400,18 @@ export default function UsuariosConfig() {
         if (r === 'auxiliar') return 'Personal Producción (no planta) · extras Producción';
         if (r === 'almacen' || r === 'almacén') return 'Personal Planeación · extras Gastos Planeación';
         if (r === 'taller') {
-            if (Array.isArray(u.allowedRoutes) && u.allowedRoutes.length > 0) {
-                return `Talleres · ${u.allowedRoutes.length} vista(s) · extras Talleres`;
+            const grants = Array.isArray(u.allowedRoutes)
+                ? u.allowedRoutes.map(normalizeRouteGrant).filter(Boolean)
+                : [];
+            if (grants.length > 0) {
+                return `Talleres · ${describeGrantCounts(grants)} · extras Talleres`;
             }
             return 'Personal Talleres · sin vistas ERP · extras Talleres';
         }
         if ((u.role || '').toLowerCase() === 'admin' || (u.role || '').toLowerCase() === 'administrador') return 'Completo';
         if (u.allowedRoutes === null || u.allowedRoutes === undefined) return 'Completo (sin lista)';
         if (u.allowedRoutes.length === 0) return 'Solo inicio';
-        return `${u.allowedRoutes.length} vista(s)`;
+        return describeGrantCounts(u.allowedRoutes.map(normalizeRouteGrant).filter(Boolean));
     };
 
     const usesViewMatrix = form.role === 'Administrativo' || form.role === 'Taller';
@@ -723,8 +766,8 @@ export default function UsuariosConfig() {
             >
                 <Stack gap="lg">
                     <Text size="sm" c="dimmed">
-                        Haga clic en una celda para marcar X (autorizado) o dejarla vacía (sin acceso). Cada bloque es un
-                        módulo del menú; las columnas son sus vistas.
+                        Cada vista tiene Ver o Editar. Ver permite entrar y consultar. Editar permite ver y modificar.
+                        Solo uno queda activo. Si ninguno está marcado, la vista no aparece en el menú.
                     </Text>
                     <ScrollArea h={{ base: 360, sm: 480 }} type="auto" offsetScrollbars>
                         <Stack gap="xl" pr="xs">
@@ -745,7 +788,7 @@ export default function UsuariosConfig() {
                                                 }}
                                             >
                                                 <Table.ScrollContainer
-                                                    minWidth={Math.max(400, 160 + mod.leaves.length * 100)}
+                                                    minWidth={Math.max(520, 160 + mod.leaves.length * 150)}
                                                     type="native"
                                                 >
                                                 <Table
@@ -796,8 +839,8 @@ export default function UsuariosConfig() {
                                                                 <Table.Td key={leaf.path} style={{ textAlign: 'center' }}>
                                                                     <PermissionCell
                                                                         path={leaf.path}
-                                                                        selected={selectedSet}
-                                                                        onToggle={toggleMatrixPath}
+                                                                        access={accessByPath.get(normPath(leaf.path)) || null}
+                                                                        onSet={setMatrixAccess}
                                                                     />
                                                                 </Table.Td>
                                                             ))}

@@ -9,7 +9,48 @@ public record OpMaterialLineDto(
     decimal Quantity,
     string Unit,
     decimal UnitCost,
-    string? Notes);
+    string? Notes,
+    decimal QuantityFromStock,
+    Guid? RequisicionId,
+    string? RequisicionCodigo);
+
+public record OpMaterialAvailabilityDto(
+    Guid LineId,
+    string ProductName,
+    decimal Quantity,
+    decimal Available,
+    decimal FromStock,
+    decimal ToPurchase,
+    bool AlreadyRequested);
+
+public record RequestOpMaterialCommand(string? TipoRequisicionId);
+
+public record RequestOpMaterialResult(
+    decimal Available,
+    decimal FromStock,
+    decimal ToPurchase,
+    Guid? RequisicionId,
+    string? RequisicionCodigo);
+
+public record OpMaterialPurchaseRequest(
+    string TipoRequisicionId,
+    string OrdenProduccionNumero,
+    Guid? CatalogoOpId,
+    string Cliente,
+    string Referencia,
+    Guid? ProductoId,
+    string ProductoNombre,
+    decimal Cantidad,
+    string Unidad,
+    DateTime FechaRequerida,
+    string? Observacion);
+
+public record OpMaterialPurchaseResult(Guid RequisicionId, string Codigo);
+
+public interface IOpMaterialPurchaseGateway
+{
+    Task<OpMaterialPurchaseResult> CreateAsync(OpMaterialPurchaseRequest request, string userName, CancellationToken ct = default);
+}
 
 public record OpLaborProcessDto(
     Guid Id,
@@ -92,6 +133,8 @@ public interface IOpDetailService
     Task<IReadOnlyList<OpMaterialLineDto>> ListMaterialsAsync(Guid manufacturingOrderId, CancellationToken ct = default);
     Task<OpMaterialLineDto> AddMaterialAsync(Guid manufacturingOrderId, SaveOpMaterialCommand command, string userName, CancellationToken ct = default);
     Task DeleteMaterialAsync(Guid manufacturingOrderId, Guid lineId, CancellationToken ct = default);
+    Task<OpMaterialAvailabilityDto> GetMaterialAvailabilityAsync(Guid manufacturingOrderId, Guid lineId, CancellationToken ct = default);
+    Task<RequestOpMaterialResult> RequestMaterialAsync(Guid manufacturingOrderId, Guid lineId, RequestOpMaterialCommand command, string userName, CancellationToken ct = default);
 
     Task<IReadOnlyList<OpLaborProcessDto>> ListLaborAsync(Guid manufacturingOrderId, CancellationToken ct = default);
     Task<OpLaborProcessDto> AddLaborAsync(Guid manufacturingOrderId, SaveOpLaborCommand command, string userName, CancellationToken ct = default);

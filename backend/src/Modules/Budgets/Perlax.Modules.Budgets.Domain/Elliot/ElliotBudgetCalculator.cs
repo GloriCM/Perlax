@@ -59,9 +59,7 @@ public static class ElliotBudgetCalculator
         var totalSales = Round(salesPayroll.Total + salesOther);
 
         var financial = SumFixed(fixedItems, ElliotFixedGroups.Financieros);
-        var indirectRollup = SumFixed(fixedItems, ElliotFixedGroups.CostosIndirectos);
-        var machineMaint = SumFixed(fixedItems, ElliotFixedGroups.MantenimientoMaquinas);
-        var indirect = indirectRollup > 0 ? indirectRollup : machineMaint;
+        var indirect = SumIndirect(fixedItems);
         var contratos = SumFixed(fixedItems, ElliotFixedGroups.ContratosServicios);
 
         var grossProfit = Round(totalIncome - materialCost);
@@ -221,10 +219,8 @@ public static class ElliotBudgetCalculator
         var generalSalary = generalPeople.Sum(p => p.Salary + p.TransportSubsidy);
         var generalLabor = generalSalary + (generalSalary * 0.5m);
 
-        var indirectItems = fixedItems.Where(i => i.Group == ElliotFixedGroups.CostosIndirectos).ToList();
+        var indirectItems = fixedItems.Where(i => IsIndirectGroup(i.Group)).ToList();
         var indirect = indirectItems.Sum(i => i.Amount);
-        if (indirect == 0)
-            indirect = fixedItems.Where(i => i.Group == ElliotFixedGroups.MantenimientoMaquinas).Sum(i => i.Amount);
         var internacional = indirectItems
             .Where(i => i.Concept.Contains("internacional", StringComparison.OrdinalIgnoreCase))
             .Sum(i => i.Amount);
@@ -262,6 +258,17 @@ public static class ElliotBudgetCalculator
 
         return rebuilt;
     }
+
+    private static bool IsIndirectGroup(string? group) =>
+        group == ElliotFixedGroups.CostosIndirectos
+        || group == ElliotFixedGroups.MantenimientoMaquinas
+        || group == ElliotFixedGroups.FletesIndirectos
+        || group == ElliotFixedGroups.DepreciacionIndirecta
+        || group == ElliotFixedGroups.ServiciosIndirectos
+        || group == ElliotFixedGroups.DiversosIndirectos;
+
+    private static decimal SumIndirect(IEnumerable<ElliotFixedItemInput> items) =>
+        Round(items.Where(i => IsIndirectGroup(i.Group)).Sum(i => i.Amount));
 
     private static decimal SumFixed(IEnumerable<ElliotFixedItemInput> items, string group) =>
         Round(items.Where(i => i.Group == group).Sum(i => i.Amount));

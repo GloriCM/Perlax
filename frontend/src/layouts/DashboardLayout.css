@@ -23,6 +23,12 @@
     padding-bottom: 20px;
 }
 
+.readonly-banner {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
 .dashboard-layout--mobile {
     display: block;
     padding: 8px;

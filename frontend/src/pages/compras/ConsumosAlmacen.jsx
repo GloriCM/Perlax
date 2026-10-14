@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Button, Card, Group, NumberInput, Select, Stack, Table, Tabs, Text, TextInput, Title,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../utils/api';
+import { almacenApi } from '../../services/almacenApi';
 
 export default function ConsumosAlmacen() {
     const [ops, setOps] = useState([]);
@@ -13,6 +14,7 @@ export default function ConsumosAlmacen() {
     const [movements, setMovements] = useState([]);
     const [form, setForm] = useState({
         manufacturingOrderId: null,
+        productId: null,
         productName: '',
         quantity: 1,
         unit: 'UND',
@@ -21,20 +23,23 @@ export default function ConsumosAlmacen() {
         applicationDate: new Date(),
         notes: '',
     });
-    const [entry, setEntry] = useState({ productName: '', quantity: 1, unitCost: 0, reference: '' });
+    const [entry, setEntry] = useState({ productId: null, productName: '', quantity: 1, unitCost: 0, reference: '' });
+    const [productos, setProductos] = useState([]);
 
     const load = async () => {
         try {
-            const [opened, cons, bal, mov] = await Promise.all([
+            const [opened, cons, bal, mov, catalogo] = await Promise.all([
                 api.get('/production/manufacturing-orders/opened'),
                 api.get('/production/inventory/consumptions'),
                 api.get('/production/inventory/stock'),
                 api.get('/production/inventory/movements'),
+                almacenApi.listProductos({}),
             ]);
             setOps(opened || []);
             setConsumptions(cons || []);
             setStock(bal || []);
             setMovements(mov || []);
+            setProductos(Array.isArray(catalogo) ? catalogo : []);
         } catch (error) {
             notifications.show({ title: 'Error', message: error?.message || 'No se pudo cargar inventarios.', color: 'red' });
         }
@@ -42,11 +47,34 @@ export default function ConsumosAlmacen() {
 
     useEffect(() => { load(); }, []);
 
+    const productoOptions = useMemo(
+        () => productos
+            .filter((p) => p.activo !== false && p.id && p.nombre)
+            .map((p) => ({ value: String(p.id), label: p.nombre })),
+        [productos]
+    );
+
+    const applyProducto = (id, target) => {
+        const p = productos.find((x) => String(x.id) === String(id));
+        if (!p) return { ...target, productId: null, productName: '' };
+        return {
+            ...target,
+            productId: p.id,
+            productName: p.nombre,
+            unit: p.unidadSugerida || target.unit,
+            unitCost: Number(p.costoEstandar) || 0,
+        };
+    };
+
     const saveConsumption = async () => {
+        if (!form.productId) {
+            notifications.show({ title: 'Elija un producto del inventario', color: 'red' });
+            return;
+        }
         try {
             await api.post('/production/inventory/consumptions', form);
             notifications.show({ title: 'Aplicación registrada', color: 'green' });
-            setForm({ ...form, productName: '', quantity: 1, deliveredTo: '', notes: '' });
+            setForm({ ...form, productId: null, productName: '', quantity: 1, deliveredTo: '', notes: '' });
             load();
         } catch (error) {
             notifications.show({ title: 'Error', message: error?.message || 'No se pudo guardar.', color: 'red' });
@@ -54,10 +82,14 @@ export default function ConsumosAlmacen() {
     };
 
     const saveEntry = async () => {
+        if (!entry.productId) {
+            notifications.show({ title: 'Elija un producto del inventario', color: 'red' });
+            return;
+        }
         try {
             await api.post('/production/inventory/stock/entries', entry);
             notifications.show({ title: 'Entrada registrada', color: 'green' });
-            setEntry({ productName: '', quantity: 1, unitCost: 0, reference: '' });
+            setEntry({ productId: null, productName: '', quantity: 1, unitCost: 0, reference: '' });
             load();
         } catch (error) {
             notifications.show({ title: 'Error', message: error?.message || 'No se pudo registrar entrada.', color: 'red' });
@@ -86,7 +118,16 @@ export default function ConsumosAlmacen() {
                                 onChange={(v) => setForm({ ...form, manufacturingOrderId: v })}
                             />
                             <Group grow>
-                                <TextInput label="Producto" value={form.productName} onChange={(e) => setForm({ ...form, productName: e.currentTarget.value })} />
+                                <Select
+                                    label="Producto"
+                                    searchable
+                                    placeholder="Buscar en el inventario..."
+                                    nothingFoundMessage="No está en el inventario"
+                                    data={productoOptions}
+                                    value={form.productId ? String(form.productId) : null}
+                                    limit={20}
+                                    onChange={(id) => setForm((current) => applyProducto(id, current))}
+                                />
                                 <TextInput label="Entregado a" value={form.deliveredTo} onChange={(e) => setForm({ ...form, deliveredTo: e.currentTarget.value })} />
                             </Group>
                             <Group grow>
@@ -133,7 +174,17 @@ export default function ConsumosAlmacen() {
                     <Card withBorder mb="md">
                         <Title order={5} mb="sm">Registrar entrada (compra/recepción)</Title>
                         <Group align="flex-end">
-                            <TextInput label="Producto" value={entry.productName} onChange={(e) => setEntry({ ...entry, productName: e.currentTarget.value })} />
+                            <Select
+                                label="Producto"
+                                searchable
+                                placeholder="Buscar en el inventario..."
+                                nothingFoundMessage="No está en el inventario"
+                                data={productoOptions}
+                                value={entry.productId ? String(entry.productId) : null}
+                                limit={20}
+                                style={{ minWidth: 280 }}
+                                onChange={(id) => setEntry((current) => applyProducto(id, current))}
+                            />
                             <NumberInput label="Cantidad" value={entry.quantity} onChange={(v) => setEntry({ ...entry, quantity: v || 0 })} />
                             <NumberInput label="Costo" value={entry.unitCost} onChange={(v) => setEntry({ ...entry, unitCost: v || 0 })} />
                             <TextInput label="Referencia" value={entry.reference} onChange={(e) => setEntry({ ...entry, reference: e.currentTarget.value })} />

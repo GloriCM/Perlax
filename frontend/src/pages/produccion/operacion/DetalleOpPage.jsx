@@ -17,7 +17,15 @@ const formatDate = (value) => {
 };
 
 const formatNumber = (value) => Number(value || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+const formatQty = (value) => Number(value || 0).toLocaleString('es-CO', { maximumFractionDigits: 2 });
 const money = (v) => Number(v || 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+const TIPOS_COMPRA = [
+    { value: 'consumo_diario', label: 'Insumos de Consumo Diario' },
+    { value: 'cajas_empaque', label: 'Cajas y Empaque' },
+    { value: 'gomas_adhesivos', label: 'Gomas y Adhesivos' },
+    { value: 'pantone', label: 'Tinta' },
+];
 
 export default function DetalleOpPage() {
     const { id } = useParams();
@@ -88,6 +96,39 @@ export default function DetalleOpPage() {
         }
     };
 
+    const openSolicitar = async (line) => {
+        setModal('solicitar');
+        setForm({
+            lineId: line.id,
+            productName: line.productName,
+            tipoRequisicionId: line.category === 'Impresion' ? 'pantone' : 'consumo_diario',
+            loading: true,
+        });
+        try {
+            const data = await api.get(`/production/manufacturing-orders/${id}/materials/${line.id}/disponibilidad`);
+            setForm((current) => ({ ...current, ...data, loading: false }));
+        } catch (error) {
+            notifications.show({ title: 'Error', message: error?.message || 'No se pudo consultar el inventario.', color: 'red' });
+            setModal(null);
+        }
+    };
+
+    const confirmarSolicitud = async () => {
+        try {
+            const result = await api.post(`/production/manufacturing-orders/${id}/materials/${form.lineId}/solicitar`, {
+                tipoRequisicionId: form.tipoRequisicionId || null,
+            });
+            const partes = [];
+            if (Number(result?.fromStock) > 0) partes.push(`De bodega: ${formatQty(result.fromStock)}`);
+            if (result?.requisicionCodigo) partes.push(`Compra ${result.requisicionCodigo}: ${formatQty(result.toPurchase)}`);
+            notifications.show({ title: 'Material solicitado', message: partes.join('. ') || 'Listo.', color: 'green' });
+            setModal(null);
+            await reloadDetail();
+        } catch (error) {
+            notifications.show({ title: 'Error', message: error?.message || 'No se pudo solicitar.', color: 'red' });
+        }
+    };
+
     const removeRow = async (type, lineId) => {
         try {
             await api.delete(`/production/manufacturing-orders/${id}/${type}/${lineId}`);
@@ -148,15 +189,25 @@ export default function DetalleOpPage() {
             <Card withBorder>
                 <Title order={5} mb="xs">Materiales</Title>
                 <Table><Table.Tbody>
-                    {materials.map((m) => (
+                    {materials.map((m) => {
+                        const pedido = Number(m.quantityFromStock) > 0 || Boolean(m.requisicionId);
+                        return (
                         <Table.Tr key={m.id}>
                             <Table.Td>{m.partName}</Table.Td>
                             <Table.Td>{m.productName}</Table.Td>
-                            <Table.Td>{m.quantity} {m.unit}</Table.Td>
+                            <Table.Td>{formatQty(m.quantity)} {m.unit}</Table.Td>
                             <Table.Td>{money(m.unitCost)}</Table.Td>
-                            <Table.Td><Button size="xs" color="red" variant="subtle" onClick={() => removeRow('materials', m.id)}>Quitar</Button></Table.Td>
+                            <Table.Td>
+                                {Number(m.quantityFromStock) > 0 && <Text size="xs">En bodega: {formatQty(m.quantityFromStock)}</Text>}
+                                {m.requisicionCodigo && (
+                                    <Button size="xs" variant="subtle" onClick={() => navigate('/compras/requisicion')}>{m.requisicionCodigo}</Button>
+                                )}
+                                {!pedido && <Button size="xs" onClick={() => openSolicitar(m)}>Solicitar</Button>}
+                            </Table.Td>
+                            <Table.Td>{!pedido && <Button size="xs" color="red" variant="subtle" onClick={() => removeRow('materials', m.id)}>Quitar</Button>}</Table.Td>
                         </Table.Tr>
-                    ))}
+                        );
+                    })}
                     {!materials.length && <Table.Tr><Table.Td><Text c="dimmed">Sin materiales.</Text></Table.Td></Table.Tr>}
                 </Table.Tbody></Table>
             </Card>
@@ -195,6 +246,7 @@ export default function DetalleOpPage() {
 
             <Modal opened={Boolean(modal)} onClose={() => setModal(null)} title={
                 modal === 'materials' ? 'Agregar material' :
+                modal === 'solicitar' ? 'Solicitar material' :
                 modal === 'labor' ? 'Agregar proceso' :
                 modal === 'workshops' ? 'Asignar taller' : 'Fecha entrega producción'
             } size="lg">
@@ -210,6 +262,28 @@ export default function DetalleOpPage() {
                                 <NumberInput label="Costo unitario" min={0} value={form.unitCost} onChange={(v) => setForm({ ...form, unitCost: v || 0 })} />
                             </Group>
                         </>
+                    )}
+                    {modal === 'solicitar' && (
+                        form.loading ? <Text c="dimmed">Consultando inventario...</Text> : (
+                            <>
+                                <Text fw={600}>{form.productName}</Text>
+                                <SimpleGrid cols={2}>
+                                    <div><Text size="xs" c="dimmed">Pedido</Text><Text>{formatQty(form.quantity)}</Text></div>
+                                    <div><Text size="xs" c="dimmed">Disponible</Text><Text>{formatQty(form.available)}</Text></div>
+                                    <div><Text size="xs" c="dimmed">De bodega</Text><Text>{formatQty(form.fromStock)}</Text></div>
+                                    <div><Text size="xs" c="dimmed">A comprar</Text><Text>{formatQty(form.toPurchase)}</Text></div>
+                                </SimpleGrid>
+                                {Number(form.toPurchase) > 0 && (
+                                    <Select
+                                        label="Tipo de compra"
+                                        data={TIPOS_COMPRA}
+                                        value={form.tipoRequisicionId}
+                                        onChange={(v) => setForm({ ...form, tipoRequisicionId: v })}
+                                    />
+                                )}
+                                {form.alreadyRequested && <Text c="dimmed">Este material ya fue solicitado.</Text>}
+                            </>
+                        )
                     )}
                     {modal === 'labor' && (
                         <>
@@ -233,7 +307,13 @@ export default function DetalleOpPage() {
                     {modal === 'delivery' && (
                         <DateInput label="Fecha entrega producción" value={form.productionDeliveryDate} onChange={(v) => setForm({ ...form, productionDeliveryDate: v })} />
                     )}
-                    <Button onClick={saveModal}>Guardar</Button>
+                    {modal === 'solicitar' ? (
+                        <Button onClick={confirmarSolicitud} disabled={form.loading || form.alreadyRequested || (Number(form.toPurchase) > 0 && !form.tipoRequisicionId)}>
+                            Confirmar
+                        </Button>
+                    ) : (
+                        <Button onClick={saveModal}>Guardar</Button>
+                    )}
                 </Stack>
             </Modal>
         </Stack>

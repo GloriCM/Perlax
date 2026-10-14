@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+    ActionIcon,
     Alert,
     Badge,
     Box,
@@ -14,13 +15,16 @@ import {
     Text,
     TextInput,
     Textarea,
-    Title
+    Title,
+    Tooltip
 } from '@mantine/core';
 import {
     IconAlertTriangle,
+    IconEdit,
     IconFilter,
     IconPlus,
     IconReportAnalytics,
+    IconTrash,
     IconWallet
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
@@ -34,13 +38,6 @@ const STATUS_COLORS = {
     Cancelado: 'red',
     'En Ajuste': 'orange'
 };
-
-const money = (v) =>
-    new Intl.NumberFormat('es-CO', {
-        style: 'currency',
-        currency: 'COP',
-        maximumFractionDigits: 0
-    }).format(v || 0);
 
 function createEmptyForm() {
     const year = new Date().getFullYear();
@@ -103,8 +100,7 @@ export default function PresupuestoGeneral() {
         const total = items.length;
         const pending = items.filter((i) => i.status === 'Pendiente').length;
         const approved = items.filter((i) => i.status === 'Aprobado').length;
-        const income = items.reduce((s, i) => s + (i.totalIncome || 0), 0);
-        return { total, pending, approved, income };
+        return { total, pending, approved };
     }, [items]);
 
     const handleCreate = async () => {
@@ -142,6 +138,17 @@ export default function PresupuestoGeneral() {
         }
     };
 
+    const handleDelete = async (item) => {
+        if (!window.confirm(`¿Eliminar el presupuesto ${item.code} de ${item.company}?`)) return;
+        setError('');
+        try {
+            await api.delete(`/budgets/${item.id}`);
+            await load();
+        } catch (e) {
+            setError(e.message || 'No se pudo eliminar el presupuesto.');
+        }
+    };
+
     return (
             <Box className="presupuestos-page fade-in">
                 <Stack gap="lg">
@@ -149,7 +156,7 @@ export default function PresupuestoGeneral() {
                         <Box>
                             <Title order={1} className="presupuestos-title">Presupuesto General</Title>
                             <Text className="presupuestos-subtitle">
-                                Gestión de presupuestos por vigencia, unidades de negocio, ingresos, costos, gastos y reportes financieros.
+                                Presupuestos por empresa y vigencia. Abra uno para ver costos, gastos y utilidad.
                             </Text>
                         </Box>
                         <Group>
@@ -167,7 +174,7 @@ export default function PresupuestoGeneral() {
                     </Group>
 
                     {filtersOpen && (
-                        <Card className="presupuestos-card" padding="lg">
+                        <Card className="presupuestos-card" padding="lg" data-keep-interactive>
                             <SimpleGrid cols={{ base: 1, sm: 3 }}>
                                 <TextInput label="Empresa" value={company} onChange={(e) => setCompany(e.currentTarget.value)} />
                                 <TextInput label="Vigencia" placeholder="2026" value={year} onChange={(e) => setYear(e.currentTarget.value)} />
@@ -195,7 +202,7 @@ export default function PresupuestoGeneral() {
                         <Alert color="red" icon={<IconAlertTriangle size={16} />}>{error}</Alert>
                     )}
 
-                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+                    <SimpleGrid cols={{ base: 1, sm: 3 }}>
                         <Card className="presupuestos-kpi" padding="lg">
                             <Text className="presupuestos-kpi-label">Total</Text>
                             <Title order={3}>{kpis.total} Presupuestos</Title>
@@ -207,10 +214,6 @@ export default function PresupuestoGeneral() {
                         <Card className="presupuestos-kpi" padding="lg">
                             <Text className="presupuestos-kpi-label">Aprobados</Text>
                             <Title order={3}>{kpis.approved}</Title>
-                        </Card>
-                        <Card className="presupuestos-kpi" padding="lg">
-                            <Text className="presupuestos-kpi-label">Ingresos proyectados</Text>
-                            <Title order={4}>{money(kpis.income)}</Title>
                         </Card>
                     </SimpleGrid>
 
@@ -227,9 +230,8 @@ export default function PresupuestoGeneral() {
                                         <Table.Th>Empresa</Table.Th>
                                         <Table.Th>Vigencia</Table.Th>
                                         <Table.Th>Moneda</Table.Th>
-                                        <Table.Th>U. Negocio</Table.Th>
-                                        <Table.Th>Ingresos</Table.Th>
                                         <Table.Th>Estado</Table.Th>
+                                        <Table.Th>Acciones</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
@@ -248,12 +250,39 @@ export default function PresupuestoGeneral() {
                                             <Table.Td>{item.company}</Table.Td>
                                             <Table.Td>{item.fiscalYear}</Table.Td>
                                             <Table.Td>{item.currency}</Table.Td>
-                                            <Table.Td>{item.businessUnitCount}</Table.Td>
-                                            <Table.Td>{money(item.totalIncome)}</Table.Td>
                                             <Table.Td>
                                                 <Badge color={STATUS_COLORS[item.status] || 'gray'} variant="light">
                                                     {item.status}
                                                 </Badge>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap="xs" wrap="nowrap">
+                                                    <Tooltip label="Editar">
+                                                        <ActionIcon
+                                                            variant="light"
+                                                            aria-label="Editar presupuesto"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate(`/presupuestos/${item.id}`);
+                                                            }}
+                                                        >
+                                                            <IconEdit size={16} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                    <Tooltip label="Eliminar">
+                                                        <ActionIcon
+                                                            variant="light"
+                                                            color="red"
+                                                            aria-label="Eliminar presupuesto"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDelete(item);
+                                                            }}
+                                                        >
+                                                            <IconTrash size={16} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                </Group>
                                             </Table.Td>
                                         </Table.Tr>
                                     ))}
@@ -311,22 +340,6 @@ export default function PresupuestoGeneral() {
                                 onChange={(e) => {
                                     const value = e.currentTarget.value;
                                     setForm((p) => ({ ...p, costCenter: value }));
-                                }}
-                            />
-                            <TextInput
-                                label="Unidad de negocio (opcional)"
-                                value={form.businessUnitName}
-                                onChange={(e) => {
-                                    const value = e.currentTarget.value;
-                                    setForm((p) => ({ ...p, businessUnitName: value }));
-                                }}
-                            />
-                            <TextInput
-                                label="Responsable U.N."
-                                value={form.businessUnitResponsible}
-                                onChange={(e) => {
-                                    const value = e.currentTarget.value;
-                                    setForm((p) => ({ ...p, businessUnitResponsible: value }));
                                 }}
                             />
                         </SimpleGrid>

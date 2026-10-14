@@ -6,7 +6,7 @@ export const TIPOS_REQUISICION = [
     { id: 'pantone', label: 'Tinta', color: '#a855f7' },
 ];
 
-export const UNIDADES_MEDIDA = ['kg', 'unidades', 'metros', 'litros', 'rollos', 'cajas', 'galones'];
+export const UNIDADES_MEDIDA = ['kg', 'unidades', 'metros', 'litros', 'rollos', 'cajas', 'galones', 'hojas', 'paquetes', 'cm'];
 
 export const ESTADOS_REQUISICION = ['Pendiente', 'Pedido', 'Parcial', 'En Almacen'];
 

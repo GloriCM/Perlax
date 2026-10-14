@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Perlax.Modules.Production.Application.Inventory;
 using Perlax.Modules.Production.Application.OpDetail;
 using Perlax.Modules.Production.Domain.Entities;
 using Perlax.Modules.Production.Infrastructure.Persistence;
@@ -8,17 +9,25 @@ namespace Perlax.Modules.Production.Infrastructure.Services;
 public sealed class OpDetailService : IOpDetailService
 {
     private readonly ProductionDbContext _db;
+    private readonly IInventoryConsumptionService _inventory;
+    private readonly IOpMaterialPurchaseGateway _purchases;
 
-    public OpDetailService(ProductionDbContext db) => _db = db;
+    public OpDetailService(ProductionDbContext db, IInventoryConsumptionService inventory, IOpMaterialPurchaseGateway purchases)
+    {
+        _db = db;
+        _inventory = inventory;
+        _purchases = purchases;
+    }
 
     public async Task<IReadOnlyList<OpMaterialLineDto>> ListMaterialsAsync(Guid manufacturingOrderId, CancellationToken ct = default)
     {
+        await CommercialChainSchemaFixes.EnsureOpMaterialRequestColumnsAsync(_db, ct);
         await EnsureOpAsync(manufacturingOrderId, ct);
-        return await _db.OpMaterialLines.AsNoTracking()
+        var rows = await _db.OpMaterialLines.AsNoTracking()
             .Where(x => x.ManufacturingOrderId == manufacturingOrderId)
             .OrderBy(x => x.PartName).ThenBy(x => x.ProductName)
-            .Select(x => new OpMaterialLineDto(x.Id, x.PartName, x.Category, x.ProductId, x.ProductName, x.Quantity, x.Unit, x.UnitCost, x.Notes))
             .ToListAsync(ct);
+        return rows.Select(MapMaterial).ToList();
     }
 
     public async Task<OpMaterialLineDto> AddMaterialAsync(Guid manufacturingOrderId, SaveOpMaterialCommand command, string userName, CancellationToken ct = default)
@@ -46,15 +55,96 @@ public sealed class OpDetailService : IOpDetailService
         };
         _db.OpMaterialLines.Add(row);
         await _db.SaveChangesAsync(ct);
-        return new OpMaterialLineDto(row.Id, row.PartName, row.Category, row.ProductId, row.ProductName, row.Quantity, row.Unit, row.UnitCost, row.Notes);
+        return MapMaterial(row);
     }
 
     public async Task DeleteMaterialAsync(Guid manufacturingOrderId, Guid lineId, CancellationToken ct = default)
     {
         var row = await _db.OpMaterialLines.FirstOrDefaultAsync(x => x.Id == lineId && x.ManufacturingOrderId == manufacturingOrderId, ct)
             ?? throw new KeyNotFoundException("Material no encontrado.");
+        if (row.QuantityFromStock > 0 || row.RequisicionId != null)
+            throw new InvalidOperationException("Este material ya se solicitó. No se puede quitar.");
         _db.OpMaterialLines.Remove(row);
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<OpMaterialAvailabilityDto> GetMaterialAvailabilityAsync(Guid manufacturingOrderId, Guid lineId, CancellationToken ct = default)
+    {
+        await CommercialChainSchemaFixes.EnsureOpMaterialRequestColumnsAsync(_db, ct);
+        var line = await FindMaterialAsync(manufacturingOrderId, lineId, ct);
+        var available = Math.Max(0, await _inventory.GetAvailableByNameAsync(line.ProductName, ct));
+        var already = line.RequisicionId != null || line.QuantityFromStock > 0;
+        var fromStock = already ? line.QuantityFromStock : Math.Min(available, line.Quantity);
+        var toPurchase = already
+            ? Math.Max(0, line.Quantity - line.QuantityFromStock)
+            : Math.Max(0, line.Quantity - fromStock);
+        return new OpMaterialAvailabilityDto(line.Id, line.ProductName, line.Quantity, available, fromStock, toPurchase, already);
+    }
+
+    public async Task<RequestOpMaterialResult> RequestMaterialAsync(Guid manufacturingOrderId, Guid lineId, RequestOpMaterialCommand command, string userName, CancellationToken ct = default)
+    {
+        await CommercialChainSchemaFixes.EnsureOpMaterialRequestColumnsAsync(_db, ct);
+        var mo = await EnsureOpAsync(manufacturingOrderId, ct);
+        var line = await FindMaterialAsync(manufacturingOrderId, lineId, ct);
+        if (line.RequisicionId != null || line.QuantityFromStock > 0)
+            throw new InvalidOperationException("Este material ya fue solicitado.");
+        if (mo.ClosedAt != null)
+            throw new InvalidOperationException("La orden está cerrada.");
+
+        var available = Math.Max(0, await _inventory.GetAvailableByNameAsync(line.ProductName, ct));
+        var fromStock = Math.Min(available, line.Quantity);
+        if (fromStock > 0 && mo.OpeningDate == null)
+            throw new InvalidOperationException("Abra la orden antes de tomar material de bodega.");
+
+        var previewPurchase = line.Quantity - fromStock;
+        if (previewPurchase > 0 && string.IsNullOrWhiteSpace(command.TipoRequisicionId))
+            throw new InvalidOperationException("Seleccione el tipo de compra para el faltante.");
+
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            await AdvisoryLock.AcquireAsync(_db, lineId.ToString(), 1, ct);
+            await _db.Entry(line).ReloadAsync(ct);
+            if (line.RequisicionId != null || line.QuantityFromStock > 0)
+                throw new InvalidOperationException("Este material ya fue solicitado.");
+
+            var taken = 0m;
+            if (fromStock > 0)
+            {
+                taken = await _inventory.ConsumeUpToAsync(
+                    mo.Id, mo.OpNumber, line.ProductId, line.ProductName, fromStock, line.Unit, line.UnitCost, userName, ct);
+            }
+
+            var toPurchase = line.Quantity - taken;
+            OpMaterialPurchaseResult? purchase = null;
+            if (toPurchase > 0)
+            {
+                purchase = await _purchases.CreateAsync(new OpMaterialPurchaseRequest(
+                    command.TipoRequisicionId!.Trim(),
+                    mo.OpNumber,
+                    mo.Id,
+                    string.IsNullOrWhiteSpace(mo.ClientName) ? "Sin cliente" : mo.ClientName.Trim(),
+                    string.IsNullOrWhiteSpace(mo.ReferenceName) ? line.ProductName : mo.ReferenceName.Trim(),
+                    line.ProductId,
+                    line.ProductName,
+                    toPurchase,
+                    string.IsNullOrWhiteSpace(line.Unit) ? "UND" : line.Unit.Trim(),
+                    mo.ProductionDeliveryDate ?? DateTime.UtcNow,
+                    $"Solicitud desde la OP {mo.OpNumber}. Pieza {line.PartName}."), userName, ct);
+            }
+
+            line.QuantityFromStock = taken;
+            line.RequisicionId = purchase?.RequisicionId;
+            line.RequisicionCodigo = purchase?.Codigo;
+            await _db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+            return new RequestOpMaterialResult(available, taken, toPurchase, line.RequisicionId, line.RequisicionCodigo);
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<OpLaborProcessDto>> ListLaborAsync(Guid manufacturingOrderId, CancellationToken ct = default)
@@ -206,4 +296,11 @@ public sealed class OpDetailService : IOpDetailService
     private async Task<ManufacturingOrder> EnsureOpAsync(Guid id, CancellationToken ct) =>
         await _db.ManufacturingOrders.FirstOrDefaultAsync(m => m.Id == id, ct)
         ?? throw new KeyNotFoundException("Orden de producción no encontrada.");
+
+    private async Task<OpMaterialLine> FindMaterialAsync(Guid manufacturingOrderId, Guid lineId, CancellationToken ct) =>
+        await _db.OpMaterialLines.FirstOrDefaultAsync(x => x.Id == lineId && x.ManufacturingOrderId == manufacturingOrderId, ct)
+        ?? throw new KeyNotFoundException("Material no encontrado.");
+
+    private static OpMaterialLineDto MapMaterial(OpMaterialLine x) =>
+        new(x.Id, x.PartName, x.Category, x.ProductId, x.ProductName, x.Quantity, x.Unit, x.UnitCost, x.Notes, x.QuantityFromStock, x.RequisicionId, x.RequisicionCodigo);
 }

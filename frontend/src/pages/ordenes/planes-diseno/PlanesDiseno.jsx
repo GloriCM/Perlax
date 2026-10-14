@@ -1,0 +1,1082 @@
+import {
+    Card,
+    Title,
+    Text,
+    Group,
+    Button,
+    Stack,
+    TextInput,
+    SimpleGrid,
+    Box,
+    Table,
+    ScrollArea,
+    ActionIcon,
+    Badge,
+    Modal,
+    Divider,
+    Checkbox,
+    Grid,
+    Image,
+    Paper,
+    Loader,
+    Menu,
+    Select
+} from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import {
+    IconSearch,
+    IconX,
+    IconPrinter,
+    IconDeviceFloppy,
+    IconDotsVertical,
+    IconUpload
+} from '@tabler/icons-react';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '../../../utils/api';
+import { fetchAuthenticatedUploadBlob } from '../../../utils/authenticatedUpload';
+import AuthenticatedImage from '../../../components/AuthenticatedImage';
+import { notifications } from '@mantine/notifications';
+import { isAdmin, isAssignedToCurrentUser, canAccessInternalChat } from '../../../utils/permissions';
+
+function mergeOrderPartDetail(order, part) {
+    return {
+        ...part,
+        productionOrderId: part.productionOrderId ?? part.ProductionOrderId ?? order.id ?? order.Id,
+        otNumber: order.otNumber ?? order.OTNumber,
+        cliente: order.cliente ?? order.Cliente,
+        ejecutivo: order.ejecutivoCuenta ?? order.EjecutivoCuenta,
+        productName: order.productName ?? order.ProductName,
+        createdAt: order.createdAt ?? order.CreatedAt
+    };
+}
+
+/** Devuelve URLs públicas por categoría desde AdjuntosJson de la pieza. */
+function parseAttachmentsByCategory(adjuntosJson) {
+    if (!adjuntosJson) return { ampliaciones: [], adjuntos: [] };
+    try {
+        const list = JSON.parse(adjuntosJson);
+        if (!Array.isArray(list)) return { ampliaciones: [], adjuntos: [] };
+        const ampliaciones = [];
+        const adjuntos = [];
+        for (const item of list) {
+            const cat = String(item.category ?? item.Category ?? '').toLowerCase();
+            const kind = String(item.kind ?? item.Kind ?? '').toLowerCase();
+            const url = item.publicUrl ?? item.PublicUrl;
+            if (!url) continue;
+            if (cat === 'ampliaciones' || kind === 'ampliacion') ampliaciones.push(url);
+            else if (cat === 'adjuntos' || kind === 'adjunto') adjuntos.push(url);
+        }
+        return { ampliaciones, adjuntos };
+    } catch {
+        return { ampliaciones: [], adjuntos: [] };
+    }
+}
+
+const INK_LETTER = {
+    c: '#0097a7',
+    m: '#c2185b',
+    y: '#f9a825',
+    k: '#1a1a1a'
+};
+
+function PlanDisenoTintInkMark({ letter, inkKey, checked }) {
+    const color = INK_LETTER[inkKey] ?? '#111';
+    const markColor = inkKey === 'k' ? '#111' : inkKey === 'y' ? '#6d4c00' : color;
+    return (
+        <Group gap={4} align="center" wrap="nowrap">
+            <Text size="xs" fw={800} style={{ color, minWidth: 11 }}>
+                {letter}
+            </Text>
+            <Box
+                w={14}
+                h={14}
+                style={{
+                    border: '1px solid rgba(255,255,255,0.35)',
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#fff',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    color: checked ? markColor : 'transparent'
+                }}
+            >
+                {checked ? '\u2715' : ''}
+            </Box>
+        </Group>
+    );
+}
+
+function parseFabricationProcesses(jsonStr) {
+    if (!jsonStr) return [];
+    try {
+        const arr = JSON.parse(jsonStr);
+        return Array.isArray(arr) ? arr : [];
+    } catch {
+        return [];
+    }
+}
+
+function getAttachmentStatusByCategory(adjuntosJson) {
+    const parsed = parseAttachmentsByCategory(adjuntosJson);
+    return {
+        ampliacionesOk: parsed.ampliaciones.length > 0,
+        adjuntosOk: parsed.adjuntos.length > 0
+    };
+}
+
+function pickUploadFile(fileOrList) {
+    if (!fileOrList) return null;
+    if (Array.isArray(fileOrList)) return fileOrList[0] || null;
+    return fileOrList;
+}
+
+function extractOtNumbers(value) {
+    return [...String(value || '').matchAll(/(?:ext[\s-]*)?(\d{2,})/gi)].map((m) => m[1]);
+}
+
+function findMatchingPlannerJob(item, jobs) {
+    if (!Array.isArray(jobs) || jobs.length === 0) return null;
+    if (item?.isPlannerJobOnly && item?.plannerJobId) {
+        return jobs.find((job) => String(job.id) === String(item.plannerJobId)) || null;
+    }
+    const itemNums = new Set(extractOtNumbers(item.otNumber));
+    const product = normalizeSearchText(item.productName);
+    const cliente = normalizeSearchText(item.cliente);
+    for (const job of jobs) {
+        const jobNums = extractOtNumbers(job.trabajo);
+        if (jobNums.some((n) => itemNums.has(n))) return job;
+        const trabajo = normalizeSearchText(job.trabajo).replace(/^\d+[\s·.\-]*/, '').trim();
+        if (trabajo.length >= 10 && product.length >= 8 && (product.includes(trabajo) || trabajo.includes(product))) {
+            return job;
+        }
+        // Cliente + trabajo corto (p.ej. "Conos de Helado") cuando no hay número OT en el job.
+        const jobCliente = normalizeSearchText(job.cliente);
+        if (
+            trabajo.length >= 6
+            && product.length >= 6
+            && cliente
+            && jobCliente
+            && (cliente.includes(jobCliente) || jobCliente.includes(cliente))
+            && (product.includes(trabajo) || trabajo.includes(product))
+        ) {
+            return job;
+        }
+    }
+    return null;
+}
+
+function matchesAssignedPlannerJob(item, jobs) {
+    if (item?.isPlannerJobOnly) return true;
+    return !!findMatchingPlannerJob(item, jobs);
+}
+
+function resolvePlannerDesigner(item, jobs) {
+    const existing = String(item?.disenador || item?.Disenador || '').trim();
+    if (existing) return existing;
+    return String(findMatchingPlannerJob(item, jobs)?.responsable || '').trim();
+}
+
+/** Filas sintéticas: trabajos del planeador aún sin OT vinculable. */
+function plannerJobToPlanRow(job) {
+    const jobId = String(job?.id || '').trim();
+    const reception = job?.fechaRecepcion || job?.createdAt || null;
+    return {
+        id: `planner-${jobId}`,
+        isPlannerJobOnly: true,
+        plannerJobId: jobId,
+        productionOrderId: null,
+        otNumber: jobId || 'PJ',
+        partName: 'Sin OT vinculada',
+        cliente: job?.cliente || '',
+        ejecutivo: job?.vendedor || '',
+        productName: job?.trabajo || '',
+        prioridad: 'Normal',
+        disenador: String(job?.responsable || '').trim(),
+        createdAt: reception,
+        estadoFicha: '—',
+        estadoMuestra: '—',
+        estadoAprobacion: job?.fichaAprobada ? 'Aprobado' : 'Pendiente',
+        adjuntosJson: null
+    };
+}
+
+function collectMatchedPlannerJobIds(orderRows, jobs) {
+    const matched = new Set();
+    for (const item of orderRows) {
+        if (item?.isPlannerJobOnly) continue;
+        const job = findMatchingPlannerJob(item, jobs);
+        if (job?.id) matched.add(String(job.id));
+    }
+    return matched;
+}
+
+function normalizeSearchText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+export default function PlanesDiseno() {
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const currentUser = useMemo(() => {
+        try {
+            return JSON.parse(localStorage.getItem('user') || '{}');
+        } catch {
+            return {};
+        }
+    }, []);
+    const canSeeAllPlans = isAdmin(currentUser);
+    const [search, setSearch] = useState('');
+    const [filterAssignment, setFilterAssignment] = useState(canSeeAllPlans ? 'all' : 'mine');
+    const [filterApproval, setFilterApproval] = useState('all');
+    const [filterPriority, setFilterPriority] = useState('all');
+    const [opened, { open, close }] = useDisclosure(false);
+    const [previewOpened, { open: openPreview, close: closePreview }] = useDisclosure(false);
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [selectedOT, setSelectedOT] = useState(null);
+    const [orders, setOrders] = useState([]);
+    const [plannerJobs, setPlannerJobs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [editorOpened, { open: openEditor, close: closeEditor }] = useDisclosure(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const [editSaving, setEditSaving] = useState(false);
+    const [editPrioridad, setEditPrioridad] = useState('Normal');
+    const [editDesignerOption, setEditDesignerOption] = useState('');
+    const [editDesignerCustom, setEditDesignerCustom] = useState('');
+    const [pendingOtToOpen, setPendingOtToOpen] = useState(null);
+
+    useEffect(() => {
+        fetchOrders();
+    }, []);
+
+    useEffect(() => {
+        const ot = searchParams.get('ot');
+        if (!ot) return;
+        setSearch(ot);
+        setPendingOtToOpen(ot.trim());
+    }, [searchParams]);
+
+    const fetchOrders = async () => {
+        try {
+            setLoading(true);
+            const [data, jobs] = await Promise.all([
+                api.get('/production/orders'),
+                api.get('/design/planner/jobs').catch(() => [])
+            ]);
+            setPlannerJobs(Array.isArray(jobs) ? jobs : []);
+            const flattened = data.flatMap(order =>
+                (order.parts || []).map(part => ({
+                    ...part,
+                    productionOrderId: part.productionOrderId || part.ProductionOrderId || order.id || order.Id,
+                    otNumber: order.otNumber || order.OTNumber,
+                    cliente: order.cliente || order.Cliente,
+                    ejecutivo: order.ejecutivoCuenta || order.EjecutivoCuenta,
+                    productName: order.productName || order.ProductName,
+                    createdAt: order.createdAt || order.CreatedAt
+                }))
+            );
+            const jobList = Array.isArray(jobs) ? jobs : [];
+            const orderRows = flattened.map((item) => ({
+                ...item,
+                disenador: resolvePlannerDesigner(item, jobList)
+            }));
+            const matchedJobIds = collectMatchedPlannerJobIds(orderRows, jobList);
+            const orphanPlannerRows = jobList
+                .filter((job) => job?.id && !matchedJobIds.has(String(job.id)))
+                .map(plannerJobToPlanRow);
+            setOrders([...orderRows, ...orphanPlannerRows]);
+        } catch (error) {
+            console.error('Error fetching design plans:', error);
+            notifications.show({
+                title: 'Error',
+                message: 'No se pudieron cargar los planes de diseño',
+                color: 'red'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!opened || !selectedOT?.productionOrderId || !selectedOT?.id) return undefined;
+        const orderId = selectedOT.productionOrderId;
+        const partId = selectedOT.id;
+        let cancelled = false;
+
+        const loadDetail = async () => {
+            try {
+                setDetailLoading(true);
+                const order = await api.get(`/production/orders/${orderId}`);
+                if (cancelled) return;
+                const part = (order.parts || []).find((p) => p.id === partId);
+                if (part) {
+                    const merged = mergeOrderPartDetail(order, part);
+                    merged.disenador = resolvePlannerDesigner(merged, plannerJobs);
+                    setSelectedOT(merged);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    console.error(error);
+                    notifications.show({
+                        title: 'Error',
+                        message: 'No se pudo actualizar el detalle de la OT.',
+                        color: 'red'
+                    });
+                }
+            } finally {
+                if (!cancelled) setDetailLoading(false);
+            }
+        };
+
+        loadDetail();
+        return () => {
+            cancelled = true;
+        };
+    }, [opened, selectedOT?.id, selectedOT?.productionOrderId, plannerJobs]);
+
+    const handleUploadAttachment = async (fileOrList, category) => {
+        const file = pickUploadFile(fileOrList);
+        const orderId = selectedOT?.productionOrderId || selectedOT?.ProductionOrderId;
+        const partId = selectedOT?.id;
+        if (!file) return;
+        if (!orderId || !partId) {
+            notifications.show({
+                title: 'No se puede subir',
+                message: 'Falta el identificador de la OT o de la pieza.',
+                color: 'yellow'
+            });
+            return;
+        }
+        try {
+            setUploading(true);
+            const fd = new FormData();
+            fd.append('category', category);
+            fd.append('partId', partId);
+            fd.append('files', file, file.name);
+            await api.postFormData(`/production/orders/${orderId}/attachments`, fd);
+            notifications.show({
+                title: 'Archivo guardado',
+                message: 'El adjunto se subió correctamente.',
+                color: 'green'
+            });
+            const order = await api.get(`/production/orders/${orderId}`);
+            const part = (order.parts || []).find((p) => p.id === partId);
+            if (part) setSelectedOT(mergeOrderPartDetail(order, part));
+            fetchOrders();
+        } catch (error) {
+            console.error(error);
+            notifications.show({
+                title: 'Error al subir',
+                message: error?.message || 'No se pudo guardar el archivo.',
+                color: 'red'
+            });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const openImagePreview = async (publicUrl) => {
+        if (!publicUrl) return;
+        try {
+            const blobUrl = await fetchAuthenticatedUploadBlob(publicUrl);
+            setPreviewUrl((prev) => {
+                if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                return blobUrl;
+            });
+            openPreview();
+        } catch (error) {
+            console.error(error);
+            notifications.show({
+                title: 'No se pudo abrir la imagen',
+                message: 'Verifique su sesión o vuelva a subir el archivo.',
+                color: 'red'
+            });
+        }
+    };
+
+    const handlePrintFicha = () => {
+        if (!selectedOT?.id) {
+            notifications.show({
+                title: 'Sin pieza',
+                message: 'No hay identificador de pieza para imprimir.',
+                color: 'yellow'
+            });
+            return;
+        }
+        window.open(`/fichas/imprimir/${selectedOT.id}`, '_blank', 'noopener,noreferrer');
+    };
+
+    const openQuickEditor = (item) => {
+        const rawDesigner = (item.disenador || '').trim();
+        const isPreset = rawDesigner === 'Juan' || rawDesigner === 'Karen' || rawDesigner === '';
+        setEditingItem(item);
+        setEditPrioridad(item.prioridad || 'Normal');
+        if (!rawDesigner) {
+            setEditDesignerOption('');
+            setEditDesignerCustom('');
+        } else if (isPreset) {
+            setEditDesignerOption(rawDesigner);
+            setEditDesignerCustom('');
+        } else {
+            setEditDesignerOption('Otro');
+            setEditDesignerCustom(rawDesigner);
+        }
+        openEditor();
+    };
+
+    const handleSaveQuickEditor = async () => {
+        if (!editingItem?.productionOrderId || !editingItem?.id) return;
+        const designer = editDesignerOption === 'Otro'
+            ? editDesignerCustom.trim()
+            : editDesignerOption.trim();
+        if (editDesignerOption === 'Otro' && !designer) {
+            notifications.show({
+                title: 'Diseñador requerido',
+                message: 'Escribe un nombre para el diseñador personalizado.',
+                color: 'yellow'
+            });
+            return;
+        }
+        try {
+            setEditSaving(true);
+            await api.put(`/production/orders/${editingItem.productionOrderId}/parts/${editingItem.id}/design-plan`, {
+                prioridad: editPrioridad,
+                disenador: designer || null
+            });
+            notifications.show({
+                title: 'Actualizado',
+                message: 'Prioridad y diseñador guardados correctamente.',
+                color: 'green'
+            });
+            closeEditor();
+            await fetchOrders();
+            if (opened && selectedOT?.id === editingItem.id) {
+                const order = await api.get(`/production/orders/${editingItem.productionOrderId}`);
+                const part = (order.parts || []).find((p) => p.id === editingItem.id);
+                if (part) setSelectedOT(mergeOrderPartDetail(order, part));
+            }
+        } catch (error) {
+            console.error(error);
+            const isMissingEndpoint = String(error?.message || '').includes('404');
+            notifications.show({
+                title: 'No se pudo guardar',
+                message: isMissingEndpoint
+                    ? 'El backend activo no tiene el endpoint nuevo. Reinicia el backend y vuelve a intentar.'
+                    : (error?.message || 'Error actualizando la pieza.'),
+                color: 'red'
+            });
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const adjuntosParsed = selectedOT
+        ? parseAttachmentsByCategory(selectedOT.adjuntosJson ?? selectedOT.AdjuntosJson)
+        : { ampliaciones: [], adjuntos: [] };
+    const urlArte1 = adjuntosParsed.ampliaciones[0];
+    const urlArte2 = adjuntosParsed.adjuntos[0];
+    const procesosFab = selectedOT ? parseFabricationProcesses(selectedOT.fabricationProcessesJson) : [];
+
+    const glassStyles = {
+        root: {
+            background: 'rgba(20, 30, 50, 0.7)',
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
+            overflow: 'hidden'
+        }
+    };
+
+    const handleViewDetail = (item) => {
+        const matchedJob = item?.isPlannerJobOnly
+            ? { id: item.plannerJobId }
+            : findMatchingPlannerJob(item, plannerJobs);
+        const jobId = String(matchedJob?.id || item?.plannerJobId || '').trim();
+
+        // Los trabajos asignados en el planeador se abren en el modal de proceso (Planchas/Troquel/Muestra...),
+        // no en la ficha OT de "Orden de trabajo".
+        if (jobId) {
+            navigate(`/diseno/planeador?job=${encodeURIComponent(jobId)}`);
+            return;
+        }
+
+        if (!canSeeAllPlans) {
+            notifications.show({
+                title: 'Sin trabajo de planeador',
+                message: 'Este registro no está vinculado a un trabajo del planeador de diseño.',
+                color: 'yellow'
+            });
+            return;
+        }
+
+        setSelectedOT(item);
+        open();
+    };
+
+    const handleOpenInternalChat = async (item) => {
+        if (!canAccessInternalChat(currentUser)) {
+            notifications.show({
+                title: 'Sin acceso',
+                message: 'El chat interno es solo para Administradores y Administrativos.',
+                color: 'yellow'
+            });
+            return;
+        }
+
+        const creatorName = [currentUser?.firstName, currentUser?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || currentUser?.username || 'Usuario';
+
+        try {
+            const conversation = await api.post('/production/internal-chat/from-ot', {
+                otNumber: String(item?.otNumber || '').trim(),
+                createdByDisplayName: creatorName
+            });
+
+            if (!conversation?.id) {
+                notifications.show({
+                    title: 'No se pudo abrir el chat',
+                    message: 'No se recibió el identificador de conversación.',
+                    color: 'red'
+                });
+                return;
+            }
+
+            navigate(`/chat?conversationId=${conversation.id}`);
+        } catch (error) {
+            notifications.show({
+                title: 'Error abriendo chat',
+                message: error?.message || 'No fue posible abrir el chat interno.',
+                color: 'red'
+            });
+        }
+    };
+
+    const searchTerms = normalizeSearchText(search).split(/\s+/).filter(Boolean);
+    const assignedPlannerJobs = useMemo(() => {
+        const list = Array.isArray(plannerJobs) ? plannerJobs : [];
+        return list.filter((job) => isAssignedToCurrentUser(job.responsable, currentUser));
+    }, [plannerJobs, currentUser]);
+
+    const filteredOrders = useMemo(() => orders.filter((item) => {
+        const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
+        const searchable = normalizeSearchText([
+            item.otNumber,
+            item.partName,
+            item.cliente,
+            item.productName,
+            item.ejecutivo,
+            item.prioridad,
+            item.disenador,
+            item.estadoFicha,
+            item.estadoMuestra,
+            item.estadoAprobacion,
+            attachmentStatus.ampliacionesOk ? 'ampliaciones ok' : 'ampliaciones pendiente',
+            attachmentStatus.adjuntosOk ? 'adjuntos ok' : 'adjuntos pendiente'
+        ].join(' '));
+        const matchSearch = searchTerms.length === 0
+            ? true
+            : searchTerms.every((term) => searchable.includes(term));
+        if (!matchSearch) return false;
+
+        const designerRaw = (item.disenador || '').trim();
+        const isAssigned = designerRaw.length > 0;
+        const approvalNormalized = normalizeSearchText(item.estadoAprobacion || 'pendiente');
+        const priorityNormalized = normalizeSearchText(item.prioridad || 'normal');
+
+        if (!canSeeAllPlans) {
+            if (item.isPlannerJobOnly) {
+                if (!isAssignedToCurrentUser(item.disenador, currentUser)) return false;
+            } else if (!matchesAssignedPlannerJob(item, assignedPlannerJobs)) {
+                return false;
+            }
+        }
+
+        if (canSeeAllPlans) {
+            if (filterAssignment === 'mine' && (!isAssigned || !isAssignedToCurrentUser(item.disenador, currentUser))) return false;
+            if (filterAssignment === 'assigned' && !isAssigned) return false;
+            if (filterAssignment === 'unassigned' && isAssigned) return false;
+        }
+
+        if (filterApproval === 'pending' && approvalNormalized !== 'pendiente') return false;
+        if (filterApproval === 'approved' && approvalNormalized !== 'aprobado') return false;
+        if (filterApproval === 'rejected' && approvalNormalized !== 'rechazado') return false;
+
+        if (filterPriority !== 'all' && priorityNormalized !== filterPriority) return false;
+
+        return true;
+    }), [orders, searchTerms, filterAssignment, filterApproval, filterPriority, canSeeAllPlans, currentUser, assignedPlannerJobs]);
+
+    const rows = filteredOrders.map((item) => (
+        <Table.Tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => handleViewDetail(item)}>
+            {(() => {
+                const attachmentStatus = getAttachmentStatusByCategory(item.adjuntosJson);
+                const designerName = resolvePlannerDesigner(item, plannerJobs);
+                return (
+                    <>
+            <Table.Td>
+                <Text size="xs" fw={700} c="indigo.3">
+                    {item.isPlannerJobOnly ? item.otNumber : `${item.otNumber} / ${item.partName}`}
+                </Text>
+                {item.isPlannerJobOnly && (
+                    <Badge size="xs" variant="light" color="yellow" mt={4}>Sin OT</Badge>
+                )}
+            </Table.Td>
+            <Table.Td><Text size="xs" truncate>{item.ejecutivo}</Text></Table.Td>
+            <Table.Td><Text size="xs" fw={500} truncate>{item.cliente}</Text></Table.Td>
+            <Table.Td><Text size="xs" truncate maw={200}>{item.productName}</Text></Table.Td>
+            <Table.Td>
+                <Badge variant="dot" size="xs" color={item.prioridad === 'Urgente' ? 'red' : item.prioridad === 'Alta' ? 'orange' : 'blue'}>
+                    {item.prioridad}
+                </Badge>
+            </Table.Td>
+            <Table.Td><Text size="xs">{designerName || 'No asignado'}</Text></Table.Td>
+            <Table.Td>
+                <Text size="xs">
+                    {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}
+                </Text>
+            </Table.Td>
+            <Table.Td>
+                <Badge size="xs" variant="light" color={attachmentStatus.ampliacionesOk ? 'green' : 'gray'}>
+                    {attachmentStatus.ampliacionesOk ? 'OK' : 'Pendiente'}
+                </Badge>
+            </Table.Td>
+            <Table.Td>
+                <Badge size="xs" variant="light" color={attachmentStatus.adjuntosOk ? 'green' : 'gray'}>
+                    {attachmentStatus.adjuntosOk ? 'OK' : 'Pendiente'}
+                </Badge>
+            </Table.Td>
+            <Table.Td><Text size="xs">{item.estadoFicha}</Text></Table.Td>
+            <Table.Td><Text size="xs">{item.estadoMuestra}</Text></Table.Td>
+            <Table.Td>
+                <Badge size="xs" color={item.estadoAprobacion === 'Aprobado' ? 'green' : (item.estadoAprobacion === 'Rechazado' ? 'red' : 'yellow')}>
+                    {item.estadoAprobacion}
+                </Badge>
+            </Table.Td>
+            <Table.Td><Text size="xs">{item.otNumber}</Text></Table.Td>
+            <Table.Td>
+                <Menu withinPortal position="bottom-end">
+                    <Menu.Target>
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            <IconDotsVertical size={16} />
+                        </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
+                        {item.isPlannerJobOnly ? (
+                            <Menu.Item onClick={() => navigate('/diseno/planeador')}>
+                                Abrir en Planeador de Diseño
+                            </Menu.Item>
+                        ) : (
+                            <>
+                                <Menu.Item onClick={() => openQuickEditor(item)}>
+                                    Editar prioridad / diseñador
+                                </Menu.Item>
+                                {canAccessInternalChat(currentUser) && (isAdmin(currentUser) || String(currentUser?.area || currentUser?.Area || '').toLowerCase().includes('dise')) ? (
+                                    <Menu.Item onClick={() => handleOpenInternalChat(item)}>
+                                        Chat interno (OP)
+                                    </Menu.Item>
+                                ) : null}
+                            </>
+                        )}
+                    </Menu.Dropdown>
+                </Menu>
+            </Table.Td>
+                    </>
+                );
+            })()}
+        </Table.Tr>
+    ));
+
+    useEffect(() => {
+        if (!pendingOtToOpen || orders.length === 0 || opened) return;
+        const target = pendingOtToOpen.toLowerCase();
+        const firstMatch = orders.find((o) => {
+            if (String(o.otNumber || '').toLowerCase() !== target) return false;
+            if (!canSeeAllPlans && !matchesAssignedPlannerJob(o, assignedPlannerJobs)) return false;
+            return true;
+        });
+        if (firstMatch) {
+            setSelectedOT(firstMatch);
+            open();
+        }
+        setPendingOtToOpen(null);
+    }, [pendingOtToOpen, orders, opened, open, canSeeAllPlans, currentUser, assignedPlannerJobs]);
+
+    return (
+        <Stack gap="lg" p="md">
+            <Group justify="space-between" align="flex-end">
+                <Stack gap={4}>
+                    <Title order={2} style={{ color: '#fff' }}>Planes de Diseño</Title>
+                    <Text c="dimmed" size="sm">
+                        {canSeeAllPlans
+                            ? 'Seguimiento y control de archivos y aprobaciones'
+                            : 'Tus trabajos del planeador (con OT o pendientes de vincular)'}
+                    </Text>
+                </Stack>
+                <Button
+                    variant="light"
+                    color="red"
+                    leftSection={<IconX size={18} />}
+                    onClick={() => navigate('/')}
+                >
+                    Cerrar
+                </Button>
+            </Group>
+
+            <Card styles={glassStyles} p={0}>
+                <Box p="md" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <Stack gap="sm">
+                        <TextInput
+                            placeholder="Buscar por OT, cliente, producto..."
+                            leftSection={<IconSearch size={18} stroke={1.5} />}
+                            value={search}
+                            onChange={(e) => setSearch(e.currentTarget.value)}
+                            variant="filled"
+                            styles={{ input: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' } }}
+                        />
+                        <SimpleGrid cols={{ base: 1, md: canSeeAllPlans ? 3 : 2, lg: canSeeAllPlans ? 3 : 2 }}>
+                            {canSeeAllPlans && (
+                            <Select
+                                label="Asignación"
+                                value={filterAssignment}
+                                onChange={(value) => setFilterAssignment(value || 'all')}
+                                data={[
+                                    { value: 'all', label: 'Todas' },
+                                    { value: 'mine', label: 'Asignadas a mí' },
+                                    { value: 'assigned', label: 'Con diseñador' },
+                                    { value: 'unassigned', label: 'Sin asignar' }
+                                ]}
+                                variant="filled"
+                            />
+                            )}
+                            <Select
+                                label="Aprobación"
+                                value={filterApproval}
+                                onChange={(value) => setFilterApproval(value || 'all')}
+                                data={[
+                                    { value: 'all', label: 'Todas' },
+                                    { value: 'pending', label: 'Pendientes' },
+                                    { value: 'approved', label: 'Aprobadas' },
+                                    { value: 'rejected', label: 'Rechazadas' }
+                                ]}
+                                variant="filled"
+                            />
+                            <Select
+                                label="Prioridad"
+                                value={filterPriority}
+                                onChange={(value) => setFilterPriority(value || 'all')}
+                                data={[
+                                    { value: 'all', label: 'Todas' },
+                                    { value: 'baja', label: 'Baja' },
+                                    { value: 'normal', label: 'Normal' },
+                                    { value: 'alta', label: 'Alta' },
+                                    { value: 'urgente', label: 'Urgente' }
+                                ]}
+                                variant="filled"
+                            />
+                        </SimpleGrid>
+                    </Stack>
+                </Box>
+
+                <ScrollArea h={650}>
+                    <Table stickyHeader verticalSpacing="xs" horizontalSpacing="sm" highlightOnHover
+                        styles={{
+                            thead: { backgroundColor: 'rgba(15, 23, 42, 0.95)' },
+                            th: { color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 800 },
+                            td: { borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0' }
+                        }}
+                    >
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>OT No</Table.Th>
+                                <Table.Th>Ejecutivo</Table.Th>
+                                <Table.Th>Cliente</Table.Th>
+                                <Table.Th>Producto</Table.Th>
+                                <Table.Th>Prioridad</Table.Th>
+                                <Table.Th>Diseñador</Table.Th>
+                                <Table.Th>Recepción</Table.Th>
+                                <Table.Th>Ampliaciones</Table.Th>
+                                <Table.Th>Adjuntos</Table.Th>
+                                <Table.Th>Ficha</Table.Th>
+                                <Table.Th>Muestra</Table.Th>
+                                <Table.Th>Aprobación</Table.Th>
+                                <Table.Th>Nº OP</Table.Th>
+                                <Table.Th></Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>{rows}</Table.Tbody>
+                    </Table>
+                </ScrollArea>
+            </Card>
+
+            <Modal
+                opened={opened}
+                onClose={() => {
+                    closePreview();
+                    close();
+                }}
+                size="95%"
+                padding={0}
+                withCloseButton={false}
+                overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
+                styles={{ content: { background: '#0f172a', color: '#fff', borderRadius: 16, overflow: 'hidden' } }}
+            >
+                <Box p="md" style={{ background: 'linear-gradient(90deg, #1e3a8a 0%, #172554 100%)', position: 'relative' }}>
+                    <Group justify="space-between">
+                        <Group>
+                            <Box style={{ background: '#fff', padding: 8, borderRadius: 8 }}>
+                                <Image src="/logo-icon.png" w={40} fallbackSrc="https://placehold.co/40x40" />
+                            </Box>
+                            <Stack gap={0}>
+                                <Title order={3} fw={800} tt="uppercase">Orden de Trabajo</Title>
+                                <Text size="xl" fw={900}>OT {selectedOT?.otNumber || 'N/A'}</Text>
+                                <Text size="sm" fw={700} c="blue.1">{selectedOT?.cliente}</Text>
+                            </Stack>
+                        </Group>
+                        <Group>
+                            <Button
+                                variant="white"
+                                color="dark"
+                                size="xs"
+                                leftSection={<IconPrinter size={16} />}
+                                onClick={handlePrintFicha}
+                                disabled={!selectedOT?.id || detailLoading}
+                            >
+                                Imprimir
+                            </Button>
+                            <Button
+                                variant="filled"
+                                color="red"
+                                size="xs"
+                                leftSection={<IconDeviceFloppy size={16} />}
+                                onClick={() => {
+                                    closePreview();
+                                    close();
+                                }}
+                            >
+                                Guardar y Salir
+                            </Button>
+                        </Group>
+                    </Group>
+                </Box>
+
+                <ScrollArea.Autosize mah="calc(100vh - 180px)" type="auto">
+                    <Box p="lg" pos="relative">
+                        {detailLoading && (
+                            <Group gap="xs" mb="sm">
+                                <Loader size="sm" color="indigo" />
+                                <Text size="xs" c="dimmed">Actualizando detalle…</Text>
+                            </Group>
+                        )}
+                        <Grid gutter="xl">
+                            <Grid.Col span={8}>
+                                <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                    <Divider label="Descripción del diseño" labelPosition="left" mb="md" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
+                                    <Grid gutter="xs">
+                                        <Grid.Col span={3}><TextInput label="No. de OT" value={selectedOT?.otNumber} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="Fecha" value={selectedOT?.createdAt ? new Date(selectedOT.createdAt).toLocaleDateString() : ''} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="Nombre Pieza" value={selectedOT?.partName} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={3}><TextInput label="Fuelle" value={selectedOT?.fuelle || 0} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={4}><TextInput label="Cabida" value={selectedOT?.cabida || '1.00'} readOnly variant="filled" size="xs" /></Grid.Col>
+                                        <Grid.Col span={4}><TextInput label="Alto Pliego" value={selectedOT?.altoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
+                                        <Grid.Col span={4}><TextInput label="Ancho Pliego" value={selectedOT?.anchoPliego || 0} readOnly variant="filled" size="xs" styles={{ label: { color: 'red' } }} /></Grid.Col>
+                                        <Grid.Col span={12}>
+                                            <Stack gap={2}>
+                                                <Text size="xs" fw={700}>Notas de Diseño</Text>
+                                                <Paper bg="rgba(0,0,0,0.3)" p="xs" radius="xs" style={{ minHeight: 60, border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                    <Text size="xs">{selectedOT?.notas || 'Sin notas'}</Text>
+                                                </Paper>
+                                            </Stack>
+                                        </Grid.Col>
+                                    </Grid>
+                                </Paper>
+                            </Grid.Col>
+
+                            <Grid.Col span={4}>
+                                <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" h="100%" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                    <Group justify="space-between" mb="xs">
+                                        <Text size="xs" fw={800} c="blue.3">Ampliaciones / Adjuntos</Text>
+                                    </Group>
+                                    <SimpleGrid cols={2}>
+                                        <Stack gap="xs" align="stretch">
+                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">Arte 1 (ampliación)</Text>
+                                            {urlArte1 ? (
+                                                <Box onClick={() => openImagePreview(urlArte1)} style={{ cursor: 'zoom-in', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)' }}>
+                                                    <AuthenticatedImage publicPath={urlArte1} alt="Ampliación" mah={200} maw="100%" mx="auto" fit="contain" fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen" />
+                                                </Box>
+                                            ) : (
+                                                <Button component="label" size="xs" variant="light" leftSection={<IconUpload size={14} />} loading={uploading} disabled={uploading}>
+                                                    Subir ampliación
+                                                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff" hidden onChange={(e) => { const picked = e.currentTarget.files?.[0]; if (picked) handleUploadAttachment(picked, 'ampliaciones'); e.currentTarget.value = ''; }} />
+                                                </Button>
+                                            )}
+                                        </Stack>
+                                        <Stack gap="xs" align="stretch">
+                                            <Text size="10px" fw={700} c="dimmed" tt="uppercase">Arte 2 (adjunto)</Text>
+                                            {urlArte2 ? (
+                                                <Box onClick={() => openImagePreview(urlArte2)} style={{ cursor: 'zoom-in', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)' }}>
+                                                    <AuthenticatedImage publicPath={urlArte2} alt="Adjunto" mah={200} maw="100%" mx="auto" fit="contain" fallbackSrc="https://placehold.co/200x120/0f172a/94a3b8?text=Imagen" />
+                                                </Box>
+                                            ) : (
+                                                <Button component="label" size="xs" variant="light" leftSection={<IconUpload size={14} />} loading={uploading} disabled={uploading}>
+                                                    Subir adjunto
+                                                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff" hidden onChange={(e) => { const picked = e.currentTarget.files?.[0]; if (picked) handleUploadAttachment(picked, 'adjuntos'); e.currentTarget.value = ''; }} />
+                                                </Button>
+                                            )}
+                                        </Stack>
+                                    </SimpleGrid>
+                                </Paper>
+                            </Grid.Col>
+
+                            <Grid.Col span={4}>
+                                <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                    <Divider label="Materiales" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
+                                    <Stack gap="xs">
+                                        <TextInput label="Sustrato" value={selectedOT?.sustratoSup || 'No definido'} readOnly variant="filled" size="xs" />
+                                        <TextInput label="Fibra" value={selectedOT?.direccionFibra || 'N/A'} readOnly variant="filled" size="xs" />
+                                    </Stack>
+                                </Paper>
+                            </Grid.Col>
+
+                            <Grid.Col span={4}>
+                                <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                    <Divider label="Troquel" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
+                                    <Group grow>
+                                        <TextInput label="Código" value={selectedOT?.codigoTroquel || 'N/A'} readOnly variant="filled" size="xs" />
+                                        <Checkbox label="Troquel Nuevo" checked={selectedOT?.troquelNuevo} readOnly pt="lg" size="xs" />
+                                    </Group>
+                                </Paper>
+                            </Grid.Col>
+
+                            <Grid.Col span={4}>
+                                <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                    <Divider label="Tintas" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
+                                    <Group gap="md" align="center">
+                                        <PlanDisenoTintInkMark letter="C" inkKey="c" checked={!!selectedOT?.tintaC} />
+                                        <PlanDisenoTintInkMark letter="M" inkKey="m" checked={!!selectedOT?.tintaM} />
+                                        <PlanDisenoTintInkMark letter="Y" inkKey="y" checked={!!selectedOT?.tintaY} />
+                                        <PlanDisenoTintInkMark letter="K" inkKey="k" checked={!!selectedOT?.tintaK} />
+                                        <Text size="xs" fw={700}>Especial: {selectedOT?.tintasEspeciales || '0'}</Text>
+                                    </Group>
+                                </Paper>
+                            </Grid.Col>
+
+                            <Grid.Col span={8}>
+                                <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                    <Divider label="Proceso de Fabricación" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
+                                    <Table size="xs" styles={{ th: { color: '#94a3b8' }, td: { color: '#e2e8f0' } }}>
+                                        <Table.Thead>
+                                            <Table.Tr>
+                                                <Table.Th>Máquina</Table.Th>
+                                                <Table.Th>Proceso</Table.Th>
+                                                <Table.Th>Capacidad</Table.Th>
+                                                <Table.Th>Cambio</Table.Th>
+                                            </Table.Tr>
+                                        </Table.Thead>
+                                        <Table.Tbody>
+                                            {procesosFab.length > 0 ? procesosFab.map((proc, idx) => (
+                                                <Table.Tr key={idx}>
+                                                    <Table.Td>{proc.machine}</Table.Td>
+                                                    <Table.Td>{proc.process}</Table.Td>
+                                                    <Table.Td>{proc.capacity}</Table.Td>
+                                                    <Table.Td>{proc.equiv}</Table.Td>
+                                                </Table.Tr>
+                                            )) : (
+                                                <Table.Tr><Table.Td colSpan={4}><Text size="xs" c="dimmed" ta="center">Sin procesos definidos</Text></Table.Td></Table.Tr>
+                                            )}
+                                        </Table.Tbody>
+                                    </Table>
+                                </Paper>
+                            </Grid.Col>
+
+                            <Grid.Col span={4}>
+                                <Paper withBorder p="md" bg="rgba(255,255,255,0.02)" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                    <Divider label="Condiciones de Entrega" labelPosition="left" mb="sm" styles={{ label: { color: '#6366f1', fontWeight: 800 } }} />
+                                    <Stack gap={4}>
+                                        <Checkbox label="Remisión" checked={selectedOT?.condicionRemision} readOnly size="xs" />
+                                        <Checkbox label="Certificado Calidad" checked={selectedOT?.condicionCertificado} readOnly size="xs" />
+                                        <Checkbox label="Factura" checked={selectedOT?.condicionFactura} readOnly size="xs" />
+                                        <Checkbox label="Orden Compra" checked={selectedOT?.condicionOrdenCompra} readOnly size="xs" />
+                                    </Stack>
+                                </Paper>
+                            </Grid.Col>
+                        </Grid>
+                    </Box>
+                </ScrollArea.Autosize>
+
+                <Box p="sm" bg="rgba(0,0,0,0.3)" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <Group justify="center" gap="xl">
+                        <Button variant="subtle" size="xs"> {"<<< Pieza Anterior"} </Button>
+                        <Text size="sm" fw={800} c="blue.4">{"Pieza Siguiente >>>"}</Text>
+                        <Button variant="outline" color="indigo" size="xs">Nueva Pieza</Button>
+                    </Group>
+                </Box>
+            </Modal>
+
+            <Modal
+                opened={previewOpened}
+                onClose={() => {
+                    setPreviewUrl((prev) => {
+                        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                        return '';
+                    });
+                    closePreview();
+                }}
+                title="Vista ampliada"
+                centered
+                size="xl"
+                overlayProps={{ backgroundOpacity: 0.65, blur: 4 }}
+                styles={{ content: { background: '#0f172a', color: '#fff' } }}
+            >
+                {previewUrl ? (
+                    <Box style={{ textAlign: 'center' }}>
+                        <img src={previewUrl} alt="Vista previa" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 8 }} />
+                    </Box>
+                ) : null}
+            </Modal>
+
+            <Modal opened={editorOpened} onClose={closeEditor} title="Editar prioridad y diseñador" centered size="sm">
+                <Stack gap="sm">
+                    <Select label="Prioridad" data={['Baja', 'Normal', 'Alta', 'Urgente']} value={editPrioridad} onChange={(value) => setEditPrioridad(value || 'Normal')} />
+                    <Select
+                        label="Diseñador"
+                        placeholder="Selecciona diseñador"
+                        data={[
+                            { value: 'Juan', label: 'Juan' },
+                            { value: 'Karen', label: 'Karen' },
+                            { value: 'Otro', label: 'Otro (personalizado)' }
+                        ]}
+                        value={editDesignerOption}
+                        onChange={(value) => setEditDesignerOption(value || '')}
+                        clearable
+                    />
+                    {editDesignerOption === 'Otro' && (
+                        <TextInput label="Nuevo diseñador" placeholder="Escribe el nombre" value={editDesignerCustom} onChange={(e) => setEditDesignerCustom(e.currentTarget.value)} />
+                    )}
+                    <Group justify="flex-end" mt="xs">
+                        <Button variant="default" onClick={closeEditor} disabled={editSaving}>Cancelar</Button>
+                        <Button onClick={handleSaveQuickEditor} loading={editSaving}>Guardar cambios</Button>
+                    </Group>
+                </Stack>
+            </Modal>
+        </Stack>
+    );
+}

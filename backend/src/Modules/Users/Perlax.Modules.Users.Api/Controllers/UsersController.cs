@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Perlax.Modules.Audit.Application.Abstractions;
+using Perlax.Modules.Users.Api;
 using Perlax.Modules.Users.Domain.Entities;
 using Perlax.Modules.Users.Infrastructure.Persistence;
 
@@ -182,7 +184,7 @@ public class UsersController : ControllerBase
             CreatedAt = DateTime.UtcNow,
             AllowedRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
                 role,
-                UserRoles.ForcesEmptyRoutes(role) ? [] : request.AllowedRoutes)
+                UserRoles.ForcesEmptyRoutes(role) ? Array.Empty<RouteAccessGrant>() : request.AllowedRoutes)
         };
 
         var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
@@ -255,7 +257,7 @@ public class UsersController : ControllerBase
         entity.Salary = request.Salary;
         var newRoutesJson = AllowedRoutesPolicy.SerializeForUserRole(
             entity.Role,
-            UserRoles.ForcesEmptyRoutes(entity.Role) ? [] : request.AllowedRoutes);
+            UserRoles.ForcesEmptyRoutes(entity.Role) ? Array.Empty<RouteAccessGrant>() : request.AllowedRoutes);
         entity.AllowedRoutesJson = newRoutesJson;
 
         var areaValidation = ValidateAreaForRole(entity.Role, entity.Area);
@@ -461,10 +463,10 @@ public class UsersController : ControllerBase
             return "Permisos: sin lista explícita (acceso completo).";
         if (routes.Length == 0)
             return "Permisos: solo pantalla de inicio.";
-        return $"Permisos: {routes.Length} ruta(s) — {JoinRoutesPreview(routes)}.";
+        return $"Permisos: {routes.Length} vista(s) — {JoinRoutesPreview(routes)}.";
     }
 
-    private static string JoinRoutesPreview(string[] routes)
+    private static string JoinRoutesPreview(IReadOnlyList<RouteAccessGrant> routes)
     {
         const int max = 20;
         var slice = routes.Take(max).ToArray();
@@ -472,10 +474,11 @@ public class UsersController : ControllerBase
         for (var i = 0; i < slice.Length; i++)
         {
             if (i > 0) sb.Append(", ");
-            sb.Append(slice[i]);
+            sb.Append(slice[i].Path);
+            sb.Append(slice[i].Access == RouteAccess.View ? " (ver)" : " (editar)");
         }
 
-        if (routes.Length > max)
+        if (routes.Count > max)
             sb.Append(" …");
         return sb.ToString();
     }
@@ -487,7 +490,7 @@ public class UsersController : ControllerBase
         var routes = AllowedRoutesPolicy.DeserializeForResponse(role, routesJson);
         if (routes == null) return "sin lista (completo)";
         if (routes.Length == 0) return "solo inicio";
-        return $"{routes.Length} ruta(s): {JoinRoutesPreview(routes)}";
+        return $"{routes.Length} vista(s): {JoinRoutesPreview(routes)}";
     }
 
     private static string BuildUserUpdateDetails(
@@ -542,7 +545,7 @@ public record UserResponseDto(
     bool IsSystemUser,
     bool IsActive,
     bool MustChangePassword,
-    string[]? AllowedRoutes);
+    RouteAccessGrant[]? AllowedRoutes);
 
 public record CreateUserRequest(
     string? FirstName,
@@ -554,7 +557,8 @@ public record CreateUserRequest(
     string? Email,
     string? Password,
     string Role,
-    string[]? AllowedRoutes);
+    [property: JsonConverter(typeof(RouteAccessGrantArrayConverter))]
+    RouteAccessGrant[]? AllowedRoutes);
 
 public record UpdateUserRequest(
     string? FirstName,
@@ -565,6 +569,7 @@ public record UpdateUserRequest(
     string? Email,
     string? Password,
     string Role,
-    string[]? AllowedRoutes);
+    [property: JsonConverter(typeof(RouteAccessGrantArrayConverter))]
+    RouteAccessGrant[]? AllowedRoutes);
 
 public record SetUserActiveRequest(bool IsActive);

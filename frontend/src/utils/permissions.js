@@ -100,12 +100,74 @@ export function isAssignedToCurrentUser(assignedName, user) {
     return false;
 }
 
-/** Rutas permitidas: undefined (sesión antigua) o null = acceso completo; [] = solo inicio `/`. */
-export function getAllowedRoutes(user) {
-    if (!user) return undefined;
-    if (isAdmin(user)) return null;
+export const ACCESS_VIEW = 'ver';
+export const ACCESS_EDIT = 'editar';
+
+/** Administrativo y Taller eligen Ver o Editar por vista. El resto conserva su acceso. */
+export function usesViewMatrix(user) {
+    const role = String(user?.role ?? user?.Role ?? '').toLowerCase();
+    return role === 'administrativo' || role === 'user' || role === 'taller';
+}
+
+/** Una X antigua (texto) queda como editar. */
+export function normalizeRouteGrant(item) {
+    if (typeof item === 'string') {
+        const path = normPath(item);
+        return path ? { path, access: ACCESS_EDIT } : null;
+    }
+    if (!item || typeof item !== 'object') return null;
+    const path = normPath(item.path ?? item.Path ?? '');
+    if (!path) return null;
+    const raw = String(item.access ?? item.Access ?? item.mode ?? item.Mode ?? ACCESS_EDIT).toLowerCase();
+    return { path, access: raw === ACCESS_VIEW ? ACCESS_VIEW : ACCESS_EDIT };
+}
+
+/**
+ * null = sin restricción (administrador o lista ausente).
+ * [] = solo inicio.
+ * Cada elemento es { path, access }.
+ */
+export function getRouteGrants(user) {
+    if (!user || isAdmin(user)) return null;
     const ar = user.allowedRoutes ?? user.AllowedRoutes;
-    return ar;
+    if (ar === undefined || ar === null) return null;
+    if (!Array.isArray(ar)) return [];
+    const seen = new Set();
+    const grants = [];
+    for (const item of ar) {
+        const grant = normalizeRouteGrant(item);
+        if (!grant || seen.has(grant.path)) continue;
+        seen.add(grant.path);
+        grants.push(grant);
+    }
+    return grants;
+}
+
+/** Rutas que puede abrir. null = acceso completo; [] = solo inicio `/`. */
+export function getAllowedRoutes(user) {
+    const grants = getRouteGrants(user);
+    if (grants === null) return user ? null : undefined;
+    return grants.map((grant) => grant.path);
+}
+
+function matchRouteGrant(pathname, grants) {
+    const path = normPath(pathname);
+    if (/^\/fichas\/imprimir(\/|$)/.test(path)) {
+        return grants.find((grant) => grant.path === '/fichas/lista') || null;
+    }
+
+    let best = null;
+    for (const grant of grants) {
+        const base = grant.path;
+        if (base === path || (base !== '/' && path.startsWith(`${base}/`))) {
+            if (!best || base.length > best.path.length) best = grant;
+        }
+    }
+
+    if (!best && path === '/diseno/planeador') {
+        best = grants.find((grant) => grant.path === '/ordenes/planes-diseno') || null;
+    }
+    return best;
 }
 
 export function getDefaultPostLoginPath(sessionUser) {
@@ -167,6 +229,21 @@ export function canAccessRoute(pathname, user) {
     }
 
     return false;
+}
+
+/** Editar incluye ver. Ver deja la pantalla en solo consulta. El administrador siempre edita. */
+export function canEditRoute(pathname, user) {
+    if (!user) return false;
+    if (isAdmin(user) || !usesViewMatrix(user)) return true;
+    const grants = getRouteGrants(user);
+    if (grants === null) return true;
+
+    const path = normPath(pathname);
+    if (path === '/chat' || path.startsWith('/chat/')) return canAccessInternalChat(user);
+
+    const grant = matchRouteGrant(path, grants);
+    if (!grant) return true;
+    return grant.access === ACCESS_EDIT;
 }
 
 function filterNavItem(item, user) {

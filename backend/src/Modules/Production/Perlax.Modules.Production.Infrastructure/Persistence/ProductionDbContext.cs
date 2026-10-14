@@ -585,6 +585,8 @@ public class ProductionDbContext : DbContext
             b.Property(x => x.Unit).IsRequired().HasMaxLength(40);
             b.Property(x => x.Quantity).HasPrecision(18, 4);
             b.Property(x => x.UnitCost).HasPrecision(18, 2);
+            b.Property(x => x.QuantityFromStock).HasPrecision(18, 4);
+            b.Property(x => x.RequisicionCodigo).HasMaxLength(40);
             b.Property(x => x.CreatedBy).HasMaxLength(255);
             b.HasIndex(x => x.ManufacturingOrderId);
         });

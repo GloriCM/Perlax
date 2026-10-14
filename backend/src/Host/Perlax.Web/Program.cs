@@ -67,6 +67,8 @@ builder.Services.AddBudgetsModule(builder.Configuration);
 builder.Services.AddAlmacenModule(builder.Configuration);
 // OT/OP abiertas de Production para Almacén (sin acoplar DbContexts entre módulos)
 builder.Services.AddScoped<Perlax.Modules.Almacen.Application.Abstractions.IProductionOrderLookup, Perlax.Web.Services.ProductionOrderLookup>();
+builder.Services.AddScoped<Perlax.Modules.Almacen.Application.Abstractions.IWarehouseStockEntry, Perlax.Web.Services.WarehouseStockEntry>();
+builder.Services.AddScoped<Perlax.Modules.Production.Application.OpDetail.IOpMaterialPurchaseGateway, Perlax.Web.Services.OpMaterialPurchaseGateway>();
 
 // --- JWT AUTHENTICATION ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -163,12 +165,14 @@ builder.Services.Configure<FormOptions>(options =>
 builder.Services.Configure<Perlax.Modules.Production.Api.Controllers.PlantaOptions>(
     builder.Configuration.GetSection(Perlax.Modules.Production.Api.Controllers.PlantaOptions.SectionName));
 
+builder.Services.AddScoped<ViewOnlyWriteFilter>();
 builder.Services.AddControllers(options =>
     {
         options.Filters.Add(new AuthorizeFilter(
             new AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
                 .Build()));
+        options.Filters.Add<ViewOnlyWriteFilter>();
     })
     .AddApplicationPart(typeof(Perlax.Modules.Production.Api.Controllers.PlantaController).Assembly)
     .AddApplicationPart(typeof(Perlax.Modules.Users.Api.Controllers.AuthController).Assembly)

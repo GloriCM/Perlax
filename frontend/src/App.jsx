@@ -9,24 +9,24 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ModulePage from './pages/shared/ModulePage';
-import NuevaOT from './pages/ordenes/NuevaOT';
-import ListaOT from './pages/ordenes/ListaOT';
-import PlanesDiseno from './pages/ordenes/PlanesDiseno';
+import NuevaOT from './pages/ordenes/nueva/NuevaOT';
+import ListaOT from './pages/ordenes/lista/ListaOT';
+import PlanesDiseno from './pages/ordenes/planes-diseno/PlanesDiseno';
 import Auditoria from './pages/admin/auditoria/Auditoria';
 import UsuariosConfig from './pages/admin/usuarios/Usuarios';
 import FichasTecnicas from './pages/fichas/FichasTecnicas';
 import FichaTecnicaPrint from './pages/fichas/FichaTecnicaPrint';
-import CotizadorHome from './pages/cotizador/CotizadorHome';
-import CotizadorWizard from './pages/cotizador/CotizadorWizard';
-import CotizadorGuardadas from './pages/cotizador/CotizadorGuardadas';
-import NuevoPedido from './pages/pedidos/NuevoPedido';
-import InformePedidos from './pages/pedidos/InformePedidos';
-import NuevaRemision from './pages/remisiones/NuevaRemision';
-import InformeRemisiones from './pages/remisiones/InformeRemisiones';
-import NuevaFactura from './pages/facturacion/NuevaFactura';
-import InformeFacturas from './pages/facturacion/InformeFacturas';
-import ExistenciasPt from './pages/inventario/ExistenciasPt';
-import DevolucionesPt from './pages/inventario/DevolucionesPt';
+import CotizadorHome from './pages/cotizador/inicio/CotizadorHome';
+import CotizadorWizard from './pages/cotizador/nueva/CotizadorWizard';
+import CotizadorGuardadas from './pages/cotizador/guardadas/CotizadorGuardadas';
+import NuevoPedido from './pages/pedidos/nuevo/NuevoPedido';
+import InformePedidos from './pages/pedidos/informe/InformePedidos';
+import NuevaRemision from './pages/remisiones/nueva/NuevaRemision';
+import InformeRemisiones from './pages/remisiones/informe/InformeRemisiones';
+import NuevaFactura from './pages/facturacion/nueva/NuevaFactura';
+import InformeFacturas from './pages/facturacion/informe/InformeFacturas';
+import ExistenciasPt from './pages/inventario/existencias/ExistenciasPt';
+import DevolucionesPt from './pages/inventario/devoluciones/DevolucionesPt';
 import ConsumosAlmacen from './pages/compras/ConsumosAlmacen';
 import ClientesPage from './pages/clientes/ClientesPage';
 import GastosProduccion from './pages/produccion/gastos/GastosProduccion';
@@ -44,20 +44,20 @@ import RegistrarOpExistente from './pages/produccion/operacion/RegistrarOpExiste
 import Programador from './pages/planeacion/programador/Programador';
 
 // Talleres y Despachos Wrappers
-import GastosTalleres from './pages/talleres/gastos/GastosTalleres';
-import GraficasTalleres from './pages/talleres/gastos/GraficasTalleres';
-import RubrosTalleres from './pages/talleres/gastos/RubrosTalleres';
-import CotizacionesTalleres from './pages/talleres/gastos/CotizacionesTalleres';
-import ProveedoresTalleres from './pages/talleres/gastos/ProveedoresTalleres';
-import SalariosTalleres from './pages/talleres/gastos/SalariosTalleres';
+import GastosTalleres from './pages/talleres/gastos/captura/GastosTalleres';
+import GraficasTalleres from './pages/talleres/gastos/graficas/GraficasTalleres';
+import RubrosTalleres from './pages/talleres/gastos/rubros/RubrosTalleres';
+import CotizacionesTalleres from './pages/talleres/gastos/cotizaciones/CotizacionesTalleres';
+import ProveedoresTalleres from './pages/talleres/gastos/proveedores/ProveedoresTalleres';
+import SalariosTalleres from './pages/talleres/personal/salarios/SalariosTalleres';
 
 // Gestión Humana Wrappers
-import GastosGH from './pages/gestion-humana/gastos/GastosGH';
-import CotizacionesGH from './pages/gestion-humana/gastos/CotizacionesGH';
-import GraficasGH from './pages/gestion-humana/gastos/GraficasGH';
-import RubrosGH from './pages/gestion-humana/gastos/RubrosGH';
-import TiposServicio from './pages/gestion-humana/gastos/TiposServicio';
-import ProveedoresGH from './pages/gestion-humana/gastos/ProveedoresGH';
+import GastosGH from './pages/gestion-humana/gastos/captura/GastosGH';
+import CotizacionesGH from './pages/gestion-humana/gastos/cotizaciones/CotizacionesGH';
+import GraficasGH from './pages/gestion-humana/gastos/graficas/GraficasGH';
+import RubrosGH from './pages/gestion-humana/gastos/rubros/RubrosGH';
+import TiposServicio from './pages/gestion-humana/gastos/servicios/TiposServicio';
+import ProveedoresGH from './pages/gestion-humana/gastos/proveedores/ProveedoresGH';
 
 // Planeación Wrappers
 import GastosPlaneacion from './pages/planeacion/gastos/GastosPlaneacion';
@@ -75,10 +75,10 @@ import DisenoPresupuesto from './pages/presupuesto/diseño/DisenoPresupuesto';
 import PresupuestoGeneral from './pages/presupuesto/general/PresupuestoGeneral';
 import PresupuestoDetalle from './pages/presupuesto/detalle/PresupuestoDetalle';
 import EquiposMantenimiento from './pages/mantenimiento/equipos/EquiposMantenimiento';
-import EncuestasCalidad from './pages/calidad/EncuestasCalidad';
-import ReporteNC from './pages/calidad/ReporteNC';
-import ConsolidadoNC from './pages/calidad/ConsolidadoNC';
-import PlanesAccion from './pages/calidad/PlanesAccion';
+import EncuestasCalidad from './pages/calidad/encuestas-calidad/EncuestasCalidad';
+import ReporteNC from './pages/calidad/reporte-nc/ReporteNC';
+import ConsolidadoNC from './pages/calidad/consolidado-nc/ConsolidadoNC';
+import PlanesAccion from './pages/calidad/planes-accion/PlanesAccion';
 import ReporteDiario from './pages/reportes/ReporteDiario';
 import GastosDiseno from './pages/diseno/gastos/GastosDiseno';
 import GraficasDiseno from './pages/diseno/gastos/GraficasDiseno';
@@ -98,25 +98,24 @@ import ProductosMantenimiento from './pages/mantenimiento/gastos/ProductosManten
 import CotizacionesMantenimiento from './pages/mantenimiento/gastos/CotizacionesMantenimiento';
 import ProveedoresMantenimiento from './pages/mantenimiento/gastos/ProveedoresMantenimiento';
 import GraficasMantenimiento from './pages/mantenimiento/gastos/GraficasMantenimiento';
-import GastosSST from './pages/sst/gastos/GastosSST';
-import CotizacionesSST from './pages/sst/gastos/CotizacionesSST';
-import GraficasSST from './pages/sst/gastos/GraficasSST';
-import RubrosSST from './pages/sst/gastos/RubrosSST';
-import TiposServicioSST from './pages/sst/gastos/TiposServicioSST';
-import ProveedoresSST from './pages/sst/gastos/ProveedoresSST';
-import OrdenAseoSST from './pages/sst/gastos/OrdenAseoSST';
-import CapturaMensual from './pages/cuadro-master/CapturaMensual';
-import DesperdicioMaster from './pages/cuadro-master/DesperdicioMaster';
-import TableroMaster from './pages/cuadro-master/TableroMaster';
-import HistorialMaster from './pages/cuadro-master/HistorialMaster';
-import ConfigMaquinasMaster from './pages/cuadro-master/ConfigMaquinasMaster';
-import OperariosMaster from './pages/cuadro-master/OperariosMaster';
-import CartasMaster from './pages/cuadro-master/CartasMaster';
+import GastosSST from './pages/sst/gastos/captura/GastosSST';
+import CotizacionesSST from './pages/sst/gastos/cotizaciones/CotizacionesSST';
+import GraficasSST from './pages/sst/gastos/graficas/GraficasSST';
+import RubrosSST from './pages/sst/gastos/rubros/RubrosSST';
+import TiposServicioSST from './pages/sst/gastos/servicios/TiposServicioSST';
+import ProveedoresSST from './pages/sst/gastos/proveedores/ProveedoresSST';
+import OrdenAseoSST from './pages/sst/orden-aseo/OrdenAseoSST';
+import CapturaMensual from './pages/cuadro-master/captura/CapturaMensual';
+import DesperdicioMaster from './pages/cuadro-master/desperdicio/DesperdicioMaster';
+import TableroMaster from './pages/cuadro-master/tablero/TableroMaster';
+import ConfigMaquinasMaster from './pages/cuadro-master/config-maquinas/ConfigMaquinasMaster';
+import OperariosMaster from './pages/cuadro-master/operarios/OperariosMaster';
+import CartasMaster from './pages/cuadro-master/cartas/CartasMaster';
 import '@mantine/core/styles.css';
 import './App.css';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ChatCenter from './pages/chat/ChatCenter';
-import CotizadorCatalogos from './pages/admin/ajustes/CotizadorCatalogos.jsx';
+import CotizadorCatalogos from './pages/cotizador/catalogos/CotizadorCatalogos.jsx';
 import AjustesHub from './pages/admin/ajustes/AjustesHub.jsx';
 import InformesGestion from './pages/informes/InformesGestion.jsx';
 import PlantaFloorPage from './pages/planta/PlantaFloorPage';
@@ -124,6 +123,7 @@ import RequisicionPage from './pages/compras/requisicion/RequisicionPage';
 import PedidosPage from './pages/compras/pedidos/PedidosPage';
 import RecepcionPage from './pages/compras/recepcion/RecepcionPage';
 import IndicadoresPage from './pages/compras/indicadores/IndicadoresPage';
+import CatalogoProductos from './pages/compras/catalogo-productos/CatalogoProductos';
 
 function App() {
   // --- SESSION SECURITY: Inactivity Timeout ---
@@ -182,6 +182,7 @@ function App() {
             <Route path="/compras/requisicion" element={<RequisicionPage />} />
             <Route path="/compras/pedidos" element={<PedidosPage />} />
             <Route path="/compras/recepcion" element={<RecepcionPage />} />
+            <Route path="/compras/catalogo-productos" element={<CatalogoProductos />} />
             <Route path="/compras/indicadores" element={<IndicadoresPage />} />
             <Route path="/almacen" element={<Navigate to="/compras/requisicion" replace />} />
             <Route path="/ordenes/nueva" element={<NuevaOT />} />
@@ -338,7 +339,7 @@ function App() {
               <Route path="captura" element={<CapturaMensual />} />
               <Route path="desperdicio" element={<DesperdicioMaster />} />
               <Route path="tablero" element={<TableroMaster />} />
-              <Route path="historial" element={<HistorialMaster />} />
+              <Route path="historial" element={<Navigate to="/cuadro-master/captura" replace />} />
               <Route path="config-maquinas" element={<ConfigMaquinasMaster />} />
               <Route path="operarios" element={<OperariosMaster />} />
               <Route path="cartas" element={<CartasMaster />} />

@@ -42,3 +42,34 @@
   border-radius: 12px;
   padding: 16px;
 }
+.mapa-scroll {
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+.mapa-table {
+  min-width: 1280px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.mapa-table th,
+.mapa-table td {
+  white-space: nowrap;
+  text-align: right;
+}
+.mapa-table th:first-child,
+.mapa-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: left;
+  background: #0f172a;
+  min-width: 220px;
+}
+.mapa-table th:last-child,
+.mapa-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #1e293b;
+}
